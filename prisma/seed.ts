@@ -5,6 +5,9 @@ import {
   ApprovalBusinessType,
   CompetitionRegistrationStatus,
   DataScope,
+  DeviceRepairSeverity,
+  DeviceRepairStatus,
+  DeviceStatus,
   MemberGrowthRecordType,
   MemberStatus,
   RegularizationStatus,
@@ -579,6 +582,181 @@ async function main() {
       },
       statusCode: 'DRAFT',
       title: '基于视觉检测的产线缺陷识别方法',
+    },
+  });
+
+  const repairTemplate = await prisma.wfApprovalTemplate.upsert({
+    where: { businessType: ApprovalBusinessType.REPAIR_ORDER },
+    update: {
+      templateCode: 'DEVICE_REPAIR_FLOW',
+      templateName: '设备报修审批流程',
+      statusCode: 'ACTIVE',
+    },
+    create: {
+      templateCode: 'DEVICE_REPAIR_FLOW',
+      templateName: '设备报修审批流程',
+      businessType: ApprovalBusinessType.REPAIR_ORDER,
+      statusCode: 'ACTIVE',
+    },
+  });
+
+  const repairNodes = [
+    { nodeKey: 'GROUP_LEADER_REVIEW', nodeName: '组长审批', sortNo: 1, approverRoleCode: RoleCode.GROUP_LEADER },
+    { nodeKey: 'MINISTER_REVIEW', nodeName: '部长审批', sortNo: 2, approverRoleCode: RoleCode.MINISTER },
+  ];
+
+  for (const node of repairNodes) {
+    await prisma.wfApprovalTemplateNode.upsert({
+      where: {
+        templateId_nodeKey: {
+          templateId: repairTemplate.id,
+          nodeKey: node.nodeKey,
+        },
+      },
+      update: node,
+      create: {
+        templateId: repairTemplate.id,
+        ...node,
+      },
+    });
+  }
+
+  const edgeCamera = await prisma.assetDevice.upsert({
+    where: { deviceCode: 'DEV-CAM-001' },
+    update: {
+      deviceName: '产线边缘相机',
+      categoryName: '视觉采集',
+      model: 'SMW-CAM-A1',
+      specification: '5MP / GigE',
+      manufacturer: 'Smart Vision',
+      serialNo: 'CAM-2026-001',
+      assetTag: 'AT-DEV-001',
+      statusCode: DeviceStatus.IDLE,
+      orgUnitId: group.id,
+      responsibleUserId: member.id,
+      locationLabel: 'A区产线工位 01',
+      purchaseDate: new Date('2026-02-01'),
+      warrantyUntil: new Date('2028-02-01'),
+      purchaseAmount: 12800,
+      remarks: '用于缺陷检测演示线',
+      statusChangedAt: new Date('2026-04-01T09:00:00Z'),
+      createdBy: leader.id,
+      isDeleted: false,
+    },
+    create: {
+      deviceCode: 'DEV-CAM-001',
+      deviceName: '产线边缘相机',
+      categoryName: '视觉采集',
+      model: 'SMW-CAM-A1',
+      specification: '5MP / GigE',
+      manufacturer: 'Smart Vision',
+      serialNo: 'CAM-2026-001',
+      assetTag: 'AT-DEV-001',
+      statusCode: DeviceStatus.IDLE,
+      orgUnitId: group.id,
+      responsibleUserId: member.id,
+      locationLabel: 'A区产线工位 01',
+      purchaseDate: new Date('2026-02-01'),
+      warrantyUntil: new Date('2028-02-01'),
+      purchaseAmount: 12800,
+      remarks: '用于缺陷检测演示线',
+      statusChangedAt: new Date('2026-04-01T09:00:00Z'),
+      createdBy: leader.id,
+    },
+  });
+
+  const workstation = await prisma.assetDevice.upsert({
+    where: { deviceCode: 'DEV-PLC-002' },
+    update: {
+      deviceName: 'PLC 调试工位',
+      categoryName: '控制设备',
+      model: 'SMW-PLC-X2',
+      specification: '48 I/O',
+      manufacturer: 'Factory Core',
+      serialNo: 'PLC-2026-002',
+      assetTag: 'AT-DEV-002',
+      statusCode: DeviceStatus.REPAIRING,
+      orgUnitId: group.id,
+      responsibleUserId: groupLeader.id,
+      locationLabel: 'B区调试台',
+      purchaseDate: new Date('2026-01-15'),
+      warrantyUntil: new Date('2027-01-15'),
+      purchaseAmount: 18600,
+      remarks: '保留一条进行中报修单用于首页聚合',
+      statusChangedAt: new Date('2026-04-06T10:00:00Z'),
+      createdBy: leader.id,
+      isDeleted: false,
+    },
+    create: {
+      deviceCode: 'DEV-PLC-002',
+      deviceName: 'PLC 调试工位',
+      categoryName: '控制设备',
+      model: 'SMW-PLC-X2',
+      specification: '48 I/O',
+      manufacturer: 'Factory Core',
+      serialNo: 'PLC-2026-002',
+      assetTag: 'AT-DEV-002',
+      statusCode: DeviceStatus.REPAIRING,
+      orgUnitId: group.id,
+      responsibleUserId: groupLeader.id,
+      locationLabel: 'B区调试台',
+      purchaseDate: new Date('2026-01-15'),
+      warrantyUntil: new Date('2027-01-15'),
+      purchaseAmount: 18600,
+      remarks: '保留一条进行中报修单用于首页聚合',
+      statusChangedAt: new Date('2026-04-06T10:00:00Z'),
+      createdBy: leader.id,
+    },
+  });
+
+  const existingRepair = await prisma.assetDeviceRepair.findFirst({
+    where: {
+      repairNo: 'RP-20260406-001',
+      isDeleted: false,
+    },
+  });
+
+  const repairPayload = {
+    deviceId: workstation.id,
+    repairNo: 'RP-20260406-001',
+    applicantUserId: member.id,
+    applicantRoleCode: RoleCode.MEMBER,
+    handlerUserId: groupLeader.id,
+    statusCode: DeviceRepairStatus.PROCESSING,
+    severity: DeviceRepairSeverity.HIGH,
+    faultDescription: '工位上电后 IO 指示异常，无法进入联机调试状态',
+    latestResult: '审批通过，处理中',
+    requestedAmount: 800,
+    costEstimate: 600,
+    fundLinkCode: 'FUND-RESERVED-001',
+    deviceStatusBeforeRepair: DeviceStatus.IDLE,
+    reportedAt: new Date('2026-04-06T10:00:00Z'),
+    approvedAt: new Date('2026-04-06T12:00:00Z'),
+    acceptedAt: new Date('2026-04-06T13:00:00Z'),
+    statusChangedAt: new Date('2026-04-06T13:00:00Z'),
+    createdBy: member.id,
+  };
+
+  const seededRepair = existingRepair
+    ? await prisma.assetDeviceRepair.update({
+        where: { id: existingRepair.id },
+        data: repairPayload,
+      })
+    : await prisma.assetDeviceRepair.create({
+        data: repairPayload,
+      });
+
+  await prisma.assetDevice.update({
+    where: { id: workstation.id },
+    data: {
+      latestRepairId: seededRepair.id,
+    },
+  });
+
+  await prisma.assetDevice.update({
+    where: { id: edgeCamera.id },
+    data: {
+      latestRepairId: null,
     },
   });
 

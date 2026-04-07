@@ -5,6 +5,7 @@ import { ConfigModule } from '@nestjs/config';
 import { ApprovalModule } from './approval/approval.module';
 import { AuthModule } from './auth/auth.module';
 import { CompetitionAchievementModule } from './competition-achievement/competition-achievement.module';
+import { DeviceModule } from './device/device.module';
 import { ExampleModule } from './example/example.module';
 import { HealthModule } from './health/health.module';
 import { MemberModule } from './member/member.module';
@@ -22,6 +23,7 @@ import { PrismaModule } from './prisma/prisma.module';
     ExampleModule,
     MemberModule,
     CompetitionAchievementModule,
+    DeviceModule,
     ApprovalModule,
   ],
 })

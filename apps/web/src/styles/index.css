@@ -575,6 +575,29 @@ body {
   gap: 1rem;
 }
 
+.table-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.drawer-subtitle {
+  margin-top: 6px;
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+}
+
+.device-detail-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.drawer-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 @media (max-width: 1024px) {
   body {
     min-width: 0;

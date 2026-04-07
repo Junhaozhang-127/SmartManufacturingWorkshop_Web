@@ -10,7 +10,7 @@ export interface AppMenuItem extends NavItem {
 export const adminMenu: AppMenuItem[] = [
   {
     key: 'dashboard',
-    label: '驾驶舱',
+    label: '系统驾驶舱',
     path: '/',
     icon: 'House',
     permissions: [PermissionCodes.systemDashboardView],
@@ -49,6 +49,20 @@ export const adminMenu: AppMenuItem[] = [
     path: '/members/exits',
     icon: 'CircleClose',
     permissions: [PermissionCodes.memberListView],
+  },
+  {
+    key: 'device-ledger',
+    label: '设备台账',
+    path: '/devices/ledger',
+    icon: 'Box',
+    permissions: [PermissionCodes.deviceView],
+  },
+  {
+    key: 'device-repair',
+    label: '维修报修',
+    path: '/devices/repairs',
+    icon: 'Tools',
+    permissions: [PermissionCodes.deviceRepairView],
   },
   {
     key: 'competition-library',

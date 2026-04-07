@@ -36,6 +36,8 @@ export interface QuickEntry {
 export interface DashboardSummaryMock {
   todoCount: number;
   shortcutEntries: QuickEntry[];
+  deviceAbnormalCount?: number;
+  pendingRepairCount?: number;
 }
 
 export interface CurrentUserProfile {

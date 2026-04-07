@@ -18,6 +18,8 @@ import {
   ApprovalStatus,
   CompetitionRegistrationStatus,
   type CurrentUserProfile,
+  DeviceRepairStatus,
+  DeviceStatus,
   MemberGrowthRecordType,
   MemberStatus,
   normalizePagination,
@@ -1229,6 +1231,93 @@ export class ApprovalService {
         });
         return;
       }
+      case ApprovalBusinessType.REPAIR_ORDER: {
+        const repair = await tx.assetDeviceRepair.findUnique({
+          where: { id: this.toBigInt(businessId) },
+          include: {
+            device: true,
+          },
+        });
+
+        if (!repair) {
+          return;
+        }
+
+        const now = new Date();
+        const statusCode =
+          status === ApprovalStatus.APPROVED
+            ? DeviceRepairStatus.PROCESSING
+            : status === ApprovalStatus.REJECTED
+              ? DeviceRepairStatus.REJECTED
+              : status === ApprovalStatus.WITHDRAWN
+                ? DeviceRepairStatus.CANCELLED
+                : DeviceRepairStatus.IN_APPROVAL;
+
+        await tx.assetDeviceRepair.update({
+          where: { id: repair.id },
+          data: {
+            statusCode,
+            latestResult:
+              status === ApprovalStatus.APPROVED
+                ? '审批通过，进入维修处理'
+                : status === ApprovalStatus.REJECTED
+                  ? '报修审批已驳回'
+                  : status === ApprovalStatus.WITHDRAWN
+                    ? '报修申请已撤回'
+                    : '报修工单审批中',
+            approvedAt: status === ApprovalStatus.APPROVED ? now : repair.approvedAt,
+            statusChangedAt: now,
+            statusLogs: this.appendStatusHistory(repair.statusLogs, {
+              actionType:
+                status === ApprovalStatus.APPROVED
+                  ? 'APPROVAL_APPROVED'
+                  : status === ApprovalStatus.REJECTED
+                    ? 'APPROVAL_REJECTED'
+                    : status === ApprovalStatus.WITHDRAWN
+                      ? 'APPROVAL_WITHDRAWN'
+                      : 'APPROVAL_PENDING',
+              fromStatus: repair.statusCode,
+              toStatus: statusCode,
+              operatorUserId: String(repair.applicantUserId),
+              operatorName: null,
+              comment:
+                status === ApprovalStatus.APPROVED
+                  ? '审批通过'
+                  : status === ApprovalStatus.REJECTED
+                    ? '审批驳回'
+                    : status === ApprovalStatus.WITHDRAWN
+                      ? '审批撤回'
+                      : '审批发起',
+            }),
+          },
+        });
+
+        if (status === ApprovalStatus.REJECTED || status === ApprovalStatus.WITHDRAWN) {
+          await tx.assetDevice.update({
+            where: { id: repair.deviceId },
+            data: {
+              statusCode:
+                repair.deviceStatusBeforeRepair && repair.deviceStatusBeforeRepair !== DeviceStatus.REPAIRING
+                  ? repair.deviceStatusBeforeRepair
+                  : DeviceStatus.IDLE,
+              statusChangedAt: now,
+              statusLogs: this.appendStatusHistory(repair.device.statusLogs, {
+                actionType: status === ApprovalStatus.REJECTED ? 'REPAIR_REJECTED' : 'REPAIR_WITHDRAWN',
+                fromStatus: repair.device.statusCode,
+                toStatus:
+                  repair.deviceStatusBeforeRepair && repair.deviceStatusBeforeRepair !== DeviceStatus.REPAIRING
+                    ? repair.deviceStatusBeforeRepair
+                    : DeviceStatus.IDLE,
+                operatorUserId: String(repair.applicantUserId),
+                operatorName: null,
+                comment:
+                  status === ApprovalStatus.REJECTED ? '报修审批驳回，设备状态恢复' : '报修撤回，设备状态恢复',
+              }),
+            },
+          });
+        }
+        return;
+      }
       default:
         return;
     }
@@ -1341,9 +1430,56 @@ export class ApprovalService {
           contributorNames: achievement.contributors.map((item) => item.contributorName),
         };
       }
+      case ApprovalBusinessType.REPAIR_ORDER: {
+        const repair = await this.prisma.assetDeviceRepair.findUnique({
+          where: { id: this.toBigInt(businessId) },
+          include: {
+            applicant: true,
+            handler: true,
+            device: true,
+          },
+        });
+
+        if (!repair) {
+          return null;
+        }
+
+        return {
+          repairNo: repair.repairNo,
+          deviceCode: repair.device.deviceCode,
+          deviceName: repair.device.deviceName,
+          statusCode: repair.statusCode,
+          severity: repair.severity,
+          applicantName: repair.applicant.displayName,
+          handlerName: repair.handler?.displayName ?? null,
+          faultDescription: repair.faultDescription,
+          latestResult: repair.latestResult,
+          requestedAmount: repair.requestedAmount ? Number(repair.requestedAmount.toString()) : null,
+          costEstimate: repair.costEstimate ? Number(repair.costEstimate.toString()) : null,
+        };
+      }
       default:
         return null;
     }
+  }
+
+  private appendStatusHistory(
+    raw: Prisma.JsonValue | null,
+    entry: {
+      actionType: string;
+      fromStatus: string | null;
+      toStatus: string | null;
+      operatorUserId: string | null;
+      operatorName: string | null;
+      comment: string | null;
+    },
+  ) {
+    const list = Array.isArray(raw) ? [...raw] : [];
+    list.push({
+      ...entry,
+      createdAt: new Date().toISOString(),
+    });
+    return list as Prisma.InputJsonValue;
   }
 
   private toBigInt(value: string) {

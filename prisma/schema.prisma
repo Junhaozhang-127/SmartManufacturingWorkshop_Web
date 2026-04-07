@@ -39,6 +39,9 @@ model SysUser {
   advisedCompetitionTeams   CompTeam[]           @relation("CompetitionAdvisor")
   achievementApplications   AchvAchievement[]    @relation("AchievementApplicant")
   achievementContributions  AchvContributor[]    @relation("AchievementContributorUser")
+  responsibleDevices        AssetDevice[]        @relation("DeviceResponsibleUser")
+  deviceRepairApplicants    AssetDeviceRepair[]  @relation("DeviceRepairApplicant")
+  deviceRepairHandlers      AssetDeviceRepair[]  @relation("DeviceRepairHandler")
 
   @@map("sys_user")
 }
@@ -87,6 +90,7 @@ model OrgUnit {
   children       OrgUnit[]       @relation("OrgUnitTree")
   leader         SysUser?        @relation("OrgUnitLeader", fields: [leaderUserId], references: [id])
   memberProfiles MemberProfile[]
+  assetDevices   AssetDevice[]
   parent         OrgUnit?        @relation("OrgUnitTree", fields: [parentId], references: [id])
 
   @@index([parentId])
@@ -256,6 +260,7 @@ model WfApprovalInstance {
   memberRegularization    MemberRegularization?
   competitionTeam         CompTeam?
   achievement             AchvAchievement?
+  deviceRepair            AssetDeviceRepair?
 
   @@index([businessType, businessId])
   @@index([status, currentApproverRoleCode])
@@ -440,4 +445,83 @@ model AchvContributor {
   @@index([achievementId, contributionRank])
   @@index([userId])
   @@map("achv_contributor")
+}
+
+model AssetDevice {
+  id                 BigInt              @id @default(autoincrement()) @db.UnsignedBigInt
+  deviceCode         String              @unique @map("device_code") @db.VarChar(64)
+  deviceName         String              @map("device_name") @db.VarChar(128)
+  categoryName       String              @map("category_name") @db.VarChar(64)
+  model              String?             @db.VarChar(128)
+  specification      String?             @db.VarChar(255)
+  manufacturer       String?             @db.VarChar(128)
+  serialNo           String?             @map("serial_no") @db.VarChar(128)
+  assetTag           String?             @map("asset_tag") @db.VarChar(64)
+  statusCode         String              @default("IDLE") @map("status_code") @db.VarChar(32)
+  orgUnitId          BigInt?             @map("org_unit_id") @db.UnsignedBigInt
+  responsibleUserId  BigInt?             @map("responsible_user_id") @db.UnsignedBigInt
+  locationLabel      String?             @map("location_label") @db.VarChar(128)
+  purchaseDate       DateTime?           @map("purchase_date") @db.Date
+  warrantyUntil      DateTime?           @map("warranty_until") @db.Date
+  purchaseAmount     Decimal?            @map("purchase_amount") @db.Decimal(12, 2)
+  remarks            String?             @db.VarChar(1000)
+  latestRepairId     BigInt?             @unique @map("latest_repair_id") @db.UnsignedBigInt
+  statusChangedAt    DateTime?           @map("status_changed_at")
+  statusLogs         Json?               @map("status_logs")
+  createdAt          DateTime            @default(now()) @map("created_at")
+  updatedAt          DateTime            @updatedAt @map("updated_at")
+  createdBy          BigInt?             @map("created_by") @db.UnsignedBigInt
+  isDeleted          Boolean             @default(false) @map("is_deleted")
+  orgUnit            OrgUnit?            @relation(fields: [orgUnitId], references: [id])
+  responsibleUser    SysUser?            @relation("DeviceResponsibleUser", fields: [responsibleUserId], references: [id])
+  latestRepair       AssetDeviceRepair?  @relation("DeviceLatestRepair", fields: [latestRepairId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  repairOrders       AssetDeviceRepair[] @relation("DeviceRepairDevice")
+
+  @@index([statusCode, orgUnitId])
+  @@index([responsibleUserId, statusCode])
+  @@map("asset_device")
+}
+
+model AssetDeviceRepair {
+  id                     BigInt              @id @default(autoincrement()) @db.UnsignedBigInt
+  deviceId               BigInt              @map("device_id") @db.UnsignedBigInt
+  repairNo               String              @unique @map("repair_no") @db.VarChar(64)
+  applicantUserId        BigInt              @map("applicant_user_id") @db.UnsignedBigInt
+  applicantRoleCode      String?             @map("applicant_role_code") @db.VarChar(32)
+  handlerUserId          BigInt?             @map("handler_user_id") @db.UnsignedBigInt
+  statusCode             String              @default("DRAFT") @map("status_code") @db.VarChar(32)
+  severity               String              @db.VarChar(16)
+  faultDescription       String              @map("fault_description") @db.VarChar(2000)
+  handlerComment         String?             @map("handler_comment") @db.VarChar(1000)
+  resolutionSummary      String?             @map("resolution_summary") @db.VarChar(1000)
+  latestResult           String?             @map("latest_result") @db.VarChar(500)
+  requestedAmount        Decimal?            @map("requested_amount") @db.Decimal(12, 2)
+  costEstimate           Decimal?            @map("cost_estimate") @db.Decimal(12, 2)
+  actualCost             Decimal?            @map("actual_cost") @db.Decimal(12, 2)
+  fundLinkCode           String?             @map("fund_link_code") @db.VarChar(64)
+  deviceStatusBeforeRepair String?           @map("device_status_before_repair") @db.VarChar(32)
+  approvalInstanceId     BigInt?             @unique @map("approval_instance_id") @db.UnsignedBigInt
+  attachments            Json?               @map("attachments")
+  statusLogs             Json?               @map("status_logs")
+  reportedAt             DateTime            @default(now()) @map("reported_at")
+  approvedAt             DateTime?           @map("approved_at")
+  acceptedAt             DateTime?           @map("accepted_at")
+  resolvedAt             DateTime?           @map("resolved_at")
+  confirmedAt            DateTime?           @map("confirmed_at")
+  statusChangedAt        DateTime?           @map("status_changed_at")
+  createdAt              DateTime            @default(now()) @map("created_at")
+  updatedAt              DateTime            @updatedAt @map("updated_at")
+  createdBy              BigInt?             @map("created_by") @db.UnsignedBigInt
+  isDeleted              Boolean             @default(false) @map("is_deleted")
+  device                 AssetDevice         @relation("DeviceRepairDevice", fields: [deviceId], references: [id])
+  applicant              SysUser             @relation("DeviceRepairApplicant", fields: [applicantUserId], references: [id])
+  handler                SysUser?            @relation("DeviceRepairHandler", fields: [handlerUserId], references: [id])
+  approvalInstance       WfApprovalInstance? @relation(fields: [approvalInstanceId], references: [id])
+  latestForDevice        AssetDevice?        @relation("DeviceLatestRepair")
+
+  @@index([deviceId, statusCode])
+  @@index([applicantUserId, statusCode])
+  @@index([handlerUserId, statusCode])
+  @@index([reportedAt])
+  @@map("asset_device_repair")
 }

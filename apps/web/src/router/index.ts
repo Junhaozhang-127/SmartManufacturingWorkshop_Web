@@ -50,8 +50,8 @@ const routes: RouteRecordRaw[] = [
         name: 'system.dashboard',
         component: () => import('@web/views/DashboardPage.vue'),
         meta: {
-          title: '驾驶舱',
-          breadcrumb: ['驾驶舱'],
+          title: '系统驾驶舱',
+          breadcrumb: ['系统驾驶舱'],
           permissions: [PermissionCodes.systemDashboardView],
         },
       },
@@ -113,6 +113,26 @@ const routes: RouteRecordRaw[] = [
           title: '退出预留',
           breadcrumb: ['组织成员', '退出预留'],
           permissions: [PermissionCodes.memberListView],
+        },
+      },
+      {
+        path: 'devices/ledger',
+        name: 'devices.ledger',
+        component: () => import('@web/views/DeviceLedgerPage.vue'),
+        meta: {
+          title: '设备台账',
+          breadcrumb: ['设备资产', '设备台账'],
+          permissions: [PermissionCodes.deviceView],
+        },
+      },
+      {
+        path: 'devices/repairs',
+        name: 'devices.repairs',
+        component: () => import('@web/views/DeviceRepairPage.vue'),
+        meta: {
+          title: '维修报修工单',
+          breadcrumb: ['设备资产', '维修报修'],
+          permissions: [PermissionCodes.deviceRepairView],
         },
       },
       {
