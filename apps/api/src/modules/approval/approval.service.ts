@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import {
+  AchievementStatus,
   ApprovalActionType,
   ApprovalBusinessType,
   ApprovalCenterTab,
@@ -15,6 +16,7 @@ import {
   type ApprovalListItem,
   type ApprovalListResult,
   ApprovalStatus,
+  CompetitionRegistrationStatus,
   type CurrentUserProfile,
   MemberGrowthRecordType,
   MemberStatus,
@@ -1159,6 +1161,74 @@ export class ApprovalService {
         }
         return;
       }
+      case ApprovalBusinessType.COMPETITION_REGISTRATION: {
+        const team = await tx.compTeam.findUnique({
+          where: { id: this.toBigInt(businessId) },
+        });
+
+        if (!team) {
+          return;
+        }
+
+        const now = new Date();
+        const statusCodeMap: Record<ApprovalStatus, string> = {
+          [ApprovalStatus.PENDING]: CompetitionRegistrationStatus.IN_APPROVAL,
+          [ApprovalStatus.APPROVED]: CompetitionRegistrationStatus.APPROVED,
+          [ApprovalStatus.REJECTED]: CompetitionRegistrationStatus.REJECTED,
+          [ApprovalStatus.WITHDRAWN]: CompetitionRegistrationStatus.WITHDRAWN,
+        };
+
+        await tx.compTeam.update({
+          where: { id: team.id },
+          data: {
+            statusCode: statusCodeMap[status],
+            latestResult:
+              status === ApprovalStatus.APPROVED
+                ? '赛事报名审批通过'
+                : status === ApprovalStatus.REJECTED
+                  ? '赛事报名审批驳回'
+                  : status === ApprovalStatus.WITHDRAWN
+                    ? '赛事报名申请已撤回'
+                    : '赛事报名申请审批中',
+            completedAt: status === ApprovalStatus.PENDING ? null : now,
+          },
+        });
+        return;
+      }
+      case ApprovalBusinessType.ACHIEVEMENT_RECOGNITION: {
+        const achievement = await tx.achvAchievement.findUnique({
+          where: { id: this.toBigInt(businessId) },
+        });
+
+        if (!achievement) {
+          return;
+        }
+
+        const now = new Date();
+        await tx.achvAchievement.update({
+          where: { id: achievement.id },
+          data: {
+            statusCode:
+              status === ApprovalStatus.APPROVED
+                ? AchievementStatus.RECOGNIZED
+                : status === ApprovalStatus.REJECTED
+                  ? AchievementStatus.REJECTED
+                  : status === ApprovalStatus.WITHDRAWN
+                    ? AchievementStatus.WITHDRAWN
+                    : AchievementStatus.IN_APPROVAL,
+            latestResult:
+              status === ApprovalStatus.APPROVED
+                ? '成果认定通过'
+                : status === ApprovalStatus.REJECTED
+                  ? '成果认定驳回'
+                  : status === ApprovalStatus.WITHDRAWN
+                    ? '成果认定申请已撤回'
+                    : '成果认定审批中',
+            recognizedAt: status === ApprovalStatus.APPROVED ? now : achievement.recognizedAt,
+          },
+        });
+        return;
+      }
       default:
         return;
     }
@@ -1212,6 +1282,63 @@ export class ApprovalService {
           plannedRegularDate: regularization.plannedRegularDate.toISOString().slice(0, 10),
           applicationReason: regularization.applicationReason,
           selfAssessment: regularization.selfAssessment,
+        };
+      }
+      case ApprovalBusinessType.COMPETITION_REGISTRATION: {
+        const team = await this.prisma.compTeam.findUnique({
+          where: { id: this.toBigInt(businessId) },
+          include: {
+            competition: true,
+            teamLeader: true,
+            advisor: true,
+          },
+        });
+
+        if (!team) {
+          return null;
+        }
+
+        return {
+          competitionName: team.competition.name,
+          teamName: team.teamName,
+          teamLeaderName: team.teamLeader.displayName,
+          advisorName: team.advisor?.displayName ?? null,
+          memberNames: team.memberNames ? team.memberNames.split('、') : [],
+          projectName: team.projectName,
+          statusCode: team.statusCode,
+          latestResult: team.latestResult,
+        };
+      }
+      case ApprovalBusinessType.ACHIEVEMENT_RECOGNITION: {
+        const achievement = await this.prisma.achvAchievement.findUnique({
+          where: { id: this.toBigInt(businessId) },
+          include: {
+            applicant: true,
+            sourceCompetition: true,
+            sourceTeam: true,
+            contributors: {
+              orderBy: {
+                contributionRank: 'asc',
+              },
+            },
+          },
+        });
+
+        if (!achievement) {
+          return null;
+        }
+
+        return {
+          title: achievement.title,
+          achievementType: achievement.achievementType,
+          levelCode: achievement.levelCode,
+          statusCode: achievement.statusCode,
+          recognizedGrade: achievement.recognizedGrade,
+          projectName: achievement.projectName,
+          sourceCompetitionName: achievement.sourceCompetition?.name ?? null,
+          sourceTeamName: achievement.sourceTeam?.teamName ?? null,
+          applicantName: achievement.applicant.displayName,
+          contributorNames: achievement.contributors.map((item) => item.contributorName),
         };
       }
       default:

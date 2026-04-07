@@ -116,6 +116,46 @@ const routes: RouteRecordRaw[] = [
         },
       },
       {
+        path: 'competitions/library',
+        name: 'competitions.library',
+        component: () => import('@web/views/CompetitionLibraryPage.vue'),
+        meta: {
+          title: '赛事库与报名',
+          breadcrumb: ['竞赛成果', '赛事库与报名'],
+          permissions: [PermissionCodes.competitionView],
+        },
+      },
+      {
+        path: 'achievements',
+        name: 'achievements.list',
+        component: () => import('@web/views/AchievementListPage.vue'),
+        meta: {
+          title: '成果列表',
+          breadcrumb: ['竞赛成果', '成果列表'],
+          permissions: [PermissionCodes.achievementView],
+        },
+      },
+      {
+        path: 'achievements/new',
+        name: 'achievements.create',
+        component: () => import('@web/views/AchievementFormPage.vue'),
+        meta: {
+          title: '成果录入',
+          breadcrumb: ['竞赛成果', '成果录入'],
+          permissions: [PermissionCodes.achievementCreate],
+        },
+      },
+      {
+        path: 'achievements/:id/edit',
+        name: 'achievements.edit',
+        component: () => import('@web/views/AchievementFormPage.vue'),
+        meta: {
+          title: '成果编辑',
+          breadcrumb: ['竞赛成果', '成果编辑'],
+          permissions: [PermissionCodes.achievementUpdate],
+        },
+      },
+      {
         path: 'workflow/approval-center',
         name: 'workflow.approval-center',
         component: () => import('@web/views/ApprovalCenterPage.vue'),

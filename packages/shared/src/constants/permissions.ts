@@ -13,6 +13,9 @@ export enum ResourceCode {
   ORG = 'ORG',
   MEMBER = 'MEMBER',
   APPROVAL = 'APPROVAL',
+  COMPETITION = 'COMPETITION',
+  COMPETITION_TEAM = 'COMPETITION_TEAM',
+  ACHIEVEMENT = 'ACHIEVEMENT',
 }
 
 export enum ActionCode {
@@ -38,6 +41,9 @@ export enum MenuCode {
   MEMBER_ARCHIVE = 'MEMBER_ARCHIVE',
   MEMBER_REGULARIZATION = 'MEMBER_REGULARIZATION',
   MEMBER_EXAMPLES = 'MEMBER_EXAMPLES',
+  COMPETITION_LIBRARY = 'COMPETITION_LIBRARY',
+  ACHIEVEMENT_LIST = 'ACHIEVEMENT_LIST',
+  ACHIEVEMENT_ENTRY = 'ACHIEVEMENT_ENTRY',
   APPROVAL_CENTER = 'APPROVAL_CENTER',
   APPROVAL_DEMO = 'APPROVAL_DEMO',
 }
@@ -57,12 +63,35 @@ export const PermissionCodes = {
   memberCreate: buildPermissionCode(ResourceCode.MEMBER, ActionCode.CREATE),
   memberApprove: buildPermissionCode(ResourceCode.MEMBER, ActionCode.APPROVE),
   orgTreeView: buildPermissionCode(ResourceCode.ORG, ActionCode.VIEW),
+  competitionView: buildPermissionCode(ResourceCode.COMPETITION, ActionCode.VIEW),
+  competitionCreate: buildPermissionCode(ResourceCode.COMPETITION, ActionCode.CREATE),
+  competitionUpdate: buildPermissionCode(ResourceCode.COMPETITION, ActionCode.UPDATE),
+  competitionRegistrationCreate: buildPermissionCode(ResourceCode.COMPETITION_TEAM, ActionCode.CREATE),
+  competitionRegistrationUpdate: buildPermissionCode(ResourceCode.COMPETITION_TEAM, ActionCode.UPDATE),
+  competitionRegistrationApprove: buildPermissionCode(ResourceCode.COMPETITION_TEAM, ActionCode.APPROVE),
+  achievementView: buildPermissionCode(ResourceCode.ACHIEVEMENT, ActionCode.VIEW),
+  achievementCreate: buildPermissionCode(ResourceCode.ACHIEVEMENT, ActionCode.CREATE),
+  achievementUpdate: buildPermissionCode(ResourceCode.ACHIEVEMENT, ActionCode.UPDATE),
+  achievementApprove: buildPermissionCode(ResourceCode.ACHIEVEMENT, ActionCode.APPROVE),
   approvalCenterView: buildPermissionCode(ResourceCode.APPROVAL, ActionCode.VIEW),
   approvalCreate: buildPermissionCode(ResourceCode.APPROVAL, ActionCode.CREATE),
   approvalApprove: buildPermissionCode(ResourceCode.APPROVAL, ActionCode.APPROVE),
 } as const;
 
 export type PermissionCode = (typeof PermissionCodes)[keyof typeof PermissionCodes];
+
+const managementPermissions: PermissionCode[] = [
+  PermissionCodes.competitionView,
+  PermissionCodes.competitionCreate,
+  PermissionCodes.competitionUpdate,
+  PermissionCodes.competitionRegistrationCreate,
+  PermissionCodes.competitionRegistrationUpdate,
+  PermissionCodes.competitionRegistrationApprove,
+  PermissionCodes.achievementView,
+  PermissionCodes.achievementCreate,
+  PermissionCodes.achievementUpdate,
+  PermissionCodes.achievementApprove,
+];
 
 export const RolePermissionMap: Record<RoleCode, PermissionCode[]> = {
   [RoleCode.TEACHER]: [
@@ -76,6 +105,7 @@ export const RolePermissionMap: Record<RoleCode, PermissionCode[]> = {
     PermissionCodes.memberCreate,
     PermissionCodes.memberApprove,
     PermissionCodes.orgTreeView,
+    ...managementPermissions,
     PermissionCodes.approvalCenterView,
     PermissionCodes.approvalCreate,
     PermissionCodes.approvalApprove,
@@ -91,6 +121,7 @@ export const RolePermissionMap: Record<RoleCode, PermissionCode[]> = {
     PermissionCodes.memberCreate,
     PermissionCodes.memberApprove,
     PermissionCodes.orgTreeView,
+    ...managementPermissions,
     PermissionCodes.approvalCenterView,
     PermissionCodes.approvalCreate,
     PermissionCodes.approvalApprove,
@@ -105,6 +136,7 @@ export const RolePermissionMap: Record<RoleCode, PermissionCode[]> = {
     PermissionCodes.memberCreate,
     PermissionCodes.memberApprove,
     PermissionCodes.orgTreeView,
+    ...managementPermissions,
     PermissionCodes.approvalCenterView,
     PermissionCodes.approvalCreate,
     PermissionCodes.approvalApprove,
@@ -119,6 +151,7 @@ export const RolePermissionMap: Record<RoleCode, PermissionCode[]> = {
     PermissionCodes.memberCreate,
     PermissionCodes.memberApprove,
     PermissionCodes.orgTreeView,
+    ...managementPermissions,
     PermissionCodes.approvalCenterView,
     PermissionCodes.approvalCreate,
     PermissionCodes.approvalApprove,
@@ -130,6 +163,11 @@ export const RolePermissionMap: Record<RoleCode, PermissionCode[]> = {
     PermissionCodes.systemDashboardView,
     PermissionCodes.memberListView,
     PermissionCodes.memberCreate,
+    PermissionCodes.competitionView,
+    PermissionCodes.competitionRegistrationCreate,
+    PermissionCodes.achievementView,
+    PermissionCodes.achievementCreate,
+    PermissionCodes.achievementUpdate,
     PermissionCodes.approvalCenterView,
     PermissionCodes.approvalCreate,
   ],
@@ -140,6 +178,11 @@ export const RolePermissionMap: Record<RoleCode, PermissionCode[]> = {
     PermissionCodes.systemDashboardView,
     PermissionCodes.memberListView,
     PermissionCodes.memberCreate,
+    PermissionCodes.competitionView,
+    PermissionCodes.competitionRegistrationCreate,
+    PermissionCodes.achievementView,
+    PermissionCodes.achievementCreate,
+    PermissionCodes.achievementUpdate,
     PermissionCodes.approvalCenterView,
     PermissionCodes.approvalCreate,
   ],

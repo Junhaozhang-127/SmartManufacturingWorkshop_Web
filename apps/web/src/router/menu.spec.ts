@@ -23,6 +23,8 @@ describe('filterMenuByAccess', () => {
       [
         PermissionCodes.systemDashboardView,
         PermissionCodes.memberListView,
+        PermissionCodes.competitionView,
+        PermissionCodes.achievementView,
         PermissionCodes.approvalCenterView,
         PermissionCodes.approvalCreate,
       ],
@@ -35,6 +37,8 @@ describe('filterMenuByAccess', () => {
       'member-regularization',
       'member-transfer',
       'member-exit',
+      'competition-library',
+      'achievement-list',
       'approval-center',
       'approval-demo',
       'examples',

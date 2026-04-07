@@ -35,6 +35,10 @@ model SysUser {
   approvalLogs              WfApprovalNodeLog[]  @relation("ApprovalActor")
   approvalTransferTargets   WfApprovalNodeLog[]  @relation("ApprovalTransferTarget")
   demoApprovalForms         DemoApprovalForm[]   @relation("DemoApprovalApplicant")
+  ledCompetitionTeams       CompTeam[]           @relation("CompetitionTeamLeader")
+  advisedCompetitionTeams   CompTeam[]           @relation("CompetitionAdvisor")
+  achievementApplications   AchvAchievement[]    @relation("AchievementApplicant")
+  achievementContributions  AchvContributor[]    @relation("AchievementContributorUser")
 
   @@map("sys_user")
 }
@@ -250,6 +254,8 @@ model WfApprovalInstance {
   logs                    WfApprovalNodeLog[]
   demoForm                DemoApprovalForm?
   memberRegularization    MemberRegularization?
+  competitionTeam         CompTeam?
+  achievement             AchvAchievement?
 
   @@index([businessType, businessId])
   @@index([status, currentApproverRoleCode])
@@ -293,4 +299,145 @@ model DemoApprovalForm {
 
   @@index([applicantUserId, statusCode])
   @@map("demo_approval_form")
+}
+
+model CompCompetition {
+  id                    BigInt             @id @default(autoincrement()) @db.UnsignedBigInt
+  competitionCode       String             @unique @map("competition_code") @db.VarChar(64)
+  name                  String             @db.VarChar(255)
+  organizer             String             @db.VarChar(255)
+  competitionLevel      String             @map("competition_level") @db.VarChar(32)
+  competitionCategory   String             @map("competition_category") @db.VarChar(64)
+  statusCode            String             @default("OPEN") @map("status_code") @db.VarChar(20)
+  registrationStartDate DateTime?          @map("registration_start_date") @db.Date
+  registrationEndDate   DateTime?          @map("registration_end_date") @db.Date
+  eventStartDate        DateTime?          @map("event_start_date") @db.Date
+  eventEndDate          DateTime?          @map("event_end_date") @db.Date
+  description           String?            @db.VarChar(1000)
+  createdAt             DateTime           @default(now()) @map("created_at")
+  updatedAt             DateTime           @updatedAt @map("updated_at")
+  createdBy             BigInt?            @map("created_by") @db.UnsignedBigInt
+  isDeleted             Boolean            @default(false) @map("is_deleted")
+  teams                 CompTeam[]
+  achievements          AchvAchievement[]  @relation("AchievementSourceCompetition")
+
+  @@index([statusCode, competitionLevel])
+  @@map("comp_competition")
+}
+
+model CompTeam {
+  id                 BigInt              @id @default(autoincrement()) @db.UnsignedBigInt
+  competitionId      BigInt              @map("competition_id") @db.UnsignedBigInt
+  teamName           String              @map("team_name") @db.VarChar(128)
+  teamLeaderUserId   BigInt              @map("team_leader_user_id") @db.UnsignedBigInt
+  advisorUserId      BigInt?             @map("advisor_user_id") @db.UnsignedBigInt
+  memberUserIds      String              @map("member_user_ids") @db.VarChar(500)
+  memberNames        String              @map("member_names") @db.VarChar(500)
+  projectId          String?             @map("project_id") @db.VarChar(64)
+  projectName        String?             @map("project_name") @db.VarChar(128)
+  applicationReason  String?             @map("application_reason") @db.VarChar(1000)
+  statusCode         String              @default("DRAFT") @map("status_code") @db.VarChar(20)
+  latestResult       String?             @map("latest_result") @db.VarChar(500)
+  approvalInstanceId BigInt?             @unique @map("approval_instance_id") @db.UnsignedBigInt
+  submittedAt        DateTime?           @map("submitted_at")
+  completedAt        DateTime?           @map("completed_at")
+  createdAt          DateTime            @default(now()) @map("created_at")
+  updatedAt          DateTime            @updatedAt @map("updated_at")
+  createdBy          BigInt?             @map("created_by") @db.UnsignedBigInt
+  isDeleted          Boolean             @default(false) @map("is_deleted")
+  competition        CompCompetition     @relation(fields: [competitionId], references: [id])
+  teamLeader         SysUser             @relation("CompetitionTeamLeader", fields: [teamLeaderUserId], references: [id])
+  advisor            SysUser?            @relation("CompetitionAdvisor", fields: [advisorUserId], references: [id])
+  approvalInstance   WfApprovalInstance? @relation(fields: [approvalInstanceId], references: [id])
+  achievements       AchvAchievement[]   @relation("AchievementSourceTeam")
+
+  @@index([competitionId, statusCode])
+  @@index([teamLeaderUserId, statusCode])
+  @@map("comp_team")
+}
+
+model AchvAchievement {
+  id                  BigInt              @id @default(autoincrement()) @db.UnsignedBigInt
+  achievementType     String              @map("achievement_type") @db.VarChar(32)
+  title               String              @db.VarChar(255)
+  levelCode           String?             @map("level_code") @db.VarChar(32)
+  statusCode          String              @default("DRAFT") @map("status_code") @db.VarChar(20)
+  recognizedGrade     String?             @map("recognized_grade") @db.VarChar(64)
+  scoreMapping        Json?               @map("score_mapping")
+  projectId           String?             @map("project_id") @db.VarChar(64)
+  projectName         String?             @map("project_name") @db.VarChar(128)
+  sourceCompetitionId BigInt?             @map("source_competition_id") @db.UnsignedBigInt
+  sourceTeamId        BigInt?             @map("source_team_id") @db.UnsignedBigInt
+  description         String?             @db.VarChar(2000)
+  applicantUserId     BigInt              @map("applicant_user_id") @db.UnsignedBigInt
+  latestResult        String?             @map("latest_result") @db.VarChar(500)
+  approvalInstanceId  BigInt?             @unique @map("approval_instance_id") @db.UnsignedBigInt
+  submittedAt         DateTime?           @map("submitted_at")
+  recognizedAt        DateTime?           @map("recognized_at")
+  createdAt           DateTime            @default(now()) @map("created_at")
+  updatedAt           DateTime            @updatedAt @map("updated_at")
+  createdBy           BigInt?             @map("created_by") @db.UnsignedBigInt
+  isDeleted           Boolean             @default(false) @map("is_deleted")
+  applicant           SysUser             @relation("AchievementApplicant", fields: [applicantUserId], references: [id])
+  sourceCompetition   CompCompetition?    @relation("AchievementSourceCompetition", fields: [sourceCompetitionId], references: [id])
+  sourceTeam          CompTeam?           @relation("AchievementSourceTeam", fields: [sourceTeamId], references: [id])
+  approvalInstance    WfApprovalInstance? @relation(fields: [approvalInstanceId], references: [id])
+  paper               AchvPaper?
+  ipAsset             IpAsset?
+  contributors        AchvContributor[]
+
+  @@index([achievementType, statusCode])
+  @@index([projectId])
+  @@index([applicantUserId, statusCode])
+  @@map("achv_achievement")
+}
+
+model AchvPaper {
+  id                  BigInt          @id @default(autoincrement()) @db.UnsignedBigInt
+  achievementId       BigInt          @unique @map("achievement_id") @db.UnsignedBigInt
+  journalName         String?         @map("journal_name") @db.VarChar(255)
+  publishDate         DateTime?       @map("publish_date") @db.Date
+  doi                 String?         @db.VarChar(128)
+  indexedBy           String?         @map("indexed_by") @db.VarChar(64)
+  authorOrder         String?         @map("author_order") @db.VarChar(32)
+  correspondingAuthor String?         @map("corresponding_author") @db.VarChar(128)
+  createdAt           DateTime        @default(now()) @map("created_at")
+  updatedAt           DateTime        @updatedAt @map("updated_at")
+  achievement         AchvAchievement @relation(fields: [achievementId], references: [id])
+
+  @@map("achv_paper")
+}
+
+model IpAsset {
+  id             BigInt          @id @default(autoincrement()) @db.UnsignedBigInt
+  achievementId  BigInt          @unique @map("achievement_id") @db.UnsignedBigInt
+  assetType      String          @default("SOFTWARE_COPYRIGHT") @map("asset_type") @db.VarChar(32)
+  certificateNo  String?         @map("certificate_no") @db.VarChar(128)
+  registrationNo String?         @map("registration_no") @db.VarChar(128)
+  authorizedDate DateTime?       @map("authorized_date") @db.Date
+  ownerUnit      String?         @map("owner_unit") @db.VarChar(128)
+  remarks        String?         @db.VarChar(1000)
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+  achievement    AchvAchievement @relation(fields: [achievementId], references: [id])
+
+  @@map("ip_asset")
+}
+
+model AchvContributor {
+  id                      BigInt          @id @default(autoincrement()) @db.UnsignedBigInt
+  achievementId           BigInt          @map("achievement_id") @db.UnsignedBigInt
+  userId                  BigInt?         @map("user_id") @db.UnsignedBigInt
+  contributorName         String          @map("contributor_name") @db.VarChar(128)
+  contributorRole         String          @map("contributor_role") @db.VarChar(32)
+  contributionRank        Int             @map("contribution_rank")
+  isInternal              Boolean         @default(true) @map("is_internal")
+  contributionDescription String?         @map("contribution_description") @db.VarChar(500)
+  createdAt               DateTime        @default(now()) @map("created_at")
+  achievement             AchvAchievement @relation(fields: [achievementId], references: [id])
+  user                    SysUser?        @relation("AchievementContributorUser", fields: [userId], references: [id])
+
+  @@index([achievementId, contributionRank])
+  @@index([userId])
+  @@map("achv_contributor")
 }

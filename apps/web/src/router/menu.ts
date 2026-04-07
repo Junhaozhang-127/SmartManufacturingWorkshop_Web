@@ -51,6 +51,20 @@ export const adminMenu: AppMenuItem[] = [
     permissions: [PermissionCodes.memberListView],
   },
   {
+    key: 'competition-library',
+    label: '赛事库与报名',
+    path: '/competitions/library',
+    icon: 'Trophy',
+    permissions: [PermissionCodes.competitionView],
+  },
+  {
+    key: 'achievement-list',
+    label: '成果列表',
+    path: '/achievements',
+    icon: 'Medal',
+    permissions: [PermissionCodes.achievementView],
+  },
+  {
     key: 'approval-center',
     label: '统一审批中心',
     path: '/workflow/approval-center',

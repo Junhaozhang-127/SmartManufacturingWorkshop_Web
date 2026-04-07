@@ -1,7 +1,9 @@
 import bcrypt from 'bcryptjs';
 import { PrismaClient } from '@prisma/client';
 import {
+  AchievementType,
   ApprovalBusinessType,
+  CompetitionRegistrationStatus,
   DataScope,
   MemberGrowthRecordType,
   MemberStatus,
@@ -341,6 +343,244 @@ async function main() {
       },
     });
   }
+
+  const competitionTemplate = await prisma.wfApprovalTemplate.upsert({
+    where: { businessType: ApprovalBusinessType.COMPETITION_REGISTRATION },
+    update: {
+      templateCode: 'COMPETITION_REGISTRATION_FLOW',
+      templateName: '赛事报名流程',
+      statusCode: 'ACTIVE',
+    },
+    create: {
+      templateCode: 'COMPETITION_REGISTRATION_FLOW',
+      templateName: '赛事报名流程',
+      businessType: ApprovalBusinessType.COMPETITION_REGISTRATION,
+      statusCode: 'ACTIVE',
+    },
+  });
+
+  for (const node of demoNodes) {
+    await prisma.wfApprovalTemplateNode.upsert({
+      where: {
+        templateId_nodeKey: {
+          templateId: competitionTemplate.id,
+          nodeKey: node.nodeKey,
+        },
+      },
+      update: node,
+      create: {
+        templateId: competitionTemplate.id,
+        ...node,
+      },
+    });
+  }
+
+  const achievementTemplate = await prisma.wfApprovalTemplate.upsert({
+    where: { businessType: ApprovalBusinessType.ACHIEVEMENT_RECOGNITION },
+    update: {
+      templateCode: 'ACHIEVEMENT_RECOGNITION_FLOW',
+      templateName: '成果认定流程',
+      statusCode: 'ACTIVE',
+    },
+    create: {
+      templateCode: 'ACHIEVEMENT_RECOGNITION_FLOW',
+      templateName: '成果认定流程',
+      businessType: ApprovalBusinessType.ACHIEVEMENT_RECOGNITION,
+      statusCode: 'ACTIVE',
+    },
+  });
+
+  const achievementNodes = [
+    { nodeKey: 'GROUP_LEADER_REVIEW', nodeName: '组长初审', sortNo: 1, approverRoleCode: RoleCode.GROUP_LEADER },
+    { nodeKey: 'MINISTER_REVIEW', nodeName: '部长认定', sortNo: 2, approverRoleCode: RoleCode.MINISTER },
+  ];
+
+  for (const node of achievementNodes) {
+    await prisma.wfApprovalTemplateNode.upsert({
+      where: {
+        templateId_nodeKey: {
+          templateId: achievementTemplate.id,
+          nodeKey: node.nodeKey,
+        },
+      },
+      update: node,
+      create: {
+        templateId: achievementTemplate.id,
+        ...node,
+      },
+    });
+  }
+
+  const hackathon = await prisma.compCompetition.upsert({
+    where: { competitionCode: 'COMP-2026-SMW-HACK' },
+    update: {
+      name: '智能制造创新赛',
+      organizer: '校创新中心',
+      competitionLevel: 'SCHOOL',
+      competitionCategory: '创新创业',
+      statusCode: 'OPEN',
+      registrationStartDate: new Date('2026-04-01'),
+      registrationEndDate: new Date('2026-04-20'),
+      eventStartDate: new Date('2026-05-01'),
+      eventEndDate: new Date('2026-05-10'),
+      description: '面向实验室成员的校级创新赛',
+      createdBy: minister.id,
+    },
+    create: {
+      competitionCode: 'COMP-2026-SMW-HACK',
+      name: '智能制造创新赛',
+      organizer: '校创新中心',
+      competitionLevel: 'SCHOOL',
+      competitionCategory: '创新创业',
+      statusCode: 'OPEN',
+      registrationStartDate: new Date('2026-04-01'),
+      registrationEndDate: new Date('2026-04-20'),
+      eventStartDate: new Date('2026-05-01'),
+      eventEndDate: new Date('2026-05-10'),
+      description: '面向实验室成员的校级创新赛',
+      createdBy: minister.id,
+    },
+  });
+
+  const existingTeam = await prisma.compTeam.findFirst({
+    where: {
+      competitionId: hackathon.id,
+      teamName: '智造先锋队',
+      isDeleted: false,
+    },
+  });
+
+  const teamPayload = {
+    competitionId: hackathon.id,
+    teamName: '智造先锋队',
+    teamLeaderUserId: groupLeader.id,
+    advisorUserId: teacher.id,
+    memberUserIds: `,${groupLeader.id},${member.id},${intern.id},`,
+    memberNames: '钱组长、张成员、林实习',
+    projectId: 'PRJ-COMP-001',
+    projectName: '产线质量预警看板',
+    applicationReason: '围绕产线预警与可视化建设参赛',
+    statusCode: CompetitionRegistrationStatus.APPROVED,
+    latestResult: '历史演示队伍',
+    createdBy: groupLeader.id,
+  };
+
+  const demoTeam = existingTeam
+    ? await prisma.compTeam.update({
+        where: { id: existingTeam.id },
+        data: teamPayload,
+      })
+    : await prisma.compTeam.create({
+        data: teamPayload,
+      });
+
+  const existingAchievement = await prisma.achvAchievement.findFirst({
+    where: {
+      title: '基于视觉检测的产线缺陷识别方法',
+      applicantUserId: member.id,
+      isDeleted: false,
+    },
+  });
+
+  if (existingAchievement) {
+    await prisma.achvContributor.deleteMany({
+      where: { achievementId: existingAchievement.id },
+    });
+    await prisma.achvPaper.deleteMany({
+      where: { achievementId: existingAchievement.id },
+    });
+    await prisma.ipAsset.deleteMany({
+      where: { achievementId: existingAchievement.id },
+    });
+  }
+
+  const achievement = existingAchievement
+    ? await prisma.achvAchievement.update({
+        where: { id: existingAchievement.id },
+        data: {
+          achievementType: AchievementType.PAPER,
+          title: '基于视觉检测的产线缺陷识别方法',
+          levelCode: 'PROVINCIAL',
+          statusCode: 'DRAFT',
+          recognizedGrade: 'PENDING_RULE_CONFIG',
+          scoreMapping: {
+            configured: false,
+            ruleKey: 'PAPER:PROVINCIAL',
+            score: null,
+            message: 'seed placeholder',
+          },
+          projectId: 'PRJ-ACH-001',
+          projectName: '缺陷检测算法研究',
+          applicantUserId: member.id,
+          createdBy: member.id,
+          sourceCompetitionId: hackathon.id,
+          sourceTeamId: demoTeam.id,
+          description: 'P0 种子数据：论文成果草稿',
+        },
+      })
+    : await prisma.achvAchievement.create({
+        data: {
+          achievementType: AchievementType.PAPER,
+          title: '基于视觉检测的产线缺陷识别方法',
+          levelCode: 'PROVINCIAL',
+          statusCode: 'DRAFT',
+          recognizedGrade: 'PENDING_RULE_CONFIG',
+          scoreMapping: {
+            configured: false,
+            ruleKey: 'PAPER:PROVINCIAL',
+            score: null,
+            message: 'seed placeholder',
+          },
+          projectId: 'PRJ-ACH-001',
+          projectName: '缺陷检测算法研究',
+          applicantUserId: member.id,
+          createdBy: member.id,
+          sourceCompetitionId: hackathon.id,
+          sourceTeamId: demoTeam.id,
+          description: 'P0 种子数据：论文成果草稿',
+        },
+      });
+
+  await prisma.achvContributor.createMany({
+    data: [
+      {
+        achievementId: achievement.id,
+        userId: member.id,
+        contributorName: member.displayName,
+        contributorRole: 'AUTHOR',
+        contributionRank: 1,
+        isInternal: true,
+      },
+      {
+        achievementId: achievement.id,
+        userId: teacher.id,
+        contributorName: teacher.displayName,
+        contributorRole: 'ADVISOR',
+        contributionRank: 2,
+        isInternal: true,
+      },
+    ],
+  });
+
+  await prisma.achvPaper.create({
+    data: {
+      achievementId: achievement.id,
+      journalName: '智能制造技术',
+      publishDate: new Date('2026-03-15'),
+      indexedBy: 'CNKI',
+      authorOrder: '1/2',
+    },
+  });
+
+  await prisma.achvAchievement.deleteMany({
+    where: {
+      id: {
+        not: achievement.id,
+      },
+      statusCode: 'DRAFT',
+      title: '基于视觉检测的产线缺陷识别方法',
+    },
+  });
 
   await prisma.memberRegularization.deleteMany({
     where: {
