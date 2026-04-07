@@ -9,6 +9,7 @@ import {
   ConsumableStatus,
   CompetitionRegistrationStatus,
   DataScope,
+  DictionaryKeys,
   DeviceRepairSeverity,
   DeviceRepairStatus,
   DeviceStatus,
@@ -188,6 +189,133 @@ async function main() {
       create: {
         userId: relation.userId,
         roleId: roleMap.get(relation.roleCode)!,
+      },
+    });
+  }
+
+  const dictionaryTypes = [
+    { dictCode: DictionaryKeys.achievementLevel, dictName: '成果级别', description: '成果与竞赛等基础级别字典' },
+    { dictCode: DictionaryKeys.achievementGrade, dictName: '成果认定等级', description: '成果认定等级配置' },
+    { dictCode: DictionaryKeys.approvalNodeRole, dictName: '审批节点角色', description: '审批节点可配置角色' },
+    { dictCode: DictionaryKeys.notificationCategory, dictName: '通知分类', description: '系统通知消息分类' },
+  ];
+
+  for (const item of dictionaryTypes) {
+    await prisma.sysDictType.upsert({
+      where: { dictCode: item.dictCode },
+      update: {
+        dictName: item.dictName,
+        description: item.description,
+        statusCode: 'ACTIVE',
+        systemFlag: true,
+      },
+      create: {
+        dictCode: item.dictCode,
+        dictName: item.dictName,
+        description: item.description,
+        statusCode: 'ACTIVE',
+        systemFlag: true,
+      },
+    });
+  }
+
+  const dictTypeMap = new Map(
+    (await prisma.sysDictType.findMany({
+      where: { dictCode: { in: dictionaryTypes.map((item) => item.dictCode) } },
+    })).map((item) => [item.dictCode, item.id]),
+  );
+
+  const dictionaryItems = [
+    { dictCode: DictionaryKeys.achievementLevel, itemCode: 'SCHOOL', itemLabel: '校级', itemValue: 'SCHOOL', sortNo: 10 },
+    { dictCode: DictionaryKeys.achievementLevel, itemCode: 'PROVINCIAL', itemLabel: '省级', itemValue: 'PROVINCIAL', sortNo: 20 },
+    { dictCode: DictionaryKeys.achievementLevel, itemCode: 'NATIONAL', itemLabel: '国家级', itemValue: 'NATIONAL', sortNo: 30 },
+    { dictCode: DictionaryKeys.achievementGrade, itemCode: 'A', itemLabel: 'A 等', itemValue: 'A', sortNo: 10 },
+    { dictCode: DictionaryKeys.achievementGrade, itemCode: 'B', itemLabel: 'B 等', itemValue: 'B', sortNo: 20 },
+    { dictCode: DictionaryKeys.achievementGrade, itemCode: 'C', itemLabel: 'C 等', itemValue: 'C', sortNo: 30 },
+    { dictCode: DictionaryKeys.approvalNodeRole, itemCode: RoleCode.GROUP_LEADER, itemLabel: '组长', itemValue: RoleCode.GROUP_LEADER, sortNo: 10 },
+    { dictCode: DictionaryKeys.approvalNodeRole, itemCode: RoleCode.MINISTER, itemLabel: '部长', itemValue: RoleCode.MINISTER, sortNo: 20 },
+    { dictCode: DictionaryKeys.approvalNodeRole, itemCode: RoleCode.LAB_LEADER, itemLabel: '实验室负责人', itemValue: RoleCode.LAB_LEADER, sortNo: 30 },
+    { dictCode: DictionaryKeys.notificationCategory, itemCode: 'APPROVAL', itemLabel: '审批消息', itemValue: 'APPROVAL', sortNo: 10 },
+    { dictCode: DictionaryKeys.notificationCategory, itemCode: 'QUALIFICATION', itemLabel: '资格提醒', itemValue: 'QUALIFICATION', sortNo: 20 },
+    { dictCode: DictionaryKeys.notificationCategory, itemCode: 'SYSTEM', itemLabel: '系统公告', itemValue: 'SYSTEM', sortNo: 30 },
+  ];
+
+  for (const item of dictionaryItems) {
+    const dictTypeId = dictTypeMap.get(item.dictCode);
+    if (!dictTypeId) continue;
+
+    await prisma.sysDictItem.upsert({
+      where: {
+        dictTypeId_itemCode: {
+          dictTypeId,
+          itemCode: item.itemCode,
+        },
+      },
+      update: {
+        itemLabel: item.itemLabel,
+        itemValue: item.itemValue,
+        sortNo: item.sortNo,
+        statusCode: 'ACTIVE',
+      },
+      create: {
+        dictTypeId,
+        itemCode: item.itemCode,
+        itemLabel: item.itemLabel,
+        itemValue: item.itemValue,
+        sortNo: item.sortNo,
+        statusCode: 'ACTIVE',
+      },
+    });
+  }
+
+  const configItems = [
+    {
+      configCategory: 'APPROVAL',
+      configKey: 'APPROVAL_SLA_HOURS',
+      configName: '审批超时阈值（小时）',
+      configValue: '48',
+      valueType: 'NUMBER',
+      remark: '用于首页和消息提醒的超时提示阈值',
+    },
+    {
+      configCategory: 'DASHBOARD',
+      configKey: 'DASHBOARD_RECENT_LIMIT',
+      configName: '首页最近记录条数',
+      configValue: '5',
+      valueType: 'NUMBER',
+      remark: '首页待办、消息、我的申请统一取前 5 条',
+    },
+    {
+      configCategory: 'PROMOTION',
+      configKey: 'PROMOTION_NOTICE_DAYS',
+      configName: '晋升公示默认天数',
+      configValue: '5',
+      valueType: 'NUMBER',
+      remark: '用于晋升基础配置展示',
+    },
+  ];
+
+  for (const item of configItems) {
+    await prisma.sysConfigItem.upsert({
+      where: { configKey: item.configKey },
+      update: {
+        configCategory: item.configCategory,
+        configName: item.configName,
+        configValue: item.configValue,
+        valueType: item.valueType,
+        statusCode: 'ACTIVE',
+        remark: item.remark,
+        editable: true,
+      },
+      create: {
+        configCategory: item.configCategory,
+        configKey: item.configKey,
+        configName: item.configName,
+        configValue: item.configValue,
+        valueType: item.valueType,
+        statusCode: 'ACTIVE',
+        remark: item.remark,
+        editable: true,
       },
     });
   }
@@ -1315,6 +1443,79 @@ async function main() {
       memberProfileId: internProfile.id,
       statusCode: RegularizationStatus.DRAFT,
     },
+  });
+
+  await prisma.sysNotification.deleteMany({
+    where: {
+      userId: {
+        in: [teacher.id, leader.id, minister.id, groupLeader.id, member.id, intern.id],
+      },
+      categoryCode: {
+        in: ['SYSTEM', 'QUALIFICATION', 'APPROVAL'],
+      },
+    },
+  });
+
+  await prisma.sysNotification.createMany({
+    data: [
+      {
+        userId: member.id,
+        title: '成果认定完成',
+        content: '“基于视觉检测的产线缺陷识别方法” 已完成认定，请前往成果列表查看。',
+        categoryCode: 'SYSTEM',
+        levelCode: 'INFO',
+        businessType: ApprovalBusinessType.ACHIEVEMENT_RECOGNITION,
+        businessId: String(achievement.id),
+        routePath: '/achievements',
+        routeQuery: { focus: String(achievement.id) } as never,
+        createdBy: minister.id,
+      },
+      {
+        userId: member.id,
+        title: '晋升资格提醒',
+        content: '当前季度考核结果已满足成员晋升申请基础条件，可前往资格看板查看。',
+        categoryCode: 'QUALIFICATION',
+        levelCode: 'WARNING',
+        businessType: ApprovalBusinessType.PROMOTION_REQUEST,
+        businessId: String(memberProfile.id),
+        routePath: '/promotion/eligibility',
+        routeQuery: { focus: String(memberProfile.id) } as never,
+        createdBy: groupLeader.id,
+      },
+      {
+        userId: groupLeader.id,
+        title: '库存预警提示',
+        content: '防静电手套库存已低于阈值，请尽快处理补货或申领控制。',
+        categoryCode: 'SYSTEM',
+        levelCode: 'WARNING',
+        businessType: ApprovalBusinessType.CONSUMABLE_REQUEST,
+        businessId: String(gloves.id),
+        routePath: '/inventory/ledger',
+        routeQuery: { focus: String(gloves.id) } as never,
+        createdBy: leader.id,
+      },
+      {
+        userId: minister.id,
+        title: '经费申请待跟进',
+        content: 'PLC 工位维修费用已审批通过，当前待支付，请在经费申请页跟进。',
+        categoryCode: 'APPROVAL',
+        levelCode: 'INFO',
+        businessType: ApprovalBusinessType.FUND_REQUEST,
+        businessId: 'FUND-20260407-001',
+        routePath: '/funds/applications',
+        routeQuery: { focus: 'FUND-20260407-001' } as never,
+        createdBy: member.id,
+      },
+      {
+        userId: intern.id,
+        title: '个人中心已开放',
+        content: '请完善个人资料并修改初始密码，后续可从个人中心查看我的申请与消息。',
+        categoryCode: 'SYSTEM',
+        levelCode: 'INFO',
+        routePath: '/profile',
+        createdBy: leader.id,
+      },
+    ],
   });
 }
 

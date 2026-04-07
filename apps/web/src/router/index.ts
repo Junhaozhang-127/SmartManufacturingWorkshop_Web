@@ -56,6 +56,26 @@ const routes: RouteRecordRaw[] = [
         },
       },
       {
+        path: 'profile',
+        name: 'profile.index',
+        component: () => import('@web/views/PersonalCenterPage.vue'),
+        meta: {
+          title: '个人中心',
+          breadcrumb: ['个人中心'],
+          permissions: [PermissionCodes.profileView],
+        },
+      },
+      {
+        path: 'notifications',
+        name: 'notifications.index',
+        component: () => import('@web/views/NotificationPage.vue'),
+        meta: {
+          title: '通知消息',
+          breadcrumb: ['通知消息'],
+          permissions: [PermissionCodes.notificationView],
+        },
+      },
+      {
         path: 'org/overview',
         name: 'org.overview',
         component: () => import('@web/views/OrgOverviewPage.vue'),
@@ -283,6 +303,16 @@ const routes: RouteRecordRaw[] = [
           title: '系统健康',
           breadcrumb: ['系统基础', '系统健康'],
           permissions: [PermissionCodes.systemHealthView],
+        },
+      },
+      {
+        path: 'system/configuration',
+        name: 'system.configuration',
+        component: () => import('@web/views/SystemConfigPage.vue'),
+        meta: {
+          title: '字典与基础配置',
+          breadcrumb: ['系统基础', '字典与基础配置'],
+          permissions: [PermissionCodes.systemConfigView],
         },
       },
       {

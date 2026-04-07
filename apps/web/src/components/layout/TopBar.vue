@@ -1,13 +1,15 @@
 <script setup lang="ts">
+import { fetchNotifications } from '@web/api/system';
 import { useAuthStore } from '@web/stores/auth';
 import { ElMessage } from 'element-plus';
-import { ref, watch } from 'vue';
+import { onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 
 const authStore = useAuthStore();
 const router = useRouter();
 const switchingRole = ref(false);
 const selectedRoleCode = ref(authStore.activeRoleCode);
+const unreadCount = ref(0);
 
 watch(
   () => authStore.activeRoleCode,
@@ -40,10 +42,31 @@ async function goChangePassword() {
   await router.push('/change-password');
 }
 
+async function goProfile() {
+  await router.push('/profile');
+}
+
+async function goNotifications() {
+  await router.push('/notifications');
+}
+
 async function logout() {
   authStore.logout();
   await router.push('/login');
 }
+
+async function loadUnreadCount() {
+  try {
+    const response = await fetchNotifications({ page: 1, pageSize: 1, readStatus: 'UNREAD' });
+    unreadCount.value = response.data.meta.unreadCount;
+  } catch {
+    unreadCount.value = 0;
+  }
+}
+
+onMounted(() => {
+  void loadUnreadCount();
+});
 </script>
 
 <template>
@@ -70,6 +93,10 @@ async function logout() {
         <strong>{{ authStore.displayName }}</strong>
         <span>{{ authStore.orgProfile?.orgUnitName || '未绑定组织' }}</span>
       </div>
+      <el-badge :hidden="!unreadCount" :value="unreadCount" class="topbar__badge">
+        <el-button plain @click="goNotifications">通知消息</el-button>
+      </el-badge>
+      <el-button plain @click="goProfile">个人中心</el-button>
       <el-button plain @click="goChangePassword">修改密码</el-button>
       <el-button type="primary" plain @click="logout">退出登录</el-button>
     </div>

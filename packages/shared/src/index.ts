@@ -12,5 +12,6 @@ export * from './contracts/inventory';
 export * from './contracts/member';
 export * from './contracts/navigation';
 export * from './contracts/promotion';
+export * from './contracts/system';
 export * from './dto/pagination';
 export * from './response/api-response';

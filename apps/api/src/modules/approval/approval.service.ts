@@ -304,6 +304,13 @@ export class ApprovalService {
           },
         });
 
+        await this.notifyRoleUsers(tx, nextNode.approverRoleCode, {
+          title: `待审批：${updated.title}`,
+          content: `审批流已进入 ${nextNode.nodeName}，请及时处理。`,
+          businessType: updated.businessType,
+          businessId: updated.businessId,
+          createdBy: this.toBigInt(currentUser.id),
+        });
         await this.syncBusinessStatus(tx, instance.businessType, instance.businessId, ApprovalStatus.PENDING, currentUser);
         return this.mapApprovalInstance(updated);
       }
@@ -337,6 +344,14 @@ export class ApprovalService {
       });
       await this.syncBusinessReviewFields(tx, instance.businessType, instance.businessId, instance.currentNodeKey, payload.comment);
 
+      await this.createNotification(tx, {
+        userId: updated.applicantUserId,
+        title: `审批通过：${updated.title}`,
+        content: '您的申请已审批通过。',
+        businessType: updated.businessType,
+        businessId: updated.businessId,
+        createdBy: this.toBigInt(currentUser.id),
+      });
       await this.syncBusinessStatus(tx, instance.businessType, instance.businessId, ApprovalStatus.APPROVED, currentUser);
       return this.mapApprovalInstance(updated);
     });
@@ -380,6 +395,14 @@ export class ApprovalService {
       });
       await this.syncBusinessReviewFields(tx, instance.businessType, instance.businessId, instance.currentNodeKey, comment);
 
+      await this.createNotification(tx, {
+        userId: updated.applicantUserId,
+        title: `审批驳回：${updated.title}`,
+        content: `您的申请被驳回${comment ? `：${comment}` : '。'}`,
+        businessType: updated.businessType,
+        businessId: updated.businessId,
+        createdBy: this.toBigInt(currentUser.id),
+      });
       await this.syncBusinessStatus(tx, instance.businessType, instance.businessId, ApprovalStatus.REJECTED, currentUser);
       return this.mapApprovalInstance(updated);
     });
@@ -441,6 +464,14 @@ export class ApprovalService {
         comment: payload.comment,
       });
 
+      await this.createNotification(tx, {
+        userId: targetUser.id,
+        title: `审批转交：${updated.title}`,
+        content: `${currentUser.displayName} 已将审批转交给您处理。`,
+        businessType: updated.businessType,
+        businessId: updated.businessId,
+        createdBy: this.toBigInt(currentUser.id),
+      });
       return this.mapApprovalInstance(updated);
     });
   }
@@ -528,6 +559,14 @@ export class ApprovalService {
         comment: payload.comment,
       });
 
+      await this.createNotification(tx, {
+        userId: updated.applicantUserId,
+        title: `申请已撤回：${updated.title}`,
+        content: '您发起的申请已撤回。',
+        businessType: updated.businessType,
+        businessId: updated.businessId,
+        createdBy: this.toBigInt(currentUser.id),
+      });
       await this.syncBusinessStatus(tx, instance.businessType, instance.businessId, ApprovalStatus.WITHDRAWN, currentUser);
       return this.mapApprovalInstance(updated);
     });
@@ -784,6 +823,21 @@ export class ApprovalService {
       },
     });
 
+    await this.notifyRoleUsers(tx, firstNode.approverRoleCode, {
+      title: `待审批：${instance.title}`,
+      content: `收到新的审批申请，当前节点为 ${firstNode.nodeName}。`,
+      businessType: instance.businessType,
+      businessId: instance.businessId,
+      createdBy: payload.applicantUserId,
+    });
+    await this.createNotification(tx, {
+      userId: payload.applicantUserId,
+      title: `申请已提交：${instance.title}`,
+      content: '您的申请已进入审批中心，可在“我的申请”中查看进度。',
+      businessType: instance.businessType,
+      businessId: instance.businessId,
+      createdBy: payload.applicantUserId,
+    });
     return instance;
   }
 
@@ -969,6 +1023,96 @@ export class ApprovalService {
         extraData: payload.extraData as Prisma.InputJsonValue | undefined,
       },
     });
+  }
+
+  private async notifyRoleUsers(
+    tx: Prisma.TransactionClient,
+    roleCode: string,
+    payload: {
+      title: string;
+      content: string;
+      businessType: string;
+      businessId: string;
+      createdBy?: bigint;
+    },
+  ) {
+    const users = await tx.sysUser.findMany({
+      where: {
+        isDeleted: false,
+        statusCode: 'ACTIVE',
+        userRoles: {
+          some: {
+            role: {
+              roleCode,
+            },
+          },
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    for (const user of users) {
+      await this.createNotification(tx, {
+        userId: user.id,
+        title: payload.title,
+        content: payload.content,
+        businessType: payload.businessType,
+        businessId: payload.businessId,
+        createdBy: payload.createdBy,
+      });
+    }
+  }
+
+  private async createNotification(
+    tx: Prisma.TransactionClient,
+    payload: {
+      userId: bigint;
+      title: string;
+      content: string;
+      businessType: string;
+      businessId: string;
+      createdBy?: bigint;
+    },
+  ) {
+    const route = this.resolveBusinessRoute(payload.businessType, payload.businessId);
+    await tx.sysNotification.create({
+      data: {
+        userId: payload.userId,
+        title: payload.title,
+        content: payload.content,
+        categoryCode: 'APPROVAL',
+        levelCode: 'INFO',
+        businessType: payload.businessType,
+        businessId: payload.businessId,
+        routePath: route.routePath,
+        routeQuery: route.routeQuery as Prisma.InputJsonValue | undefined,
+        createdBy: payload.createdBy ?? null,
+      },
+    });
+  }
+
+  private resolveBusinessRoute(businessType: string, businessId: string) {
+    switch (businessType as ApprovalBusinessType) {
+      case ApprovalBusinessType.MEMBER_REGULARIZATION:
+        return { routePath: '/members/regularization', routeQuery: { focus: businessId } };
+      case ApprovalBusinessType.REPAIR_ORDER:
+        return { routePath: '/devices/repairs', routeQuery: { focus: businessId } };
+      case ApprovalBusinessType.CONSUMABLE_REQUEST:
+        return { routePath: '/inventory/requests', routeQuery: { focus: businessId } };
+      case ApprovalBusinessType.FUND_REQUEST:
+        return { routePath: '/funds/applications', routeQuery: { focus: businessId } };
+      case ApprovalBusinessType.PROMOTION_REQUEST:
+        return { routePath: '/promotion/applications', routeQuery: { focus: businessId } };
+      case ApprovalBusinessType.COMPETITION_REGISTRATION:
+        return { routePath: '/competitions/library', routeQuery: { focus: businessId } };
+      case ApprovalBusinessType.ACHIEVEMENT_RECOGNITION:
+        return { routePath: '/achievements', routeQuery: { focus: businessId } };
+      case ApprovalBusinessType.DEMO_REQUEST:
+      default:
+        return { routePath: '/workflow/approval-center', routeQuery: { focus: businessId } };
+    }
   }
 
   private async syncBusinessReviewFields(

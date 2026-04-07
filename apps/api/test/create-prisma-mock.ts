@@ -7,6 +7,26 @@ export function createPrismaMock() {
       findMany: jest.fn(),
       update: jest.fn(),
     },
+    sysNotification: {
+      create: jest.fn(),
+      findMany: jest.fn(),
+      findFirst: jest.fn(),
+      update: jest.fn(),
+      updateMany: jest.fn(),
+      count: jest.fn(),
+    },
+    sysDictType: {
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
+      upsert: jest.fn(),
+    },
+    sysDictItem: {
+      upsert: jest.fn(),
+    },
+    sysConfigItem: {
+      findMany: jest.fn(),
+      upsert: jest.fn(),
+    },
     orgUnit: {
       findMany: jest.fn(),
     },

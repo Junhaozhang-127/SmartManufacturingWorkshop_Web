@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { DocumentAdd, Finished, House, List, Monitor } from '@element-plus/icons-vue';
+import { Bell, DocumentAdd, Finished, House, List, Monitor, Setting, UserFilled } from '@element-plus/icons-vue';
 import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
@@ -14,11 +14,14 @@ const route = useRoute();
 const router = useRouter();
 
 const iconMap = {
+  Bell,
   House,
   Monitor,
   List,
   Finished,
   DocumentAdd,
+  Setting,
+  UserFilled,
 };
 
 const menuItems = computed(() =>

@@ -13,7 +13,9 @@ import {
 } from '@web/api/approval';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
 
+const route = useRoute();
 const loading = ref(false);
 const detailLoading = ref(false);
 const submitting = ref(false);
@@ -152,6 +154,21 @@ watch(
 );
 
 onMounted(load);
+
+watch(
+  () => [route.query.focus, rows.value.length] as const,
+  async ([focus]) => {
+    if (!focus || !rows.value.length) {
+      return;
+    }
+
+    const target = rows.value.find((item) => item.id === String(focus));
+    if (target) {
+      await openDetail(target);
+    }
+  },
+  { immediate: true },
+);
 </script>
 
 <template>

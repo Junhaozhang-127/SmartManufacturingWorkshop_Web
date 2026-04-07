@@ -14,6 +14,7 @@ import { HealthModule } from './health/health.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { MemberModule } from './member/member.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { SystemModule } from './system/system.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { PrismaModule } from './prisma/prisma.module';
     EvaluationPromotionModule,
     DeviceModule,
     ApprovalModule,
+    SystemModule,
   ],
 })
 export class AppModule {}

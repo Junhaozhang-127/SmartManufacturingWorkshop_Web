@@ -228,6 +228,16 @@ export class AccessControlService {
       label: '统一审批中心',
       path: '/workflow/approval-center',
     };
+    const profileEntry = {
+      code: MenuCode.PROFILE,
+      label: '个人中心',
+      path: '/profile',
+    };
+    const notificationEntry = {
+      code: MenuCode.NOTIFICATIONS,
+      label: '通知消息',
+      path: '/notifications',
+    };
     const demoEntry = {
       code: MenuCode.APPROVAL_DEMO,
       label: '测试审批单',
@@ -241,8 +251,11 @@ export class AccessControlService {
           todoCount: 9,
           shortcutEntries: [
             { code: MenuCode.DASHBOARD, label: '系统驾驶舱', path: '/' },
+            profileEntry,
+            notificationEntry,
             approvalEntry,
             demoEntry,
+            { code: MenuCode.SYSTEM_CONFIG, label: '系统配置', path: '/system/configuration' },
             { code: MenuCode.MEMBER_EXAMPLES, label: '成员示例列表', path: '/system/examples' },
             { code: MenuCode.HEALTH, label: '系统健康检查', path: '/system/health' },
           ],
@@ -253,6 +266,8 @@ export class AccessControlService {
           todoCount: 5,
           shortcutEntries: [
             { code: MenuCode.DASHBOARD, label: '角色驾驶舱', path: '/' },
+            profileEntry,
+            notificationEntry,
             approvalEntry,
             demoEntry,
             { code: MenuCode.MEMBER_EXAMPLES, label: '成员示例列表', path: '/system/examples' },
@@ -263,6 +278,8 @@ export class AccessControlService {
           todoCount: 2,
           shortcutEntries: [
             { code: MenuCode.DASHBOARD, label: '个人驾驶舱', path: '/' },
+            profileEntry,
+            notificationEntry,
             approvalEntry,
             demoEntry,
           ],

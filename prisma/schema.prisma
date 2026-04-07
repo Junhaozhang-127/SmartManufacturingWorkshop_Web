@@ -51,6 +51,7 @@ model SysUser {
   consumableRequests        InvConsumableRequest[] @relation("ConsumableRequestApplicant")
   managedFundAccounts       FundAccount[]        @relation("FundAccountManager")
   fundApplications          FundApplication[]    @relation("FundApplicationApplicant")
+  notifications             SysNotification[]
 
   @@map("sys_user")
 }
@@ -82,6 +83,79 @@ model SysUserRole {
 
   @@unique([userId, roleId])
   @@map("sys_user_role")
+}
+
+model SysNotification {
+  id           BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  userId       BigInt    @map("user_id") @db.UnsignedBigInt
+  title        String    @db.VarChar(128)
+  content      String    @db.VarChar(1000)
+  categoryCode String    @default("GENERAL") @map("category_code") @db.VarChar(32)
+  levelCode    String    @default("INFO") @map("level_code") @db.VarChar(16)
+  businessType String?   @map("business_type") @db.VarChar(64)
+  businessId   String?   @map("business_id") @db.VarChar(64)
+  routePath    String?   @map("route_path") @db.VarChar(255)
+  routeQuery   Json?     @map("route_query")
+  readAt       DateTime? @map("read_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  createdBy    BigInt?   @map("created_by") @db.UnsignedBigInt
+  isDeleted    Boolean   @default(false) @map("is_deleted")
+  user         SysUser   @relation(fields: [userId], references: [id])
+
+  @@index([userId, readAt, createdAt])
+  @@index([businessType, businessId])
+  @@map("sys_notification")
+}
+
+model SysDictType {
+  id          BigInt        @id @default(autoincrement()) @db.UnsignedBigInt
+  dictCode    String        @unique @map("dict_code") @db.VarChar(64)
+  dictName    String        @map("dict_name") @db.VarChar(128)
+  description String?       @db.VarChar(255)
+  statusCode  String        @default("ACTIVE") @map("status_code") @db.VarChar(20)
+  systemFlag  Boolean       @default(false) @map("system_flag")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+  items       SysDictItem[]
+
+  @@map("sys_dict_type")
+}
+
+model SysDictItem {
+  id         BigInt      @id @default(autoincrement()) @db.UnsignedBigInt
+  dictTypeId BigInt      @map("dict_type_id") @db.UnsignedBigInt
+  itemCode   String      @map("item_code") @db.VarChar(64)
+  itemLabel  String      @map("item_label") @db.VarChar(128)
+  itemValue  String      @map("item_value") @db.VarChar(128)
+  sortNo     Int         @default(0) @map("sort_no")
+  statusCode String      @default("ACTIVE") @map("status_code") @db.VarChar(20)
+  extData    Json?       @map("ext_data")
+  createdAt  DateTime    @default(now()) @map("created_at")
+  updatedAt  DateTime    @updatedAt @map("updated_at")
+  dictType   SysDictType @relation(fields: [dictTypeId], references: [id])
+
+  @@unique([dictTypeId, itemCode])
+  @@unique([dictTypeId, itemValue])
+  @@index([dictTypeId, sortNo])
+  @@map("sys_dict_item")
+}
+
+model SysConfigItem {
+  id             BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  configCategory String   @map("config_category") @db.VarChar(64)
+  configKey      String   @unique @map("config_key") @db.VarChar(64)
+  configName     String   @map("config_name") @db.VarChar(128)
+  configValue    String   @map("config_value") @db.Text
+  valueType      String   @default("TEXT") @map("value_type") @db.VarChar(32)
+  statusCode     String   @default("ACTIVE") @map("status_code") @db.VarChar(20)
+  remark         String?  @db.VarChar(500)
+  editable       Boolean  @default(true)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@index([configCategory, statusCode])
+  @@map("sys_config_item")
 }
 
 model OrgUnit {

@@ -16,6 +16,13 @@ export const adminMenu: AppMenuItem[] = [
     permissions: [PermissionCodes.systemDashboardView],
   },
   {
+    key: 'profile',
+    label: '个人中心',
+    path: '/profile',
+    icon: 'UserFilled',
+    permissions: [PermissionCodes.profileView],
+  },
+  {
     key: 'org-overview',
     label: '组织架构',
     path: '/org/overview',
@@ -142,11 +149,26 @@ export const adminMenu: AppMenuItem[] = [
     permissions: [PermissionCodes.approvalCreate],
   },
   {
+    key: 'notifications',
+    label: '通知消息',
+    path: '/notifications',
+    icon: 'Bell',
+    permissions: [PermissionCodes.notificationView],
+  },
+  {
     key: 'health',
     label: '系统健康',
     path: '/system/health',
     icon: 'Monitor',
     permissions: [PermissionCodes.systemHealthView],
+    roles: [RoleCodeEnum.TEACHER, RoleCodeEnum.LAB_LEADER],
+  },
+  {
+    key: 'system-configuration',
+    label: '字典与基础配置',
+    path: '/system/configuration',
+    icon: 'Setting',
+    permissions: [PermissionCodes.systemConfigView],
     roles: [RoleCodeEnum.TEACHER, RoleCodeEnum.LAB_LEADER],
   },
   {

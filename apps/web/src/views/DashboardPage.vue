@@ -1,53 +1,18 @@
 <script setup lang="ts">
-import { fetchApprovalDashboardSummary } from '@web/api/approval';
-import { fetchDeviceDashboardSummary } from '@web/api/device';
-import { useAuthStore } from '@web/stores/auth';
+import { fetchHomeDashboard, markNotificationAsRead } from '@web/api/system';
 import { ElMessage } from 'element-plus';
-import { computed, onMounted, ref } from 'vue';
+import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
-const authStore = useAuthStore();
 const router = useRouter();
 const loading = ref(false);
-const approvalSummary = ref<Awaited<ReturnType<typeof fetchApprovalDashboardSummary>>['data'] | null>(null);
-const deviceSummary = ref<Awaited<ReturnType<typeof fetchDeviceDashboardSummary>>['data'] | null>(null);
-
-const cards = computed(() => [
-  {
-    label: '当前角色',
-    value: authStore.activeRole?.roleName ?? '未登录',
-  },
-  {
-    label: '权限数量',
-    value: String(authStore.permissions.length),
-  },
-  {
-    label: '待审批',
-    value: String(approvalSummary.value?.pendingCount ?? 0),
-  },
-  {
-    label: '异常设备',
-    value: String(deviceSummary.value?.abnormalDeviceCount ?? 0),
-  },
-  {
-    label: '待处理报修',
-    value: String(deviceSummary.value?.pendingRepairCount ?? 0),
-  },
-  {
-    label: '维修处理中',
-    value: String(deviceSummary.value?.processingRepairCount ?? 0),
-  },
-]);
+const dashboard = ref<Awaited<ReturnType<typeof fetchHomeDashboard>>['data'] | null>(null);
 
 async function load() {
   loading.value = true;
   try {
-    const [approvalResponse, deviceResponse] = await Promise.all([
-      fetchApprovalDashboardSummary(),
-      fetchDeviceDashboardSummary(),
-    ]);
-    approvalSummary.value = approvalResponse.data;
-    deviceSummary.value = deviceResponse.data;
+    const response = await fetchHomeDashboard();
+    dashboard.value = response.data;
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '首页聚合数据加载失败');
   } finally {
@@ -55,46 +20,82 @@ async function load() {
   }
 }
 
-async function navigate(path: string) {
-  await router.push(path);
+async function navigate(path?: string, query?: Record<string, string> | null) {
+  if (!path) return;
+  await router.push({ path, query: query ?? undefined });
 }
 
-onMounted(load);
+async function openNotification(id: string, path: string | null, query: Record<string, string> | null) {
+  try {
+    await markNotificationAsRead(id);
+  } catch {
+    // Keep navigation responsive even if read status update fails.
+  }
+  await navigate(path ?? '/notifications', query);
+}
+
+onMounted(() => {
+  void load();
+});
 </script>
 
 <template>
-  <section class="page-grid">
+  <section v-loading="loading" class="page-grid">
     <div class="hero-card">
       <p class="hero-card__eyebrow">PUB-02 Dashboard</p>
-      <h2>系统驾驶舱</h2>
-      <p>首页同时聚合审批中心和设备维修模块数据，P0 可直接看到异常设备、待处理报修和最近工单动态。</p>
+      <h2>{{ dashboard?.roleName || '角色化驾驶舱' }}</h2>
+      <p>首页统一由后端聚合项目、成果、库存预警、待审批、资格提醒和通知消息，前端只负责展示与跳转。</p>
     </div>
 
     <div class="stat-grid dashboard-stat-grid">
-      <article v-for="card in cards" :key="card.label" class="stat-card">
-        <span>{{ card.label }}</span>
-        <strong>{{ card.value }}</strong>
+      <article
+        v-for="card in dashboard?.metricCards || []"
+        :key="card.code"
+        class="stat-card stat-card--action"
+        @click="navigate(card.path)"
+      >
+        <span>{{ card.title }}</span>
+        <strong>{{ card.value }}{{ card.unit || '' }}</strong>
+        <p>{{ card.description }}</p>
       </article>
     </div>
 
-    <div class="panel-card">
-      <div class="panel-card__header">
-        <div>
-          <p class="panel-card__eyebrow">Quick Access</p>
-          <h2>快捷入口</h2>
+    <div class="dashboard-approval-grid">
+      <div class="panel-card">
+        <div class="panel-card__header">
+          <div>
+            <p class="panel-card__eyebrow">Todo Summary</p>
+            <h2>待办聚合</h2>
+          </div>
+          <el-button link type="primary" @click="navigate('/workflow/approval-center')">进入审批中心</el-button>
         </div>
+        <el-descriptions v-if="dashboard" :column="2" border>
+          <el-descriptions-item label="待审批">{{ dashboard.todoSummary.pendingApprovalCount }}</el-descriptions-item>
+          <el-descriptions-item label="未读消息">{{ dashboard.todoSummary.unreadNotificationCount }}</el-descriptions-item>
+          <el-descriptions-item label="我的申请">{{ dashboard.todoSummary.myApplicationCount }}</el-descriptions-item>
+          <el-descriptions-item label="资格提醒">{{ dashboard.todoSummary.qualificationReminderCount }}</el-descriptions-item>
+        </el-descriptions>
       </div>
-      <div class="shortcut-grid">
-        <button
-          v-for="entry in authStore.dashboard?.shortcutEntries || []"
-          :key="entry.code"
-          class="shortcut-card"
-          type="button"
-          @click="navigate(entry.path)"
-        >
-          <strong>{{ entry.label }}</strong>
-          <span>{{ entry.path }}</span>
-        </button>
+
+      <div class="panel-card">
+        <div class="panel-card__header">
+          <div>
+            <p class="panel-card__eyebrow">Shortcuts</p>
+            <h2>快捷入口</h2>
+          </div>
+        </div>
+        <div class="shortcut-grid">
+          <button
+            v-for="entry in dashboard?.shortcutGroups?.[0]?.entries || []"
+            :key="entry.code"
+            class="shortcut-card"
+            type="button"
+            @click="navigate(entry.path)"
+          >
+            <strong>{{ entry.label }}</strong>
+            <span>{{ entry.path }}</span>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -102,56 +103,83 @@ onMounted(load);
       <div class="panel-card">
         <div class="panel-card__header">
           <div>
-            <p class="panel-card__eyebrow">Approval Inbox</p>
+            <p class="panel-card__eyebrow">Pending Approvals</p>
             <h2>我的待办</h2>
           </div>
-          <el-button link type="primary" @click="navigate('/workflow/approval-center')">进入审批中心</el-button>
+          <el-button link type="primary" @click="navigate('/workflow/approval-center')">全部查看</el-button>
         </div>
-        <el-skeleton :loading="loading" animated :rows="4">
-          <template #default>
-            <div v-if="approvalSummary?.pendingItems.length" class="dashboard-list">
-              <button
-                v-for="item in approvalSummary.pendingItems"
-                :key="item.id"
-                class="dashboard-list__item"
-                type="button"
-                @click="navigate('/workflow/approval-center')"
-              >
-                <strong>{{ item.title }}</strong>
-                <span>{{ item.currentNodeName || '待处理' }}</span>
-              </button>
-            </div>
-            <el-empty v-else description="当前没有待办审批" />
-          </template>
-        </el-skeleton>
+        <div v-if="dashboard?.pendingApprovals.length" class="dashboard-list">
+          <button
+            v-for="item in dashboard.pendingApprovals"
+            :key="item.id"
+            class="dashboard-list__item"
+            type="button"
+            @click="navigate('/workflow/approval-center', { focus: item.id })"
+          >
+            <strong>{{ item.title }}</strong>
+            <span>{{ item.currentNodeName || '待处理' }}</span>
+          </button>
+        </div>
+        <el-empty v-else description="当前没有待办审批" />
       </div>
 
       <div class="panel-card">
         <div class="panel-card__header">
           <div>
-            <p class="panel-card__eyebrow">Device Repairs</p>
-            <h2>最近报修</h2>
+            <p class="panel-card__eyebrow">My Applications</p>
+            <h2>我的申请</h2>
           </div>
-          <el-button link type="primary" @click="navigate('/devices/repairs')">查看工单</el-button>
+          <el-button link type="primary" @click="navigate('/profile')">进入个人中心</el-button>
         </div>
-        <el-skeleton :loading="loading" animated :rows="4">
-          <template #default>
-            <div v-if="deviceSummary?.recentRepairs.length" class="dashboard-list">
-              <button
-                v-for="item in deviceSummary.recentRepairs"
-                :key="item.id"
-                class="dashboard-list__item"
-                type="button"
-                @click="navigate(`/devices/repairs?focus=${item.id}`)"
-              >
-                <strong>{{ item.deviceName }}</strong>
-                <span>{{ item.statusCode }} / {{ item.severity }}</span>
-              </button>
-            </div>
-            <el-empty v-else description="当前没有异常报修" />
-          </template>
-        </el-skeleton>
+        <div v-if="dashboard?.myApplications.length" class="dashboard-list">
+          <button
+            v-for="item in dashboard.myApplications"
+            :key="item.id"
+            class="dashboard-list__item"
+            type="button"
+            @click="navigate('/workflow/approval-center', { focus: item.id })"
+          >
+            <strong>{{ item.title }}</strong>
+            <span>{{ item.status }}</span>
+          </button>
+        </div>
+        <el-empty v-else description="当前没有申请记录" />
       </div>
+    </div>
+
+    <div class="panel-card">
+      <div class="panel-card__header">
+        <div>
+          <p class="panel-card__eyebrow">Notifications</p>
+          <h2>通知消息</h2>
+        </div>
+        <el-button link type="primary" @click="navigate('/notifications')">消息中心</el-button>
+      </div>
+      <div v-if="dashboard?.notifications.length" class="dashboard-list">
+        <button
+          v-for="item in dashboard.notifications"
+          :key="item.id"
+          class="dashboard-list__item"
+          type="button"
+          @click="openNotification(item.id, item.routePath, item.routeQuery)"
+        >
+          <strong>{{ item.title }}</strong>
+          <span>{{ item.read ? '已读' : '未读' }} / {{ item.categoryCode }}</span>
+        </button>
+      </div>
+      <el-empty v-else description="当前没有通知消息" />
     </div>
   </section>
 </template>
+
+<style scoped>
+.stat-card--action {
+  cursor: pointer;
+}
+
+.stat-card--action p {
+  margin: 8px 0 0;
+  color: var(--el-text-color-secondary);
+  line-height: 1.5;
+}
+</style>

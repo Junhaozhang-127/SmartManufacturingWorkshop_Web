@@ -98,6 +98,24 @@ type ApprovalLog = {
   createdAt: Date;
 };
 
+type NotificationItem = {
+  id: bigint;
+  userId: bigint;
+  title: string;
+  content: string;
+  categoryCode: string;
+  levelCode: string;
+  businessType: string | null;
+  businessId: string | null;
+  routePath: string | null;
+  routeQuery: Record<string, unknown> | null;
+  readAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  createdBy: bigint | null;
+  isDeleted: boolean;
+};
+
 describe('Approval engine e2e', () => {
   let app: INestApplication;
   const prismaMock = createPrismaMock();
@@ -209,9 +227,11 @@ describe('Approval engine e2e', () => {
   const demoForms: DemoForm[] = [];
   const approvalInstances: ApprovalInstance[] = [];
   const approvalLogs: ApprovalLog[] = [];
+  const notifications: NotificationItem[] = [];
   let nextFormId = 100n;
   let nextInstanceId = 200n;
   let nextLogId = 300n;
+  let nextNotificationId = 400n;
 
   function getUserByWhere(where: { username?: string; id?: bigint }) {
     if (where.username) {
@@ -354,6 +374,44 @@ describe('Approval engine e2e', () => {
         return Promise.resolve(user);
       },
     );
+    prismaMock.sysNotification.create.mockImplementation(
+      ({ data }: { data: Partial<NotificationItem> }) => {
+        const now = new Date();
+        const item: NotificationItem = {
+          id: nextNotificationId++,
+          userId: data.userId as bigint,
+          title: String(data.title),
+          content: String(data.content),
+          categoryCode: String(data.categoryCode ?? 'APPROVAL'),
+          levelCode: String(data.levelCode ?? 'INFO'),
+          businessType: (data.businessType as string) ?? null,
+          businessId: (data.businessId as string) ?? null,
+          routePath: (data.routePath as string) ?? null,
+          routeQuery: (data.routeQuery as Record<string, unknown>) ?? null,
+          readAt: null,
+          createdAt: now,
+          updatedAt: now,
+          createdBy: (data.createdBy as bigint) ?? null,
+          isDeleted: false,
+        };
+        notifications.push(item);
+        return Promise.resolve(item);
+      },
+    );
+    prismaMock.sysNotification.findMany.mockResolvedValue([]);
+    prismaMock.sysNotification.findFirst.mockResolvedValue(null);
+    prismaMock.sysNotification.update.mockImplementation(
+      ({ where, data }: { where: { id: bigint }; data: Partial<NotificationItem> }) => {
+        const item = notifications.find((notification) => notification.id === where.id);
+        if (!item) {
+          return Promise.resolve(null);
+        }
+        Object.assign(item, data, { updatedAt: new Date() });
+        return Promise.resolve(item);
+      },
+    );
+    prismaMock.sysNotification.updateMany.mockResolvedValue({ count: 0 });
+    prismaMock.sysNotification.count.mockResolvedValue(0);
     prismaMock.orgUnit.findMany.mockResolvedValue(
       units.map((unit) => ({
         id: unit.id,
