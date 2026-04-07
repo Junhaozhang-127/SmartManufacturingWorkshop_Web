@@ -20,10 +20,24 @@ describe('filterMenuByAccess', () => {
   it('includes approval center and demo entry when approval permissions are present', () => {
     const result = filterMenuByAccess(
       adminMenu,
-      [PermissionCodes.systemDashboardView, PermissionCodes.approvalCenterView, PermissionCodes.approvalCreate],
+      [
+        PermissionCodes.systemDashboardView,
+        PermissionCodes.memberListView,
+        PermissionCodes.approvalCenterView,
+        PermissionCodes.approvalCreate,
+      ],
       RoleCode.MEMBER,
     );
 
-    expect(result.map((item) => item.key)).toEqual(['dashboard', 'approval-center', 'approval-demo']);
+    expect(result.map((item) => item.key)).toEqual([
+      'dashboard',
+      'member-archive',
+      'member-regularization',
+      'member-transfer',
+      'member-exit',
+      'approval-center',
+      'approval-demo',
+      'examples',
+    ]);
   });
 });

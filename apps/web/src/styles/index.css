@@ -446,6 +446,66 @@ body {
   color: #475569;
 }
 
+.member-toolbar {
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.member-toolbar .el-input {
+  width: min(22rem, 100%);
+}
+
+.org-tree-node {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
+  padding: 0.65rem 0.25rem;
+}
+
+.org-tree-node p {
+  margin: 0.25rem 0 0;
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.org-tree-node__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.member-summary-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.member-summary-card p {
+  margin: 0.35rem 0 0;
+  color: #64748b;
+}
+
+.member-summary-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.member-summary-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  margin-bottom: 1rem;
+}
+
+.member-detail-tabs {
+  margin-top: 1rem;
+}
+
 .shortcut-card {
   display: flex;
   flex-direction: column;
@@ -501,5 +561,11 @@ body {
   .dashboard-approval-grid,
   .demo-grid {
     grid-template-columns: 1fr;
+  }
+
+  .member-summary-card,
+  .org-tree-node {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }

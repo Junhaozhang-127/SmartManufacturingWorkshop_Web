@@ -6,6 +6,7 @@ import { ApprovalModule } from './approval/approval.module';
 import { AuthModule } from './auth/auth.module';
 import { ExampleModule } from './example/example.module';
 import { HealthModule } from './health/health.module';
+import { MemberModule } from './member/member.module';
 import { PrismaModule } from './prisma/prisma.module';
 
 @Module({
@@ -18,6 +19,7 @@ import { PrismaModule } from './prisma/prisma.module';
     HealthModule,
     AuthModule,
     ExampleModule,
+    MemberModule,
     ApprovalModule,
   ],
 })

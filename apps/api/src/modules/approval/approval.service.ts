@@ -16,8 +16,12 @@ import {
   type ApprovalListResult,
   ApprovalStatus,
   type CurrentUserProfile,
+  MemberGrowthRecordType,
+  MemberStatus,
   normalizePagination,
   PermissionCodes,
+  RegularizationStatus,
+  RoleCode,
 } from '@smw/shared';
 
 import type { ApprovalCenterQueryDto } from './dto/approval-center-query.dto';
@@ -78,7 +82,7 @@ export class ApprovalService {
         },
       });
 
-      const instance = await this.startApproval(tx, {
+      const instance = await this.startBusinessApproval(tx, {
         businessType: ApprovalBusinessType.DEMO_REQUEST,
         businessId: String(form.id),
         title: payload.title.trim(),
@@ -99,6 +103,20 @@ export class ApprovalService {
 
       return this.mapDemoForm(updated);
     });
+  }
+
+  async startBusinessApproval(
+    tx: Prisma.TransactionClient,
+    payload: {
+      businessType: ApprovalBusinessType;
+      businessId: string;
+      title: string;
+      applicantUserId: bigint;
+      applicantRoleCode: string;
+      formData: Record<string, unknown>;
+    },
+  ) {
+    return this.startApproval(tx, payload);
   }
 
   async listMyDemoApprovals(currentUser: CurrentUserProfile) {
@@ -962,6 +980,185 @@ export class ApprovalService {
         });
         return;
       }
+      case ApprovalBusinessType.MEMBER_REGULARIZATION: {
+        const regularization = await tx.memberRegularization.findUnique({
+          where: { id: this.toBigInt(businessId) },
+          include: {
+            memberProfile: true,
+          },
+        });
+
+        if (!regularization) {
+          return;
+        }
+
+        const now = new Date();
+        const latestResult = status === ApprovalStatus.PENDING ? null : regularization.latestResult;
+
+        if (status === ApprovalStatus.PENDING) {
+          await tx.memberRegularization.update({
+            where: { id: regularization.id },
+            data: {
+              statusCode: RegularizationStatus.IN_APPROVAL,
+            },
+          });
+          await tx.memberProfile.update({
+            where: { id: regularization.memberProfileId },
+            data: {
+              memberStatus: MemberStatus.REGULARIZATION_PENDING,
+            },
+          });
+          return;
+        }
+
+        if (status === ApprovalStatus.APPROVED) {
+          await tx.memberRegularization.update({
+            where: { id: regularization.id },
+            data: {
+              statusCode: RegularizationStatus.APPROVED,
+              latestResult: 'Regularization approved',
+              completedAt: now,
+            },
+          });
+          await tx.memberProfile.update({
+            where: { id: regularization.memberProfileId },
+            data: {
+              memberStatus: MemberStatus.ACTIVE,
+              positionCode: 'MEMBER',
+            },
+          });
+
+          const memberRole = await tx.sysRole.findUnique({
+            where: { roleCode: RoleCode.MEMBER },
+          });
+          const internRole = await tx.sysRole.findUnique({
+            where: { roleCode: RoleCode.INTERN },
+          });
+
+          if (memberRole) {
+            await tx.sysUserRole.upsert({
+              where: {
+                userId_roleId: {
+                  userId: regularization.applicantUserId,
+                  roleId: memberRole.id,
+                },
+              },
+              update: {},
+              create: {
+                userId: regularization.applicantUserId,
+                roleId: memberRole.id,
+              },
+            });
+          }
+
+          if (internRole) {
+            await tx.sysUserRole.deleteMany({
+              where: {
+                userId: regularization.applicantUserId,
+                roleId: internRole.id,
+              },
+            });
+          }
+
+          await tx.memberGrowthRecord.create({
+            data: {
+              memberProfileId: regularization.memberProfileId,
+              recordType: MemberGrowthRecordType.REGULARIZATION_APPROVED,
+              title: '转正通过',
+              content: '审批完成并同步正式成员角色',
+              recordDate: now,
+              actorUserId: regularization.applicantUserId,
+            },
+          });
+          await tx.memberGrowthRecord.create({
+            data: {
+              memberProfileId: regularization.memberProfileId,
+              recordType: MemberGrowthRecordType.ROLE_UPDATED,
+              title: '角色同步',
+              content: 'INTERN -> MEMBER',
+              recordDate: now,
+              actorUserId: regularization.applicantUserId,
+            },
+          });
+          await tx.memberOperationLog.create({
+            data: {
+              memberProfileId: regularization.memberProfileId,
+              actionType: 'REGULARIZATION_APPROVED',
+              fromStatus: MemberStatus.REGULARIZATION_PENDING,
+              toStatus: MemberStatus.ACTIVE,
+              description: '转正通过并同步角色为 MEMBER',
+              operatorUserId: regularization.applicantUserId,
+            },
+          });
+          return;
+        }
+
+        if (status === ApprovalStatus.REJECTED) {
+          await tx.memberRegularization.update({
+            where: { id: regularization.id },
+            data: {
+              statusCode: RegularizationStatus.REJECTED,
+              latestResult: 'Regularization rejected',
+              completedAt: now,
+            },
+          });
+          await tx.memberProfile.update({
+            where: { id: regularization.memberProfileId },
+            data: {
+              memberStatus: MemberStatus.REGULARIZATION_REJECTED,
+            },
+          });
+          await tx.memberGrowthRecord.create({
+            data: {
+              memberProfileId: regularization.memberProfileId,
+              recordType: MemberGrowthRecordType.REGULARIZATION_REJECTED,
+              title: '转正驳回',
+              content: '审批驳回，待补充后重新申请',
+              recordDate: now,
+              actorUserId: regularization.applicantUserId,
+            },
+          });
+          await tx.memberOperationLog.create({
+            data: {
+              memberProfileId: regularization.memberProfileId,
+              actionType: 'REGULARIZATION_REJECTED',
+              fromStatus: MemberStatus.REGULARIZATION_PENDING,
+              toStatus: MemberStatus.REGULARIZATION_REJECTED,
+              description: '转正申请被驳回',
+              operatorUserId: regularization.applicantUserId,
+            },
+          });
+          return;
+        }
+
+        if (status === ApprovalStatus.WITHDRAWN) {
+          await tx.memberRegularization.update({
+            where: { id: regularization.id },
+            data: {
+              statusCode: RegularizationStatus.WITHDRAWN,
+              latestResult: latestResult ?? 'Regularization withdrawn',
+              completedAt: now,
+            },
+          });
+          await tx.memberProfile.update({
+            where: { id: regularization.memberProfileId },
+            data: {
+              memberStatus: MemberStatus.INTERN,
+            },
+          });
+          await tx.memberOperationLog.create({
+            data: {
+              memberProfileId: regularization.memberProfileId,
+              actionType: 'REGULARIZATION_WITHDRAWN',
+              fromStatus: MemberStatus.REGULARIZATION_PENDING,
+              toStatus: MemberStatus.INTERN,
+              description: '撤回转正申请',
+              operatorUserId: regularization.applicantUserId,
+            },
+          });
+        }
+        return;
+      }
       default:
         return;
     }
@@ -986,6 +1183,35 @@ export class ApprovalService {
           reason: form.reason,
           statusCode: form.statusCode,
           applicantName: form.applicant.displayName,
+        };
+      }
+      case ApprovalBusinessType.MEMBER_REGULARIZATION: {
+        const regularization = await this.prisma.memberRegularization.findUnique({
+          where: { id: this.toBigInt(businessId) },
+          include: {
+            memberProfile: {
+              include: {
+                user: true,
+                orgUnit: true,
+                mentor: true,
+              },
+            },
+          },
+        });
+
+        if (!regularization) {
+          return null;
+        }
+
+        return {
+          displayName: regularization.memberProfile.user.displayName,
+          orgUnitName: regularization.memberProfile.orgUnit.unitName,
+          mentorName: regularization.memberProfile.mentor?.displayName ?? null,
+          statusCode: regularization.statusCode,
+          internshipStartDate: regularization.internshipStartDate.toISOString().slice(0, 10),
+          plannedRegularDate: regularization.plannedRegularDate.toISOString().slice(0, 10),
+          applicationReason: regularization.applicationReason,
+          selfAssessment: regularization.selfAssessment,
         };
       }
       default:

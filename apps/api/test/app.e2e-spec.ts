@@ -420,13 +420,14 @@ describe('App e2e', () => {
     expect(response.body.message).toContain('首次登录需先修改密码');
   });
 
-  it('returns forbidden when user lacks permission', async () => {
+  it('returns self-scoped member data for member role', async () => {
     const loginResponse = await loginAs('member01');
     const response = await request(app.getHttpServer())
       .get('/api/examples/members')
       .set('Authorization', `Bearer ${loginResponse.body.data.token}`);
 
-    expect(response.status).toBe(403);
+    expect(response.status).toBe(200);
+    expect(response.body.data.meta.total).toBe(1);
   });
 
   it('returns different data after switching role for a multi-role user', async () => {

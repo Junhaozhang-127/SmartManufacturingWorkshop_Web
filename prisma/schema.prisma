@@ -26,6 +26,10 @@ model SysUser {
   member       MemberProfile?
   ledOrgUnits  OrgUnit[]       @relation("OrgUnitLeader")
   mentorFor    MemberProfile[] @relation("MemberMentor")
+  memberGrowthRecords      MemberGrowthRecord[]      @relation("MemberGrowthActor")
+  memberStageEvaluations   MemberStageEvaluation[]   @relation("MemberStageEvaluator")
+  memberRegularizations    MemberRegularization[]    @relation("MemberRegularizationApplicant")
+  memberOperationLogs      MemberOperationLog[]      @relation("MemberOperationActor")
   approvalInstancesStarted  WfApprovalInstance[] @relation("ApprovalApplicant")
   approvalInstancesAssigned WfApprovalInstance[] @relation("ApprovalCurrentAssignee")
   approvalLogs              WfApprovalNodeLog[]  @relation("ApprovalActor")
@@ -101,9 +105,92 @@ model MemberProfile {
   mentor       SysUser? @relation("MemberMentor", fields: [mentorUserId], references: [id])
   orgUnit      OrgUnit  @relation(fields: [orgUnitId], references: [id])
   user         SysUser  @relation(fields: [userId], references: [id])
+  growthRecords MemberGrowthRecord[]
+  stageEvaluations MemberStageEvaluation[]
+  regularizations MemberRegularization[]
+  operationLogs MemberOperationLog[]
 
   @@index([orgUnitId])
   @@map("member_profile")
+}
+
+model MemberGrowthRecord {
+  id              BigInt        @id @default(autoincrement()) @db.UnsignedBigInt
+  memberProfileId BigInt        @map("member_profile_id") @db.UnsignedBigInt
+  recordType      String        @map("record_type") @db.VarChar(32)
+  title           String        @db.VarChar(128)
+  content         String?       @db.VarChar(1000)
+  recordDate      DateTime      @map("record_date") @db.Date
+  actorUserId     BigInt?       @map("actor_user_id") @db.UnsignedBigInt
+  extraData       Json?         @map("extra_data")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+  actor           SysUser?      @relation("MemberGrowthActor", fields: [actorUserId], references: [id])
+  memberProfile   MemberProfile @relation(fields: [memberProfileId], references: [id])
+
+  @@index([memberProfileId, recordDate])
+  @@map("member_growth_record")
+}
+
+model MemberStageEvaluation {
+  id                BigInt        @id @default(autoincrement()) @db.UnsignedBigInt
+  memberProfileId   BigInt        @map("member_profile_id") @db.UnsignedBigInt
+  stageCode         String        @map("stage_code") @db.VarChar(32)
+  summary           String        @db.VarChar(500)
+  score             Int?
+  resultCode        String        @map("result_code") @db.VarChar(32)
+  nextAction        String?       @map("next_action") @db.VarChar(500)
+  evaluatedAt       DateTime      @map("evaluated_at")
+  evaluatorUserId   BigInt        @map("evaluator_user_id") @db.UnsignedBigInt
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+  evaluator         SysUser       @relation("MemberStageEvaluator", fields: [evaluatorUserId], references: [id])
+  memberProfile     MemberProfile @relation(fields: [memberProfileId], references: [id])
+
+  @@index([memberProfileId, evaluatedAt])
+  @@map("member_stage_evaluation")
+}
+
+model MemberRegularization {
+  id                  BigInt              @id @default(autoincrement()) @db.UnsignedBigInt
+  memberProfileId     BigInt              @map("member_profile_id") @db.UnsignedBigInt
+  applicantUserId     BigInt              @map("applicant_user_id") @db.UnsignedBigInt
+  statusCode          String              @default("DRAFT") @map("status_code") @db.VarChar(32)
+  internshipStartDate DateTime            @map("internship_start_date") @db.Date
+  plannedRegularDate  DateTime            @map("planned_regular_date") @db.Date
+  applicationReason   String              @map("application_reason") @db.VarChar(1000)
+  selfAssessment      String?             @map("self_assessment") @db.VarChar(1000)
+  mentorUserId        BigInt?             @map("mentor_user_id") @db.UnsignedBigInt
+  approvalInstanceId  BigInt?             @unique @map("approval_instance_id") @db.UnsignedBigInt
+  submittedAt         DateTime?           @map("submitted_at")
+  completedAt         DateTime?           @map("completed_at")
+  latestResult        String?             @map("latest_result") @db.VarChar(500)
+  createdAt           DateTime            @default(now()) @map("created_at")
+  updatedAt           DateTime            @updatedAt @map("updated_at")
+  applicant           SysUser             @relation("MemberRegularizationApplicant", fields: [applicantUserId], references: [id])
+  memberProfile       MemberProfile       @relation(fields: [memberProfileId], references: [id])
+  approvalInstance    WfApprovalInstance? @relation(fields: [approvalInstanceId], references: [id])
+
+  @@index([memberProfileId, statusCode])
+  @@index([applicantUserId, statusCode])
+  @@map("member_regularization")
+}
+
+model MemberOperationLog {
+  id              BigInt        @id @default(autoincrement()) @db.UnsignedBigInt
+  memberProfileId BigInt        @map("member_profile_id") @db.UnsignedBigInt
+  actionType      String        @map("action_type") @db.VarChar(32)
+  fromStatus      String?       @map("from_status") @db.VarChar(32)
+  toStatus        String?       @map("to_status") @db.VarChar(32)
+  description     String        @db.VarChar(500)
+  operatorUserId  BigInt?       @map("operator_user_id") @db.UnsignedBigInt
+  extraData       Json?         @map("extra_data")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  memberProfile   MemberProfile @relation(fields: [memberProfileId], references: [id])
+  operator        SysUser?      @relation("MemberOperationActor", fields: [operatorUserId], references: [id])
+
+  @@index([memberProfileId, createdAt])
+  @@map("member_operation_log")
 }
 
 model WfApprovalTemplate {
@@ -162,6 +249,7 @@ model WfApprovalInstance {
   template                WfApprovalTemplate? @relation(fields: [templateId], references: [id])
   logs                    WfApprovalNodeLog[]
   demoForm                DemoApprovalForm?
+  memberRegularization    MemberRegularization?
 
   @@index([businessType, businessId])
   @@index([status, currentApproverRoleCode])

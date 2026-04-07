@@ -56,6 +56,66 @@ const routes: RouteRecordRaw[] = [
         },
       },
       {
+        path: 'org/overview',
+        name: 'org.overview',
+        component: () => import('@web/views/OrgOverviewPage.vue'),
+        meta: {
+          title: '组织架构总览',
+          breadcrumb: ['组织成员', '组织架构总览'],
+          permissions: [PermissionCodes.orgTreeView],
+        },
+      },
+      {
+        path: 'members/archive',
+        name: 'members.archive',
+        component: () => import('@web/views/MemberArchiveListPage.vue'),
+        meta: {
+          title: '成员档案',
+          breadcrumb: ['组织成员', '成员档案'],
+          permissions: [PermissionCodes.memberListView],
+        },
+      },
+      {
+        path: 'members/archive/:id',
+        name: 'members.detail',
+        component: () => import('@web/views/MemberArchiveDetailPage.vue'),
+        meta: {
+          title: '成员档案详情',
+          breadcrumb: ['组织成员', '成员档案', '详情'],
+          permissions: [PermissionCodes.memberListView],
+        },
+      },
+      {
+        path: 'members/regularization',
+        name: 'members.regularization',
+        component: () => import('@web/views/MemberRegularizationPage.vue'),
+        meta: {
+          title: '实习转正管理',
+          breadcrumb: ['组织成员', '实习转正'],
+          permissions: [PermissionCodes.memberListView],
+        },
+      },
+      {
+        path: 'members/transfers',
+        name: 'members.transfers',
+        component: () => import('@web/views/FeatureReservedPage.vue'),
+        meta: {
+          title: '调岗预留',
+          breadcrumb: ['组织成员', '调岗预留'],
+          permissions: [PermissionCodes.memberListView],
+        },
+      },
+      {
+        path: 'members/exits',
+        name: 'members.exits',
+        component: () => import('@web/views/FeatureReservedPage.vue'),
+        meta: {
+          title: '退出预留',
+          breadcrumb: ['组织成员', '退出预留'],
+          permissions: [PermissionCodes.memberListView],
+        },
+      },
+      {
         path: 'workflow/approval-center',
         name: 'workflow.approval-center',
         component: () => import('@web/views/ApprovalCenterPage.vue'),
