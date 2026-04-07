@@ -182,6 +182,46 @@ describe('FinanceService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
+  it('blocks application creation when related business fields are incomplete', async () => {
+    const { service } = createService();
+
+    await expect(
+      service.createApplication(
+        currentUser,
+        {
+          accountId: '11',
+          applicationType: 'EXPENSE',
+          expenseType: 'PROCUREMENT',
+          title: '关联业务校验',
+          purpose: '只传业务类型',
+          amount: 100,
+          relatedBusinessType: 'REPAIR_ORDER',
+        },
+        dataScopeContext,
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('blocks application creation when reimbursement amount exceeds requested amount', async () => {
+    const { service } = createService();
+
+    await expect(
+      service.createApplication(
+        currentUser,
+        {
+          accountId: '11',
+          applicationType: 'REIMBURSEMENT',
+          expenseType: 'TRAVEL',
+          title: '报销金额校验',
+          purpose: '报销金额不能超过申请金额',
+          amount: 100,
+          reimbursementAmount: 120,
+        },
+        dataScopeContext,
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
   it('marks approved application as paid and accumulates paid amount', async () => {
     const { service, prisma } = createService();
 

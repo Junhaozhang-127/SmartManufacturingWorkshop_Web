@@ -203,6 +203,24 @@ export class CompetitionAchievementService {
       throw new BadRequestException('指导老师不存在');
     }
 
+    const existingActiveTeam = await this.prisma.compTeam.findFirst({
+      where: {
+        competitionId: competition.id,
+        isDeleted: false,
+        OR: [{ teamLeaderUserId: leader.id }, { teamName: payload.teamName.trim() }],
+        statusCode: {
+          in: [CompetitionRegistrationStatus.DRAFT, CompetitionRegistrationStatus.IN_APPROVAL],
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (existingActiveTeam) {
+      throw new BadRequestException('同一赛事下已存在进行中的报名申请，请先完成当前流程');
+    }
+
     const memberNames = memberIds.map((id) => {
       const user = userMap.get(id);
       if (!user) {

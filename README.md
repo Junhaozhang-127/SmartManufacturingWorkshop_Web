@@ -1,32 +1,30 @@
 # 实验室管理系统一期工程基线
 
-当前仓库提供实验室管理系统一期的工程骨架与权限底座，优先沉淀后续业务模块可复用的能力：前后端 monorepo、统一鉴权、RBAC、数据范围控制、最小组织模型、测试与 CI。
+当前仓库用于实验室管理系统一期 P0/P1 的单仓开发与联调。现阶段已落地的重点能力包括：统一登录鉴权、角色切换、RBAC + 数据范围控制、审批中心、成员转正、成果录入、设备报修、耗材申领、经费申请、考核与晋升，以及角色化首页、通知与系统配置。
 
 ## 技术栈
 
 - Web: Vue 3 + Vite + TypeScript + Pinia + Vue Router + Element Plus
 - API: NestJS + Prisma + MySQL
-- Reserved: Redis、MinIO
+- 预留集成: Redis、MinIO
 
-## 目录
+## 仓库结构
 
 ```text
 apps/
   api/        NestJS API
   web/        Vue 管理后台
 packages/
-  shared/     共享常量、DTO、响应结构、权限与鉴权类型
-  ui/         UI token 与轻量导航类型
+  shared/     共享常量、DTO、接口契约、权限与导航定义
+  ui/         UI token 与轻量共享组件
 prisma/
   schema.prisma
   seed.ts
 docs/
-  development-conventions.md
-  inventory-p0.md
-  rbac-data-scope-foundation.md
+  *.md        需求收尾说明、部署、环境变量、初始化数据、技术债、验收清单
 ```
 
-## 启动
+## 快速启动
 
 ```bash
 corepack enable
@@ -42,6 +40,11 @@ Windows PowerShell:
 
 ```powershell
 Copy-Item .env.example .env
+corepack pnpm install
+corepack pnpm db:generate
+corepack pnpm db:migrate:dev
+corepack pnpm db:seed
+corepack pnpm dev
 ```
 
 默认地址：
@@ -50,38 +53,32 @@ Copy-Item .env.example .env
 - API: [http://localhost:3000/api](http://localhost:3000/api)
 - Health: [http://localhost:3000/api/health](http://localhost:3000/api/health)
 
-## 默认账号
-
-- `teacher01 / 123456`
-- `leader01 / 123456`
-- `minister01 / 123456`
-- `hybrid01 / 123456`
-- `member01 / 123456`
-
-说明：
-
-- 登录需输入账号、密码、验证码。
-- `member01` 为首次登录示例账号，登录后会被强制修改密码。
-- `hybrid01` 同时拥有 `MINISTER` 与 `GROUP_LEADER` 角色，可用于验证角色切换、菜单变化与数据范围差异。
-
-## 当前已实现能力
-
-- 登录接口、当前用户接口、角色切换、修改密码接口
-- 开发期简化验证码
-- RBAC 权限守卫
-- 数据范围注入与示例列表过滤
-- 耗材库存、申领与出入库 P0
-- 考核评分、晋升资格看板、晋升申请与评审 P0
-- 动态菜单、路由守卫、角色化首页驾驶舱空壳
-
 ## 常用命令
 
 ```bash
 pnpm lint
 pnpm typecheck
 pnpm test
+pnpm test:web:e2e
 pnpm build
 pnpm db:generate
 pnpm db:migrate:dev
 pnpm db:seed
 ```
+
+## 默认测试账号
+
+详见 [docs/init-data.md](docs/init-data.md)。
+
+## 交付文档
+
+- [部署说明](docs/deployment.md)
+- [环境变量说明](docs/environment.md)
+- [初始化数据与权限账号](docs/init-data.md)
+- [一期验收清单](docs/acceptance-p0.md)
+- [技术债清单](docs/tech-debt.md)
+
+## 说明
+
+- 当前工作区未包含原始 `.docx` 需求文档，本仓交付以 `docs/` 下的同语义 Markdown 为实施基线。
+- “项目立项”在一期代码中仍是 `projectId/projectName` 占位关联，尚未形成独立业务模块，已在技术债与验收清单中单列。

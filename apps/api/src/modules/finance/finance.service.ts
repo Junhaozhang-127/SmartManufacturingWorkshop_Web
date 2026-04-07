@@ -266,6 +266,17 @@ export class FinanceService {
       throw new BadRequestException('当前经费账户不可提交费用申请');
     }
 
+    if (
+      (payload.relatedBusinessType && !payload.relatedBusinessId) ||
+      (!payload.relatedBusinessType && payload.relatedBusinessId)
+    ) {
+      throw new BadRequestException('关联业务类型与关联业务单号必须同时传入');
+    }
+
+    if (payload.reimbursementAmount !== undefined && payload.reimbursementAmount > payload.amount) {
+      throw new BadRequestException('报销金额不能大于申请金额');
+    }
+
     if (payload.relatedBusinessType === ApprovalBusinessType.REPAIR_ORDER && payload.relatedBusinessId) {
       const repair = await this.prisma.assetDeviceRepair.findUnique({
         where: { id: this.toBigInt(payload.relatedBusinessId) },

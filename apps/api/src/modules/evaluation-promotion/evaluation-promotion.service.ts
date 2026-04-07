@@ -541,6 +541,13 @@ export class EvaluationPromotionService {
       throw new BadRequestException('Only approved promotion requests can enter public notice publishing');
     }
 
+    const publicNoticeStartDate = new Date(payload.publicNoticeStartDate);
+    const publicNoticeEndDate = new Date(payload.publicNoticeEndDate);
+
+    if (publicNoticeEndDate < publicNoticeStartDate) {
+      throw new BadRequestException('Public notice end date cannot be earlier than the start date');
+    }
+
     return this.prisma.$transaction(async (tx) => {
       const appointment = await tx.promAppointment.upsert({
         where: { applicationId: record.id },
@@ -549,8 +556,8 @@ export class EvaluationPromotionService {
           targetRoleCode: record.targetRoleCode,
           appointmentStatus: payload.appointmentPassed ? 'APPOINTED' : 'NOT_APPOINTED',
           publicNoticeStatus: 'PUBLISHED',
-          publicNoticeStartDate: new Date(payload.publicNoticeStartDate),
-          publicNoticeEndDate: new Date(payload.publicNoticeEndDate),
+          publicNoticeStartDate,
+          publicNoticeEndDate,
           publicNoticeResult: payload.publicNoticeResult?.trim() || null,
           appointedAt: payload.appointmentPassed ? new Date() : null,
           latestResult: payload.appointmentPassed ? 'Promotion public notice passed' : 'Promotion public notice failed',
@@ -563,8 +570,8 @@ export class EvaluationPromotionService {
           targetRoleCode: record.targetRoleCode,
           appointmentStatus: payload.appointmentPassed ? 'APPOINTED' : 'NOT_APPOINTED',
           publicNoticeStatus: 'PUBLISHED',
-          publicNoticeStartDate: new Date(payload.publicNoticeStartDate),
-          publicNoticeEndDate: new Date(payload.publicNoticeEndDate),
+          publicNoticeStartDate,
+          publicNoticeEndDate,
           publicNoticeResult: payload.publicNoticeResult?.trim() || null,
           appointedAt: payload.appointmentPassed ? new Date() : null,
           latestResult: payload.appointmentPassed ? 'Promotion public notice passed' : 'Promotion public notice failed',

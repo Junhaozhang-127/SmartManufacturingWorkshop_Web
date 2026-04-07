@@ -5,9 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:e2e": "vite --host 127.0.0.1 --port 4173",
     "build": "vue-tsc --noEmit -p tsconfig.app.json && vite build",
     "typecheck": "vue-tsc --noEmit -p tsconfig.app.json",
-    "test": "vitest run"
+    "test": "vitest run src",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.1",
@@ -21,6 +23,7 @@
   },
   "devDependencies": {
     "@types/node": "^24.5.2",
+    "@playwright/test": "^1.55.0",
     "@vitejs/plugin-vue": "^6.0.1",
     "@vue/test-utils": "^2.4.6",
     "@vue/tsconfig": "^0.8.1",

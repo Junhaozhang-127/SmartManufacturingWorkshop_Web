@@ -18,6 +18,8 @@ export default tseslint.config(
       '**/node_modules/**',
       '**/.turbo/**',
       '**/public/**',
+      'apps/web/e2e/**',
+      'apps/web/playwright.config.ts',
       'eslint.config.mjs',
       'apps/api/jest.config.ts',
       'packages/shared/test/**',
@@ -35,6 +37,8 @@ export default tseslint.config(
         tsconfigRootDir: import.meta.dirname,
         allowDefaultProject: [
           'apps/api/jest.config.ts',
+          'apps/web/e2e/**/*.ts',
+          'apps/web/playwright.config.ts',
           'packages/shared/test/**/*.ts',
           'prisma/*.ts',
         ],

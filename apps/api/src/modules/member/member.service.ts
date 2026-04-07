@@ -585,6 +585,10 @@ export class MemberService {
     const internshipStartDate = new Date(payload.internshipStartDate);
     const plannedRegularDate = new Date(payload.plannedRegularDate);
 
+    if (plannedRegularDate < internshipStartDate) {
+      throw new BadRequestException('计划转正日期不能早于实习开始日期');
+    }
+
     const regularization = await this.prisma.$transaction(async (tx) => {
       const created = await tx.memberRegularization.create({
         data: {
