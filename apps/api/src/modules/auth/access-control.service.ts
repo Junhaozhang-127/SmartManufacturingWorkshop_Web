@@ -106,7 +106,10 @@ export class AccessControlService {
     return this.buildCurrentUserProfile(user, payload.activeRoleCode);
   }
 
-  async buildCurrentUserProfile(user: UserWithRelations, activeRoleCode?: RoleCode): Promise<CurrentUserProfile> {
+  async buildCurrentUserProfile(
+    user: UserWithRelations,
+    activeRoleCode?: RoleCode,
+  ): Promise<CurrentUserProfile> {
     const roleOptions = this.toRoleOptions(user.userRoles.map((relation) => relation.role));
     const resolvedActiveRole = roleOptions.find((role) => role.roleCode === activeRoleCode) ?? roleOptions[0];
 
@@ -169,7 +172,10 @@ export class AccessControlService {
     };
   }
 
-  private async buildDataScopeContext(user: UserWithRelations, activeRole: RoleOption): Promise<DataScopeContext> {
+  private async buildDataScopeContext(
+    user: UserWithRelations,
+    activeRole: RoleOption,
+  ): Promise<DataScopeContext> {
     const orgProfile = this.buildOrgProfile(user);
     const departmentAndDescendantIds = orgProfile.departmentId
       ? await this.collectOrgDescendantIds(orgProfile.departmentId)
@@ -217,6 +223,17 @@ export class AccessControlService {
   }
 
   private buildDashboardSummary(roleCode: RoleCode): DashboardSummaryMock {
+    const approvalEntry = {
+      code: MenuCode.APPROVAL_CENTER,
+      label: '统一审批中心',
+      path: '/workflow/approval-center',
+    };
+    const demoEntry = {
+      code: MenuCode.APPROVAL_DEMO,
+      label: '测试审批单',
+      path: '/workflow/demo-request',
+    };
+
     switch (roleCode) {
       case RoleCode.TEACHER:
       case RoleCode.LAB_LEADER:
@@ -224,30 +241,31 @@ export class AccessControlService {
           todoCount: 9,
           shortcutEntries: [
             { code: MenuCode.DASHBOARD, label: '系统驾驶舱', path: '/' },
+            approvalEntry,
+            demoEntry,
             { code: MenuCode.MEMBER_EXAMPLES, label: '成员示例列表', path: '/system/examples' },
             { code: MenuCode.HEALTH, label: '系统健康检查', path: '/system/health' },
           ],
         };
       case RoleCode.MINISTER:
+      case RoleCode.GROUP_LEADER:
         return {
           todoCount: 5,
           shortcutEntries: [
-            { code: MenuCode.DASHBOARD, label: '部门驾驶舱', path: '/' },
-            { code: MenuCode.MEMBER_EXAMPLES, label: '部门成员', path: '/system/examples' },
-          ],
-        };
-      case RoleCode.GROUP_LEADER:
-        return {
-          todoCount: 4,
-          shortcutEntries: [
-            { code: MenuCode.DASHBOARD, label: '小组驾驶舱', path: '/' },
-            { code: MenuCode.MEMBER_EXAMPLES, label: '组员列表', path: '/system/examples' },
+            { code: MenuCode.DASHBOARD, label: '角色驾驶舱', path: '/' },
+            approvalEntry,
+            demoEntry,
+            { code: MenuCode.MEMBER_EXAMPLES, label: '成员示例列表', path: '/system/examples' },
           ],
         };
       default:
         return {
           todoCount: 2,
-          shortcutEntries: [{ code: MenuCode.DASHBOARD, label: '个人驾驶舱', path: '/' }],
+          shortcutEntries: [
+            { code: MenuCode.DASHBOARD, label: '个人驾驶舱', path: '/' },
+            approvalEntry,
+            demoEntry,
+          ],
         };
     }
   }

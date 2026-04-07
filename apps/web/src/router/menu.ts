@@ -16,6 +16,20 @@ export const adminMenu: AppMenuItem[] = [
     permissions: [PermissionCodes.systemDashboardView],
   },
   {
+    key: 'approval-center',
+    label: '统一审批中心',
+    path: '/workflow/approval-center',
+    icon: 'Finished',
+    permissions: [PermissionCodes.approvalCenterView],
+  },
+  {
+    key: 'approval-demo',
+    label: '测试审批单',
+    path: '/workflow/demo-request',
+    icon: 'DocumentAdd',
+    permissions: [PermissionCodes.approvalCreate],
+  },
+  {
     key: 'health',
     label: '系统健康',
     path: '/system/health',

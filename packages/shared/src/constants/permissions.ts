@@ -35,6 +35,8 @@ export enum MenuCode {
   DASHBOARD = 'DASHBOARD',
   HEALTH = 'HEALTH',
   MEMBER_EXAMPLES = 'MEMBER_EXAMPLES',
+  APPROVAL_CENTER = 'APPROVAL_CENTER',
+  APPROVAL_DEMO = 'APPROVAL_DEMO',
 }
 
 export function buildPermissionCode(resource: ResourceCode, action: ActionCode) {
@@ -50,6 +52,8 @@ export const PermissionCodes = {
   memberListView: buildPermissionCode(ResourceCode.MEMBER, ActionCode.VIEW),
   orgTreeView: buildPermissionCode(ResourceCode.ORG, ActionCode.VIEW),
   approvalCenterView: buildPermissionCode(ResourceCode.APPROVAL, ActionCode.VIEW),
+  approvalCreate: buildPermissionCode(ResourceCode.APPROVAL, ActionCode.CREATE),
+  approvalApprove: buildPermissionCode(ResourceCode.APPROVAL, ActionCode.APPROVE),
 } as const;
 
 export type PermissionCode = (typeof PermissionCodes)[keyof typeof PermissionCodes];
@@ -64,6 +68,8 @@ export const RolePermissionMap: Record<RoleCode, PermissionCode[]> = {
     PermissionCodes.memberListView,
     PermissionCodes.orgTreeView,
     PermissionCodes.approvalCenterView,
+    PermissionCodes.approvalCreate,
+    PermissionCodes.approvalApprove,
   ],
   [RoleCode.LAB_LEADER]: [
     PermissionCodes.authLogin,
@@ -74,6 +80,8 @@ export const RolePermissionMap: Record<RoleCode, PermissionCode[]> = {
     PermissionCodes.memberListView,
     PermissionCodes.orgTreeView,
     PermissionCodes.approvalCenterView,
+    PermissionCodes.approvalCreate,
+    PermissionCodes.approvalApprove,
   ],
   [RoleCode.MINISTER]: [
     PermissionCodes.authLogin,
@@ -81,6 +89,9 @@ export const RolePermissionMap: Record<RoleCode, PermissionCode[]> = {
     PermissionCodes.authChangePassword,
     PermissionCodes.systemDashboardView,
     PermissionCodes.memberListView,
+    PermissionCodes.approvalCenterView,
+    PermissionCodes.approvalCreate,
+    PermissionCodes.approvalApprove,
   ],
   [RoleCode.GROUP_LEADER]: [
     PermissionCodes.authLogin,
@@ -88,18 +99,25 @@ export const RolePermissionMap: Record<RoleCode, PermissionCode[]> = {
     PermissionCodes.authChangePassword,
     PermissionCodes.systemDashboardView,
     PermissionCodes.memberListView,
+    PermissionCodes.approvalCenterView,
+    PermissionCodes.approvalCreate,
+    PermissionCodes.approvalApprove,
   ],
   [RoleCode.MEMBER]: [
     PermissionCodes.authLogin,
     PermissionCodes.authSwitchRole,
     PermissionCodes.authChangePassword,
     PermissionCodes.systemDashboardView,
+    PermissionCodes.approvalCenterView,
+    PermissionCodes.approvalCreate,
   ],
   [RoleCode.INTERN]: [
     PermissionCodes.authLogin,
     PermissionCodes.authSwitchRole,
     PermissionCodes.authChangePassword,
     PermissionCodes.systemDashboardView,
+    PermissionCodes.approvalCenterView,
+    PermissionCodes.approvalCreate,
   ],
 };
 

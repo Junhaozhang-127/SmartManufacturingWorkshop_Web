@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { House, List, Monitor } from '@element-plus/icons-vue';
+import { DocumentAdd, Finished, House, List, Monitor } from '@element-plus/icons-vue';
 import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import BreadcrumbBar from '../components/layout/BreadcrumbBar.vue';
 import GlobalDrawerHost from '../components/layout/GlobalDrawerHost.vue';
 import TopBar from '../components/layout/TopBar.vue';
-import { adminMenu,filterMenuByAccess } from '../router/menu';
+import { adminMenu, filterMenuByAccess } from '../router/menu';
 import { useAuthStore } from '../stores/auth';
 
 const authStore = useAuthStore();
@@ -17,6 +17,8 @@ const iconMap = {
   House,
   Monitor,
   List,
+  Finished,
+  DocumentAdd,
 };
 
 const menuItems = computed(() =>

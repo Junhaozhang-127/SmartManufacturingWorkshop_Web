@@ -26,6 +26,11 @@ model SysUser {
   member       MemberProfile?
   ledOrgUnits  OrgUnit[]       @relation("OrgUnitLeader")
   mentorFor    MemberProfile[] @relation("MemberMentor")
+  approvalInstancesStarted  WfApprovalInstance[] @relation("ApprovalApplicant")
+  approvalInstancesAssigned WfApprovalInstance[] @relation("ApprovalCurrentAssignee")
+  approvalLogs              WfApprovalNodeLog[]  @relation("ApprovalActor")
+  approvalTransferTargets   WfApprovalNodeLog[]  @relation("ApprovalTransferTarget")
+  demoApprovalForms         DemoApprovalForm[]   @relation("DemoApprovalApplicant")
 
   @@map("sys_user")
 }
@@ -99,4 +104,105 @@ model MemberProfile {
 
   @@index([orgUnitId])
   @@map("member_profile")
+}
+
+model WfApprovalTemplate {
+  id           BigInt                   @id @default(autoincrement()) @db.UnsignedBigInt
+  templateCode String                   @unique @map("template_code") @db.VarChar(64)
+  templateName String                   @map("template_name") @db.VarChar(128)
+  businessType String                   @unique @map("business_type") @db.VarChar(64)
+  statusCode   String                   @default("ACTIVE") @map("status_code") @db.VarChar(20)
+  createdAt    DateTime                 @default(now()) @map("created_at")
+  updatedAt    DateTime                 @updatedAt @map("updated_at")
+  nodes        WfApprovalTemplateNode[]
+  instances    WfApprovalInstance[]
+
+  @@map("wf_approval_template")
+}
+
+model WfApprovalTemplateNode {
+  id               BigInt             @id @default(autoincrement()) @db.UnsignedBigInt
+  templateId       BigInt             @map("template_id") @db.UnsignedBigInt
+  nodeKey          String             @map("node_key") @db.VarChar(64)
+  nodeName         String             @map("node_name") @db.VarChar(128)
+  sortNo           Int                @map("sort_no")
+  approverRoleCode String             @map("approver_role_code") @db.VarChar(32)
+  createdAt        DateTime           @default(now()) @map("created_at")
+  updatedAt        DateTime           @updatedAt @map("updated_at")
+  template         WfApprovalTemplate @relation(fields: [templateId], references: [id])
+
+  @@unique([templateId, nodeKey])
+  @@unique([templateId, sortNo])
+  @@index([templateId, sortNo])
+  @@map("wf_approval_template_node")
+}
+
+model WfApprovalInstance {
+  id                      BigInt              @id @default(autoincrement()) @db.UnsignedBigInt
+  templateId              BigInt?             @map("template_id") @db.UnsignedBigInt
+  businessType            String              @map("business_type") @db.VarChar(64)
+  businessId              String              @map("business_id") @db.VarChar(64)
+  title                   String              @db.VarChar(255)
+  status                  String              @default("PENDING") @db.VarChar(20)
+  applicantUserId         BigInt              @map("applicant_user_id") @db.UnsignedBigInt
+  applicantRoleCode       String?             @map("applicant_role_code") @db.VarChar(32)
+  currentNodeKey          String?             @map("current_node_key") @db.VarChar(64)
+  currentNodeName         String?             @map("current_node_name") @db.VarChar(128)
+  currentNodeSort         Int?                @map("current_node_sort")
+  currentApproverRoleCode String?             @map("current_approver_role_code") @db.VarChar(32)
+  currentApproverUserId   BigInt?             @map("current_approver_user_id") @db.UnsignedBigInt
+  latestComment           String?             @map("latest_comment") @db.VarChar(500)
+  formData                Json?               @map("form_data")
+  finishedAt              DateTime?           @map("finished_at")
+  withdrawnAt             DateTime?           @map("withdrawn_at")
+  createdAt               DateTime            @default(now()) @map("created_at")
+  updatedAt               DateTime            @updatedAt @map("updated_at")
+  applicant               SysUser             @relation("ApprovalApplicant", fields: [applicantUserId], references: [id])
+  currentApprover         SysUser?            @relation("ApprovalCurrentAssignee", fields: [currentApproverUserId], references: [id])
+  template                WfApprovalTemplate? @relation(fields: [templateId], references: [id])
+  logs                    WfApprovalNodeLog[]
+  demoForm                DemoApprovalForm?
+
+  @@index([businessType, businessId])
+  @@index([status, currentApproverRoleCode])
+  @@index([status, currentApproverUserId])
+  @@index([applicantUserId, status])
+  @@map("wf_approval_instance")
+}
+
+model WfApprovalNodeLog {
+  id           BigInt              @id @default(autoincrement()) @db.UnsignedBigInt
+  instanceId   BigInt              @map("instance_id") @db.UnsignedBigInt
+  nodeKey      String?             @map("node_key") @db.VarChar(64)
+  nodeName     String?             @map("node_name") @db.VarChar(128)
+  actionType   String              @map("action_type") @db.VarChar(32)
+  actorUserId  BigInt              @map("actor_user_id") @db.UnsignedBigInt
+  actorRoleCode String?            @map("actor_role_code") @db.VarChar(32)
+  targetUserId BigInt?             @map("target_user_id") @db.UnsignedBigInt
+  comment      String?             @db.VarChar(500)
+  extraData    Json?               @map("extra_data")
+  createdAt    DateTime            @default(now()) @map("created_at")
+  actor        SysUser             @relation("ApprovalActor", fields: [actorUserId], references: [id])
+  instance     WfApprovalInstance  @relation(fields: [instanceId], references: [id])
+  targetUser   SysUser?            @relation("ApprovalTransferTarget", fields: [targetUserId], references: [id])
+
+  @@index([instanceId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@map("wf_approval_node_log")
+}
+
+model DemoApprovalForm {
+  id                 BigInt              @id @default(autoincrement()) @db.UnsignedBigInt
+  title              String              @db.VarChar(128)
+  reason             String              @db.VarChar(500)
+  statusCode         String              @default("DRAFT") @map("status_code") @db.VarChar(20)
+  applicantUserId    BigInt              @map("applicant_user_id") @db.UnsignedBigInt
+  approvalInstanceId BigInt?             @unique @map("approval_instance_id") @db.UnsignedBigInt
+  createdAt          DateTime            @default(now()) @map("created_at")
+  updatedAt          DateTime            @updatedAt @map("updated_at")
+  applicant          SysUser             @relation("DemoApprovalApplicant", fields: [applicantUserId], references: [id])
+  approvalInstance   WfApprovalInstance? @relation(fields: [approvalInstanceId], references: [id])
+
+  @@index([applicantUserId, statusCode])
+  @@map("demo_approval_form")
 }

@@ -1,7 +1,7 @@
 import { PermissionCodes, RoleCode } from '@smw/shared';
 import { describe, expect, it } from 'vitest';
 
-import { filterMenuByAccess } from './menu';
+import { adminMenu, filterMenuByAccess } from './menu';
 
 describe('filterMenuByAccess', () => {
   it('keeps only menu items allowed by permission set and role', () => {
@@ -15,5 +15,15 @@ describe('filterMenuByAccess', () => {
 
     expect(result).toHaveLength(2);
     expect(result.map((item) => item.key)).toEqual(['1', '3']);
+  });
+
+  it('includes approval center and demo entry when approval permissions are present', () => {
+    const result = filterMenuByAccess(
+      adminMenu,
+      [PermissionCodes.systemDashboardView, PermissionCodes.approvalCenterView, PermissionCodes.approvalCreate],
+      RoleCode.MEMBER,
+    );
+
+    expect(result.map((item) => item.key)).toEqual(['dashboard', 'approval-center', 'approval-demo']);
   });
 });

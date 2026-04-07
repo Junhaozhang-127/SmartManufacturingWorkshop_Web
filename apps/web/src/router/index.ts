@@ -56,6 +56,26 @@ const routes: RouteRecordRaw[] = [
         },
       },
       {
+        path: 'workflow/approval-center',
+        name: 'workflow.approval-center',
+        component: () => import('@web/views/ApprovalCenterPage.vue'),
+        meta: {
+          title: '统一审批中心',
+          breadcrumb: ['流程中心', '统一审批中心'],
+          permissions: [PermissionCodes.approvalCenterView],
+        },
+      },
+      {
+        path: 'workflow/demo-request',
+        name: 'workflow.demo-request',
+        component: () => import('@web/views/DemoApprovalRequestPage.vue'),
+        meta: {
+          title: '测试审批单',
+          breadcrumb: ['流程中心', '测试审批单'],
+          permissions: [PermissionCodes.approvalCreate],
+        },
+      },
+      {
         path: 'system/health',
         name: 'system.health',
         component: () => import('@web/views/HealthCheckPage.vue'),

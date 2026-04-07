@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs';
 import { PrismaClient } from '@prisma/client';
-import { DataScope, RoleCode } from '@smw/shared';
+import { ApprovalBusinessType, DataScope, RoleCode } from '@smw/shared';
 
 const prisma = new PrismaClient();
 
@@ -226,6 +226,54 @@ async function main() {
       where: { userId: profile.userId },
       update: profile,
       create: profile,
+    });
+  }
+
+  const demoTemplate = await prisma.wfApprovalTemplate.upsert({
+    where: {
+      businessType: ApprovalBusinessType.DEMO_REQUEST,
+    },
+    update: {
+      templateCode: 'DEMO_REQUEST_FLOW',
+      templateName: '通用测试单据审批流程',
+      statusCode: 'ACTIVE',
+    },
+    create: {
+      templateCode: 'DEMO_REQUEST_FLOW',
+      templateName: '通用测试单据审批流程',
+      businessType: ApprovalBusinessType.DEMO_REQUEST,
+      statusCode: 'ACTIVE',
+    },
+  });
+
+  const demoTemplateNodes = [
+    {
+      nodeKey: 'GROUP_LEADER_REVIEW',
+      nodeName: '组长审批',
+      sortNo: 1,
+      approverRoleCode: RoleCode.GROUP_LEADER,
+    },
+    {
+      nodeKey: 'MINISTER_REVIEW',
+      nodeName: '部长审批',
+      sortNo: 2,
+      approverRoleCode: RoleCode.MINISTER,
+    },
+  ];
+
+  for (const node of demoTemplateNodes) {
+    await prisma.wfApprovalTemplateNode.upsert({
+      where: {
+        templateId_nodeKey: {
+          templateId: demoTemplate.id,
+          nodeKey: node.nodeKey,
+        },
+      },
+      update: node,
+      create: {
+        templateId: demoTemplate.id,
+        ...node,
+      },
     });
   }
 }

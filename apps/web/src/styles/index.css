@@ -166,6 +166,10 @@ body {
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
 }
 
+.dashboard-stat-grid {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
 .stat-card,
 .health-card {
   padding: 1.25rem;
@@ -346,6 +350,102 @@ body {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
+.dashboard-approval-grid,
+.demo-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.dashboard-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.dashboard-list__item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  width: 100%;
+  padding: 1rem;
+  border: 1px solid #d7dee8;
+  border-radius: 1rem;
+  background: #f8fbfd;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dashboard-list__item span,
+.drawer-caption {
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.approval-toolbar {
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.approval-toolbar__search {
+  display: flex;
+  gap: 0.75rem;
+  width: min(28rem, 100%);
+}
+
+.approval-detail {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.approval-detail__section {
+  padding: 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 1rem;
+  background: #fbfdff;
+}
+
+.approval-detail__section h3 {
+  margin-top: 0;
+}
+
+.approval-detail__section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.approval-detail__section-header span {
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.approval-detail__snapshot {
+  margin: 0;
+  padding: 1rem;
+  border-radius: 0.85rem;
+  background: #0f172a;
+  color: #e2e8f0;
+  overflow: auto;
+}
+
+.approval-detail__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.approval-log {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.approval-log p {
+  margin: 0;
+  color: #475569;
+}
+
 .shortcut-card {
   display: flex;
   flex-direction: column;
@@ -396,5 +496,10 @@ body {
   .login-page {
     grid-template-columns: 1fr;
     padding: 1.5rem;
+  }
+
+  .dashboard-approval-grid,
+  .demo-grid {
+    grid-template-columns: 1fr;
   }
 }
