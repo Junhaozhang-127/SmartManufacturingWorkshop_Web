@@ -146,6 +146,10 @@ onMounted(load);
           <span>最近转正</span>
           <strong>{{ detail.latestRegularization?.statusCode || '暂无' }}</strong>
         </article>
+        <article class="stat-card">
+          <span>最近考核</span>
+          <strong>{{ detail.latestEvaluation ? `${detail.latestEvaluation.totalScore} / ${detail.latestEvaluation.resultCode}` : '暂无' }}</strong>
+        </article>
       </div>
 
       <el-tabs class="member-detail-tabs">
@@ -195,11 +199,56 @@ onMounted(load);
         </el-tab-pane>
 
         <el-tab-pane label="项目经历/成果">
-          <el-empty description="P0 仅保留占位，P1 补齐项目经历与成果明细。" />
+          <el-table :data="detail.projectExperiences" border>
+            <el-table-column prop="projectKey" label="项目标识" min-width="160" />
+            <el-table-column prop="projectName" label="项目名称" min-width="180" />
+            <el-table-column label="来源" min-width="180">
+              <template #default="{ row }">{{ row.sourceTypes.join('、') }}</template>
+            </el-table-column>
+            <el-table-column prop="lastActivityDate" label="最近活动时间" min-width="140" />
+          </el-table>
         </el-tab-pane>
 
         <el-tab-pane label="考核奖惩">
-          <el-empty description="P0 仅保留占位，P1 补齐考核与奖惩记录。" />
+          <div class="page-grid">
+            <div class="panel-card">
+              <h3>最近考核</h3>
+              <div v-if="detail.latestEvaluation" class="drawer-descriptions">
+                <dt>周期</dt>
+                <dd>{{ detail.latestEvaluation.schemeName }} / {{ detail.latestEvaluation.periodKey }}</dd>
+                <dt>自动汇总分</dt>
+                <dd>{{ detail.latestEvaluation.autoScore }}</dd>
+                <dt>人工补充分</dt>
+                <dd>{{ detail.latestEvaluation.manualScore }}</dd>
+                <dt>总分</dt>
+                <dd>{{ detail.latestEvaluation.totalScore }}</dd>
+                <dt>结果</dt>
+                <dd>{{ detail.latestEvaluation.resultCode }}</dd>
+              </div>
+              <el-empty v-else description="暂无最近考核记录" />
+            </div>
+
+            <div class="panel-card">
+              <h3>奖惩记录</h3>
+              <el-table :data="detail.rewardsAndPenalties" border>
+                <el-table-column prop="eventType" label="类型" width="100" />
+                <el-table-column prop="title" label="标题" min-width="180" />
+                <el-table-column prop="levelCode" label="等级" width="120" />
+                <el-table-column prop="scoreImpact" label="分值影响" width="120" />
+                <el-table-column prop="occurredAt" label="发生时间" width="140" />
+              </el-table>
+            </div>
+          </div>
+        </el-tab-pane>
+
+        <el-tab-pane label="晋升记录">
+          <el-table :data="detail.promotionRecords" border>
+            <el-table-column prop="applicationNo" label="申请单号" min-width="160" />
+            <el-table-column prop="targetPositionCode" label="目标岗位" width="120" />
+            <el-table-column prop="statusCode" label="状态" width="120" />
+            <el-table-column prop="latestResult" label="最近结果" min-width="220" />
+            <el-table-column prop="publicNoticeResult" label="公示结果" min-width="180" />
+          </el-table>
         </el-tab-pane>
 
         <el-tab-pane label="流程留痕">

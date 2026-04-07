@@ -1,5 +1,6 @@
 import { ApprovalService } from '@api/modules/approval/approval.service';
 import { buildMemberProfileWhere } from '@api/modules/auth/data-scope-prisma';
+import { EvaluationPromotionService } from '@api/modules/evaluation-promotion/evaluation-promotion.service';
 import { PrismaService } from '@api/modules/prisma/prisma.service';
 import {
   BadRequestException,
@@ -101,6 +102,7 @@ export class MemberService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly approvalService: ApprovalService,
+    private readonly evaluationPromotionService: EvaluationPromotionService,
   ) {}
 
   async getOrgOverview(dataScopeContext: DataScopeContext) {
@@ -301,8 +303,13 @@ export class MemberService {
         createdAt: 'desc',
       },
     });
+    const promotionSnapshot = await this.evaluationPromotionService.buildMemberPromotionSnapshot(profile.id);
+    const projectAndRewardSnapshot = await this.evaluationPromotionService.buildMemberProjectAndRewardSnapshot(
+      profile.id,
+      profile.userId,
+    );
 
-    return this.mapMemberDetail(profile, latestRegularization);
+    return this.mapMemberDetail(profile, latestRegularization, promotionSnapshot, projectAndRewardSnapshot);
   }
 
   async updateMember(
@@ -807,7 +814,12 @@ export class MemberService {
     return record;
   }
 
-  private mapMemberDetail(profile: MemberProfileDetail, latestRegularization: Awaited<ReturnType<typeof this.prisma.memberRegularization.findFirst>>) {
+  private mapMemberDetail(
+    profile: MemberProfileDetail,
+    latestRegularization: Awaited<ReturnType<typeof this.prisma.memberRegularization.findFirst>>,
+    promotionSnapshot: Awaited<ReturnType<EvaluationPromotionService['buildMemberPromotionSnapshot']>>,
+    projectAndRewardSnapshot: Awaited<ReturnType<EvaluationPromotionService['buildMemberProjectAndRewardSnapshot']>>,
+  ) {
     return {
       id: String(profile.id),
       userId: String(profile.userId),
@@ -867,8 +879,10 @@ export class MemberService {
               : null,
           }
         : null,
-      projectExperiences: [],
-      rewardsAndPenalties: [],
+      latestEvaluation: promotionSnapshot.latestEvaluation,
+      promotionRecords: promotionSnapshot.promotionRecords,
+      projectExperiences: projectAndRewardSnapshot.projectExperiences,
+      rewardsAndPenalties: projectAndRewardSnapshot.rewardsAndPenalties,
     };
   }
 

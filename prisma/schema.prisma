@@ -30,6 +30,10 @@ model SysUser {
   memberStageEvaluations   MemberStageEvaluation[]   @relation("MemberStageEvaluator")
   memberRegularizations    MemberRegularization[]    @relation("MemberRegularizationApplicant")
   memberOperationLogs      MemberOperationLog[]      @relation("MemberOperationActor")
+  evaluationScoreRecords   EvalScoreRecord[]         @relation("EvaluationEvaluator")
+  promotionApplications    PromApplication[]         @relation("PromotionApplicant")
+  promotionAppointments    PromAppointment[]         @relation("PromotionAppointmentApplicant")
+  rewardPenaltyRecords     GovRewardPenalty[]        @relation("RewardPenaltySubject")
   approvalInstancesStarted  WfApprovalInstance[] @relation("ApprovalApplicant")
   approvalInstancesAssigned WfApprovalInstance[] @relation("ApprovalCurrentAssignee")
   approvalLogs              WfApprovalNodeLog[]  @relation("ApprovalActor")
@@ -124,6 +128,10 @@ model MemberProfile {
   stageEvaluations MemberStageEvaluation[]
   regularizations MemberRegularization[]
   operationLogs MemberOperationLog[]
+  evaluationScores EvalScoreRecord[]
+  promotionApplications PromApplication[]
+  promotionAppointments PromAppointment[]
+  rewardPenaltyRecords GovRewardPenalty[]
 
   @@index([orgUnitId])
   @@map("member_profile")
@@ -208,6 +216,74 @@ model MemberOperationLog {
   @@map("member_operation_log")
 }
 
+model EvalScheme {
+  id                   BigInt            @id @default(autoincrement()) @db.UnsignedBigInt
+  schemeCode           String            @unique @map("scheme_code") @db.VarChar(64)
+  schemeName           String            @map("scheme_name") @db.VarChar(128)
+  periodKey            String            @map("period_key") @db.VarChar(32)
+  startDate            DateTime          @map("start_date") @db.Date
+  endDate              DateTime          @map("end_date") @db.Date
+  statusCode           String            @default("ACTIVE") @map("status_code") @db.VarChar(20)
+  ruleConfig           Json?             @map("rule_config")
+  createdAt            DateTime          @default(now()) @map("created_at")
+  updatedAt            DateTime          @updatedAt @map("updated_at")
+  scoreRecords         EvalScoreRecord[]
+  promotionApplications PromApplication[]
+
+  @@index([statusCode, startDate, endDate])
+  @@map("eval_scheme")
+}
+
+model EvalScoreRecord {
+  id                 BigInt        @id @default(autoincrement()) @db.UnsignedBigInt
+  schemeId           BigInt        @map("scheme_id") @db.UnsignedBigInt
+  memberProfileId    BigInt        @map("member_profile_id") @db.UnsignedBigInt
+  evaluatorUserId    BigInt?       @map("evaluator_user_id") @db.UnsignedBigInt
+  achievementCount   Int           @default(0) @map("achievement_count")
+  projectCount       Int           @default(0) @map("project_count")
+  rewardPenaltyCount Int           @default(0) @map("reward_penalty_count")
+  autoScore          Decimal       @default(0) @map("auto_score") @db.Decimal(8, 2)
+  manualScore        Decimal       @default(0) @map("manual_score") @db.Decimal(8, 2)
+  totalScore         Decimal       @default(0) @map("total_score") @db.Decimal(8, 2)
+  autoScoreDetail    Json?         @map("auto_score_detail")
+  manualScoreDetail  Json?         @map("manual_score_detail")
+  manualComment      String?       @map("manual_comment") @db.VarChar(500)
+  resultCode         String        @map("result_code") @db.VarChar(32)
+  latestResult       String?       @map("latest_result") @db.VarChar(500)
+  evaluatedAt        DateTime?     @map("evaluated_at")
+  createdAt          DateTime      @default(now()) @map("created_at")
+  updatedAt          DateTime      @updatedAt @map("updated_at")
+  evaluator          SysUser?      @relation("EvaluationEvaluator", fields: [evaluatorUserId], references: [id])
+  memberProfile      MemberProfile @relation(fields: [memberProfileId], references: [id])
+  scheme             EvalScheme    @relation(fields: [schemeId], references: [id])
+
+  @@unique([schemeId, memberProfileId])
+  @@index([memberProfileId, updatedAt])
+  @@map("eval_score_record")
+}
+
+model GovRewardPenalty {
+  id              BigInt        @id @default(autoincrement()) @db.UnsignedBigInt
+  memberProfileId BigInt        @map("member_profile_id") @db.UnsignedBigInt
+  subjectUserId   BigInt        @map("subject_user_id") @db.UnsignedBigInt
+  eventType       String        @map("event_type") @db.VarChar(16)
+  title           String        @db.VarChar(128)
+  levelCode       String?       @map("level_code") @db.VarChar(32)
+  scoreImpact     Decimal       @default(0) @map("score_impact") @db.Decimal(8, 2)
+  sourceType      String?       @map("source_type") @db.VarChar(32)
+  sourceRefId     String?       @map("source_ref_id") @db.VarChar(64)
+  description     String?       @db.VarChar(500)
+  occurredAt      DateTime      @map("occurred_at") @db.Date
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+  memberProfile   MemberProfile @relation(fields: [memberProfileId], references: [id])
+  subjectUser     SysUser       @relation("RewardPenaltySubject", fields: [subjectUserId], references: [id])
+
+  @@index([memberProfileId, occurredAt])
+  @@index([subjectUserId, occurredAt])
+  @@map("gov_reward_penalty")
+}
+
 model WfApprovalTemplate {
   id           BigInt                   @id @default(autoincrement()) @db.UnsignedBigInt
   templateCode String                   @unique @map("template_code") @db.VarChar(64)
@@ -265,6 +341,7 @@ model WfApprovalInstance {
   logs                    WfApprovalNodeLog[]
   demoForm                DemoApprovalForm?
   memberRegularization    MemberRegularization?
+  promotionApplication    PromApplication?
   competitionTeam         CompTeam?
   achievement             AchvAchievement?
   deviceRepair            AssetDeviceRepair?
@@ -454,6 +531,61 @@ model AchvContributor {
   @@index([achievementId, contributionRank])
   @@index([userId])
   @@map("achv_contributor")
+}
+
+model PromApplication {
+  id                    BigInt              @id @default(autoincrement()) @db.UnsignedBigInt
+  applicationNo         String              @unique @map("application_no") @db.VarChar(64)
+  memberProfileId       BigInt              @map("member_profile_id") @db.UnsignedBigInt
+  applicantUserId       BigInt              @map("applicant_user_id") @db.UnsignedBigInt
+  schemeId              BigInt?             @map("scheme_id") @db.UnsignedBigInt
+  targetPositionCode    String              @map("target_position_code") @db.VarChar(32)
+  targetRoleCode        String?             @map("target_role_code") @db.VarChar(32)
+  statusCode            String              @default("IN_APPROVAL") @map("status_code") @db.VarChar(32)
+  qualificationPassed   Boolean             @default(false) @map("qualification_passed")
+  qualificationSnapshot Json?               @map("qualification_snapshot")
+  teamEvaluation        String?             @map("team_evaluation") @db.VarChar(1000)
+  departmentReview      String?             @map("department_review") @db.VarChar(1000)
+  publicNoticeResult    String?             @map("public_notice_result") @db.VarChar(500)
+  latestResult          String?             @map("latest_result") @db.VarChar(500)
+  approvalInstanceId    BigInt?             @unique @map("approval_instance_id") @db.UnsignedBigInt
+  submittedAt           DateTime?           @map("submitted_at")
+  completedAt           DateTime?           @map("completed_at")
+  createdAt             DateTime            @default(now()) @map("created_at")
+  updatedAt             DateTime            @updatedAt @map("updated_at")
+  applicant             SysUser             @relation("PromotionApplicant", fields: [applicantUserId], references: [id])
+  memberProfile         MemberProfile       @relation(fields: [memberProfileId], references: [id])
+  scheme                EvalScheme?         @relation(fields: [schemeId], references: [id])
+  approvalInstance      WfApprovalInstance? @relation(fields: [approvalInstanceId], references: [id])
+  appointment           PromAppointment?
+
+  @@index([memberProfileId, statusCode])
+  @@index([applicantUserId, statusCode])
+  @@map("prom_application")
+}
+
+model PromAppointment {
+  id                   BigInt          @id @default(autoincrement()) @db.UnsignedBigInt
+  applicationId        BigInt          @unique @map("application_id") @db.UnsignedBigInt
+  memberProfileId      BigInt          @map("member_profile_id") @db.UnsignedBigInt
+  applicantUserId      BigInt          @map("applicant_user_id") @db.UnsignedBigInt
+  targetPositionCode   String          @map("target_position_code") @db.VarChar(32)
+  targetRoleCode       String?         @map("target_role_code") @db.VarChar(32)
+  appointmentStatus    String          @default("NOTICE_PENDING") @map("appointment_status") @db.VarChar(32)
+  publicNoticeStatus   String          @default("PENDING") @map("public_notice_status") @db.VarChar(32)
+  publicNoticeStartDate DateTime?      @map("public_notice_start_date") @db.Date
+  publicNoticeEndDate  DateTime?       @map("public_notice_end_date") @db.Date
+  publicNoticeResult   String?         @map("public_notice_result") @db.VarChar(500)
+  appointedAt          DateTime?       @map("appointed_at")
+  latestResult         String?         @map("latest_result") @db.VarChar(500)
+  createdAt            DateTime        @default(now()) @map("created_at")
+  updatedAt            DateTime        @updatedAt @map("updated_at")
+  applicant            SysUser         @relation("PromotionAppointmentApplicant", fields: [applicantUserId], references: [id])
+  application          PromApplication @relation(fields: [applicationId], references: [id])
+  memberProfile        MemberProfile   @relation(fields: [memberProfileId], references: [id])
+
+  @@index([memberProfileId, appointmentStatus])
+  @@map("prom_appointment")
 }
 
 model AssetDevice {

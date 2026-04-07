@@ -30,6 +30,7 @@ import {
   MemberStatus,
   normalizePagination,
   PermissionCodes,
+  PromotionApplicationStatus,
   RegularizationStatus,
   RoleCode,
 } from '@smw/shared';
@@ -288,6 +289,7 @@ export class ApprovalService {
           actorRoleCode: currentUser.activeRole.roleCode,
           comment: payload.comment,
         });
+        await this.syncBusinessReviewFields(tx, instance.businessType, instance.businessId, instance.currentNodeKey, payload.comment);
 
         await this.appendLog(tx, {
           instanceId: instance.id,
@@ -333,6 +335,7 @@ export class ApprovalService {
         actorRoleCode: currentUser.activeRole.roleCode,
         comment: payload.comment,
       });
+      await this.syncBusinessReviewFields(tx, instance.businessType, instance.businessId, instance.currentNodeKey, payload.comment);
 
       await this.syncBusinessStatus(tx, instance.businessType, instance.businessId, ApprovalStatus.APPROVED, currentUser);
       return this.mapApprovalInstance(updated);
@@ -375,6 +378,7 @@ export class ApprovalService {
         actorRoleCode: currentUser.activeRole.roleCode,
         comment,
       });
+      await this.syncBusinessReviewFields(tx, instance.businessType, instance.businessId, instance.currentNodeKey, comment);
 
       await this.syncBusinessStatus(tx, instance.businessType, instance.businessId, ApprovalStatus.REJECTED, currentUser);
       return this.mapApprovalInstance(updated);
@@ -967,6 +971,37 @@ export class ApprovalService {
     });
   }
 
+  private async syncBusinessReviewFields(
+    tx: Prisma.TransactionClient,
+    businessType: string,
+    businessId: string,
+    nodeKey: string | null,
+    comment?: string | null,
+  ) {
+    if (businessType !== ApprovalBusinessType.PROMOTION_REQUEST || !comment?.trim()) {
+      return;
+    }
+
+    if (nodeKey === 'GROUP_LEADER_REVIEW') {
+      await tx.promApplication.update({
+        where: { id: this.toBigInt(businessId) },
+        data: {
+          teamEvaluation: comment.trim(),
+        },
+      });
+      return;
+    }
+
+    if (nodeKey === 'MINISTER_REVIEW' || nodeKey === 'LAB_LEADER_CONFIRM') {
+      await tx.promApplication.update({
+        where: { id: this.toBigInt(businessId) },
+        data: {
+          departmentReview: comment.trim(),
+        },
+      });
+    }
+  }
+
   private async syncBusinessStatus(
     tx: Prisma.TransactionClient,
     businessType: string,
@@ -1234,6 +1269,77 @@ export class ApprovalService {
                     ? '成果认定申请已撤回'
                     : '成果认定审批中',
             recognizedAt: status === ApprovalStatus.APPROVED ? now : achievement.recognizedAt,
+          },
+        });
+        return;
+      }
+      case ApprovalBusinessType.PROMOTION_REQUEST: {
+        const application = await tx.promApplication.findUnique({
+          where: { id: this.toBigInt(businessId) },
+        });
+
+        if (!application) {
+          return;
+        }
+
+        const now = new Date();
+
+        if (status === ApprovalStatus.PENDING) {
+          await tx.promApplication.update({
+            where: { id: application.id },
+            data: {
+              statusCode: PromotionApplicationStatus.IN_APPROVAL,
+              latestResult: 'Promotion request is in review',
+            },
+          });
+          return;
+        }
+
+        if (status === ApprovalStatus.APPROVED) {
+          await tx.promApplication.update({
+            where: { id: application.id },
+            data: {
+              statusCode: PromotionApplicationStatus.PUBLIC_NOTICE,
+              latestResult: 'Promotion review passed, pending public notice',
+              completedAt: now,
+            },
+          });
+
+          await tx.promAppointment.upsert({
+            where: { applicationId: application.id },
+            update: {
+              targetPositionCode: application.targetPositionCode,
+              targetRoleCode: application.targetRoleCode,
+              appointmentStatus: 'NOTICE_PENDING',
+              publicNoticeStatus: 'PENDING',
+              latestResult: 'Waiting for public notice result',
+            },
+            create: {
+              applicationId: application.id,
+              memberProfileId: application.memberProfileId,
+              applicantUserId: application.applicantUserId,
+              targetPositionCode: application.targetPositionCode,
+              targetRoleCode: application.targetRoleCode,
+              appointmentStatus: 'NOTICE_PENDING',
+              publicNoticeStatus: 'PENDING',
+              latestResult: 'Waiting for public notice result',
+            },
+          });
+          return;
+        }
+
+        await tx.promApplication.update({
+          where: { id: application.id },
+          data: {
+            statusCode:
+              status === ApprovalStatus.REJECTED
+                ? PromotionApplicationStatus.REJECTED
+                : PromotionApplicationStatus.WITHDRAWN,
+            latestResult:
+              status === ApprovalStatus.REJECTED
+                ? 'Promotion request rejected'
+                : 'Promotion request withdrawn',
+            completedAt: now,
           },
         });
         return;
@@ -1660,6 +1766,42 @@ export class ApprovalService {
           sourceTeamName: achievement.sourceTeam?.teamName ?? null,
           applicantName: achievement.applicant.displayName,
           contributorNames: achievement.contributors.map((item) => item.contributorName),
+        };
+      }
+      case ApprovalBusinessType.PROMOTION_REQUEST: {
+        const application = await this.prisma.promApplication.findUnique({
+          where: { id: this.toBigInt(businessId) },
+          include: {
+            scheme: true,
+            memberProfile: {
+              include: {
+                user: true,
+                orgUnit: true,
+              },
+            },
+            appointment: true,
+          },
+        });
+
+        if (!application) {
+          return null;
+        }
+
+        return {
+          applicationNo: application.applicationNo,
+          displayName: application.memberProfile.user.displayName,
+          orgUnitName: application.memberProfile.orgUnit.unitName,
+          currentPositionCode: application.memberProfile.positionCode,
+          targetPositionCode: application.targetPositionCode,
+          targetRoleCode: application.targetRoleCode,
+          schemeName: application.scheme?.schemeName ?? null,
+          qualificationPassed: application.qualificationPassed,
+          statusCode: application.statusCode,
+          teamEvaluation: application.teamEvaluation,
+          departmentReview: application.departmentReview,
+          publicNoticeResult: application.publicNoticeResult,
+          appointmentStatus: application.appointment?.appointmentStatus ?? null,
+          latestResult: application.latestResult,
         };
       }
       case ApprovalBusinessType.REPAIR_ORDER: {

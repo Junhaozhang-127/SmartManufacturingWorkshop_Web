@@ -1,4 +1,6 @@
 import type { PageResult } from '../dto/pagination';
+import type { MemberLatestEvaluationBrief } from './evaluation';
+import type { MemberPromotionRecordItem } from './promotion';
 
 export enum MemberStatus {
   INTERN = 'INTERN',
@@ -118,6 +120,23 @@ export interface MemberRegularizationBrief {
   approvalInstanceId: string | null;
 }
 
+export interface MemberProjectExperienceItem {
+  projectKey: string;
+  projectName: string;
+  sourceTypes: string[];
+  lastActivityDate: string | null;
+}
+
+export interface MemberRewardPenaltyItem {
+  id: string;
+  eventType: string;
+  title: string;
+  levelCode: string | null;
+  scoreImpact: number;
+  occurredAt: string;
+  description: string | null;
+}
+
 export interface MemberDetail {
   id: string;
   userId: string;
@@ -139,8 +158,10 @@ export interface MemberDetail {
   stageEvaluations: MemberStageEvaluationItem[];
   operationLogs: MemberOperationLogItem[];
   latestRegularization: MemberRegularizationBrief | null;
-  projectExperiences: Array<Record<string, unknown>>;
-  rewardsAndPenalties: Array<Record<string, unknown>>;
+  latestEvaluation: MemberLatestEvaluationBrief | null;
+  promotionRecords: MemberPromotionRecordItem[];
+  projectExperiences: MemberProjectExperienceItem[];
+  rewardsAndPenalties: MemberRewardPenaltyItem[];
 }
 
 export interface MemberRegularizationItem {

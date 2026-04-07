@@ -37,6 +37,27 @@ export const adminMenu: AppMenuItem[] = [
     permissions: [PermissionCodes.memberListView],
   },
   {
+    key: 'evaluation-score',
+    label: '考核评分',
+    path: '/evaluation/scores',
+    icon: 'DataAnalysis',
+    permissions: [PermissionCodes.evaluationView],
+  },
+  {
+    key: 'promotion-eligibility',
+    label: '晋升资格看板',
+    path: '/promotion/eligibility',
+    icon: 'Histogram',
+    permissions: [PermissionCodes.promotionView],
+  },
+  {
+    key: 'promotion-application',
+    label: '晋升申请与评审',
+    path: '/promotion/applications',
+    icon: 'Postcard',
+    permissions: [PermissionCodes.promotionView],
+  },
+  {
     key: 'member-transfer',
     label: '调岗预留',
     path: '/members/transfers',

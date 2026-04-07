@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import { PrismaClient } from '@prisma/client';
 import {
+  AchievementStatus,
   AchievementType,
   ApprovalBusinessType,
   ConsumableInventoryStatus,
@@ -240,6 +241,9 @@ async function main() {
 
   const internProfile = await prisma.memberProfile.findUniqueOrThrow({
     where: { userId: intern.id },
+  });
+  const memberProfile = await prisma.memberProfile.findUniqueOrThrow({
+    where: { userId: member.id },
   });
 
   const growthRecords = [
@@ -581,6 +585,22 @@ async function main() {
     },
   });
 
+  await prisma.achvAchievement.update({
+    where: { id: achievement.id },
+    data: {
+      statusCode: AchievementStatus.RECOGNIZED,
+      recognizedGrade: 'B',
+      scoreMapping: {
+        configured: true,
+        ruleKey: 'PAPER:PROVINCIAL',
+        score: 25,
+        message: 'seed score mapping',
+      },
+      recognizedAt: new Date('2026-03-20T09:00:00Z'),
+      latestResult: '种子数据：已完成成果认定',
+    },
+  });
+
   await prisma.achvAchievement.deleteMany({
     where: {
       id: {
@@ -589,6 +609,100 @@ async function main() {
       statusCode: 'DRAFT',
       title: '基于视觉检测的产线缺陷识别方法',
     },
+  });
+
+  const evaluationSchemes = [
+    {
+      schemeCode: 'EVAL-2026-Q1',
+      schemeName: '2026 年一季度考核',
+      periodKey: '2026Q1',
+      startDate: new Date('2026-01-01'),
+      endDate: new Date('2026-03-31'),
+    },
+    {
+      schemeCode: 'EVAL-2026-Q2',
+      schemeName: '2026 年二季度考核',
+      periodKey: '2026Q2',
+      startDate: new Date('2026-04-01'),
+      endDate: new Date('2026-06-30'),
+    },
+  ];
+
+  for (const item of evaluationSchemes) {
+    await prisma.evalScheme.upsert({
+      where: { schemeCode: item.schemeCode },
+      update: {
+        ...item,
+        statusCode: 'ACTIVE',
+        ruleConfig: {
+          autoWeights: {
+            achievement: 1,
+            project: 1,
+            rewardPenalty: 1,
+          },
+          qualification: {
+            MEMBER_TO_GROUP_LEADER: {
+              minimumTotalScore: 85,
+              minimumAchievementCount: 1,
+              minimumProjectCount: 1,
+            },
+          },
+        },
+      },
+      create: {
+        ...item,
+        statusCode: 'ACTIVE',
+        ruleConfig: {
+          autoWeights: {
+            achievement: 1,
+            project: 1,
+            rewardPenalty: 1,
+          },
+          qualification: {
+            MEMBER_TO_GROUP_LEADER: {
+              minimumTotalScore: 85,
+              minimumAchievementCount: 1,
+              minimumProjectCount: 1,
+            },
+          },
+        },
+      },
+    });
+  }
+
+  await prisma.govRewardPenalty.deleteMany({
+    where: {
+      title: {
+        in: ['校级优秀成员', '流程规范扣分'],
+      },
+    },
+  });
+
+  await prisma.govRewardPenalty.createMany({
+    data: [
+      {
+        memberProfileId: memberProfile.id,
+        subjectUserId: member.id,
+        eventType: 'REWARD',
+        title: '校级优秀成员',
+        levelCode: 'SCHOOL',
+        scoreImpact: 8,
+        sourceType: 'MANUAL',
+        description: '用于考核自动汇总分演示',
+        occurredAt: new Date('2026-03-25'),
+      },
+      {
+        memberProfileId: internProfile.id,
+        subjectUserId: intern.id,
+        eventType: 'PENALTY',
+        title: '流程规范扣分',
+        levelCode: 'GROUP',
+        scoreImpact: -3,
+        sourceType: 'MANUAL',
+        description: '用于奖惩记录演示',
+        occurredAt: new Date('2026-03-28'),
+      },
+    ],
   });
 
   const repairTemplate = await prisma.wfApprovalTemplate.upsert({
@@ -684,6 +798,43 @@ async function main() {
       update: node,
       create: {
         templateId: fundTemplate.id,
+        ...node,
+      },
+    });
+  }
+
+  const promotionTemplate = await prisma.wfApprovalTemplate.upsert({
+    where: { businessType: ApprovalBusinessType.PROMOTION_REQUEST },
+    update: {
+      templateCode: 'PROMOTION_REQUEST_FLOW',
+      templateName: '晋升申请审批流程',
+      statusCode: 'ACTIVE',
+    },
+    create: {
+      templateCode: 'PROMOTION_REQUEST_FLOW',
+      templateName: '晋升申请审批流程',
+      businessType: ApprovalBusinessType.PROMOTION_REQUEST,
+      statusCode: 'ACTIVE',
+    },
+  });
+
+  const promotionNodes = [
+    { nodeKey: 'GROUP_LEADER_REVIEW', nodeName: '团队评价', sortNo: 1, approverRoleCode: RoleCode.GROUP_LEADER },
+    { nodeKey: 'MINISTER_REVIEW', nodeName: '部门审核', sortNo: 2, approverRoleCode: RoleCode.MINISTER },
+    { nodeKey: 'LAB_LEADER_CONFIRM', nodeName: '负责人确认', sortNo: 3, approverRoleCode: RoleCode.LAB_LEADER },
+  ];
+
+  for (const node of promotionNodes) {
+    await prisma.wfApprovalTemplateNode.upsert({
+      where: {
+        templateId_nodeKey: {
+          templateId: promotionTemplate.id,
+          nodeKey: node.nodeKey,
+        },
+      },
+      update: node,
+      create: {
+        templateId: promotionTemplate.id,
         ...node,
       },
     });

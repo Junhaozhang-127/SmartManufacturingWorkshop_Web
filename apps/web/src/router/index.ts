@@ -96,6 +96,36 @@ const routes: RouteRecordRaw[] = [
         },
       },
       {
+        path: 'evaluation/scores',
+        name: 'evaluation.scores',
+        component: () => import('@web/views/EvaluationScorePage.vue'),
+        meta: {
+          title: '考核评分与结果',
+          breadcrumb: ['组织成员', '考核评分与结果'],
+          permissions: [PermissionCodes.evaluationView],
+        },
+      },
+      {
+        path: 'promotion/eligibility',
+        name: 'promotion.eligibility',
+        component: () => import('@web/views/PromotionEligibilityPage.vue'),
+        meta: {
+          title: '晋升资格看板',
+          breadcrumb: ['组织成员', '晋升资格看板'],
+          permissions: [PermissionCodes.promotionView],
+        },
+      },
+      {
+        path: 'promotion/applications',
+        name: 'promotion.applications',
+        component: () => import('@web/views/PromotionApplicationPage.vue'),
+        meta: {
+          title: '晋升申请与评审',
+          breadcrumb: ['组织成员', '晋升申请与评审'],
+          permissions: [PermissionCodes.promotionView],
+        },
+      },
+      {
         path: 'members/transfers',
         name: 'members.transfers',
         component: () => import('@web/views/FeatureReservedPage.vue'),
