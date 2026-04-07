@@ -1,0 +1,35 @@
+node_modules
+dist
+coverage
+.pnpm-store
+.idea
+.DS_Store
+Thumbs.db
+.turbo
+.cache
+*.log
+*.tsbuildinfo
+
+# Env files
+.env
+.env.local
+.env.*.local
+
+# Build output
+apps/web/.vite
+apps/web/dist
+apps/web/*.d.ts
+apps/web/*.js
+apps/api/dist
+packages/*/dist
+
+# Vite and test
+apps/web/playwright-report
+apps/web/test-results
+
+# Prisma
+prisma/dev.db
+prisma/dev.db-journal
+
+# Husky internal files
+.husky/_/

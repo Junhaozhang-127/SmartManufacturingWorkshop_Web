@@ -1,0 +1,100 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model SysUser {
+  id           BigInt          @id @default(autoincrement()) @db.UnsignedBigInt
+  username     String          @unique @db.VarChar(64)
+  passwordHash String          @map("password_hash") @db.VarChar(255)
+  displayName  String          @map("display_name") @db.VarChar(64)
+  mobile       String?         @db.VarChar(20)
+  email        String?         @db.VarChar(128)
+  statusCode   String          @default("ACTIVE") @map("status_code") @db.VarChar(20)
+  lastLoginAt  DateTime?       @map("last_login_at")
+  createdAt    DateTime        @default(now()) @map("created_at")
+  updatedAt    DateTime        @updatedAt @map("updated_at")
+  createdBy    BigInt?         @map("created_by") @db.UnsignedBigInt
+  isDeleted    Boolean         @default(false) @map("is_deleted")
+  userRoles    SysUserRole[]
+  member       MemberProfile?
+  ledOrgUnits  OrgUnit[]       @relation("OrgUnitLeader")
+  mentorFor    MemberProfile[] @relation("MemberMentor")
+
+  @@map("sys_user")
+}
+
+model SysRole {
+  id         BigInt        @id @default(autoincrement()) @db.UnsignedBigInt
+  roleCode   String        @unique @map("role_code") @db.VarChar(32)
+  roleName   String        @map("role_name") @db.VarChar(64)
+  dataScope  String        @map("data_scope") @db.VarChar(20)
+  sortNo     Int?          @map("sort_no")
+  statusCode String        @default("ACTIVE") @map("status_code") @db.VarChar(20)
+  createdAt  DateTime      @default(now()) @map("created_at")
+  updatedAt  DateTime      @updatedAt @map("updated_at")
+  userRoles  SysUserRole[]
+
+  @@map("sys_role")
+}
+
+model SysUserRole {
+  id            BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  userId        BigInt    @map("user_id") @db.UnsignedBigInt
+  roleId        BigInt    @map("role_id") @db.UnsignedBigInt
+  effectiveFrom DateTime? @map("effective_from")
+  effectiveTo   DateTime? @map("effective_to")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  role          SysRole   @relation(fields: [roleId], references: [id])
+  user          SysUser   @relation(fields: [userId], references: [id])
+
+  @@unique([userId, roleId])
+  @@map("sys_user_role")
+}
+
+model OrgUnit {
+  id             BigInt          @id @default(autoincrement()) @db.UnsignedBigInt
+  parentId       BigInt?         @map("parent_id") @db.UnsignedBigInt
+  unitCode       String          @unique @map("unit_code") @db.VarChar(32)
+  unitName       String          @map("unit_name") @db.VarChar(128)
+  unitType       String          @map("unit_type") @db.VarChar(32)
+  leaderUserId   BigInt?         @map("leader_user_id") @db.UnsignedBigInt
+  statusCode     String          @default("ACTIVE") @map("status_code") @db.VarChar(20)
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+  createdBy      BigInt?         @map("created_by") @db.UnsignedBigInt
+  isDeleted      Boolean         @default(false) @map("is_deleted")
+  children       OrgUnit[]       @relation("OrgUnitTree")
+  leader         SysUser?        @relation("OrgUnitLeader", fields: [leaderUserId], references: [id])
+  memberProfiles MemberProfile[]
+  parent         OrgUnit?        @relation("OrgUnitTree", fields: [parentId], references: [id])
+
+  @@index([parentId])
+  @@map("org_unit")
+}
+
+model MemberProfile {
+  id           BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  userId       BigInt   @unique @map("user_id") @db.UnsignedBigInt
+  orgUnitId    BigInt   @map("org_unit_id") @db.UnsignedBigInt
+  positionCode String   @map("position_code") @db.VarChar(32)
+  mentorUserId BigInt?  @map("mentor_user_id") @db.UnsignedBigInt
+  joinDate     DateTime @map("join_date") @db.Date
+  memberStatus String   @map("member_status") @db.VarChar(20)
+  skillTags    String?  @map("skill_tags") @db.VarChar(255)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  createdBy    BigInt?  @map("created_by") @db.UnsignedBigInt
+  isDeleted    Boolean  @default(false) @map("is_deleted")
+  mentor       SysUser? @relation("MemberMentor", fields: [mentorUserId], references: [id])
+  orgUnit      OrgUnit  @relation(fields: [orgUnitId], references: [id])
+  user         SysUser  @relation(fields: [userId], references: [id])
+
+  @@index([orgUnitId])
+  @@map("member_profile")
+}

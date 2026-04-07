@@ -1,0 +1,16 @@
+{
+  "extends": "@vue/tsconfig/tsconfig.dom.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+    "baseUrl": ".",
+    "paths": {
+      "@web/*": ["src/*"],
+      "@smw/shared": ["../../packages/shared/src/index.ts"],
+      "@smw/shared/*": ["../../packages/shared/src/*"],
+      "@smw/ui": ["../../packages/ui/src/index.ts"],
+      "@smw/ui/*": ["../../packages/ui/src/*"]
+    },
+    "types": ["vite/client"]
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue", "src/**/*.d.ts"]
+}
