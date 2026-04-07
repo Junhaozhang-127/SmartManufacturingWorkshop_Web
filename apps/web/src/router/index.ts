@@ -116,6 +116,26 @@ const routes: RouteRecordRaw[] = [
         },
       },
       {
+        path: 'inventory/ledger',
+        name: 'inventory.ledger',
+        component: () => import('@web/views/InventoryLedgerPage.vue'),
+        meta: {
+          title: '耗材库存台账',
+          breadcrumb: ['库存管理', '耗材库存'],
+          permissions: [PermissionCodes.inventoryView],
+        },
+      },
+      {
+        path: 'inventory/requests',
+        name: 'inventory.requests',
+        component: () => import('@web/views/InventoryRequestPage.vue'),
+        meta: {
+          title: '耗材申领与出入库',
+          breadcrumb: ['库存管理', '申领与出入库'],
+          permissions: [PermissionCodes.inventoryView],
+        },
+      },
+      {
         path: 'devices/ledger',
         name: 'devices.ledger',
         component: () => import('@web/views/DeviceLedgerPage.vue'),

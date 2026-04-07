@@ -5,7 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import {
   AchievementStatus,
   ApprovalActionType,
@@ -17,9 +17,13 @@ import {
   type ApprovalListResult,
   ApprovalStatus,
   CompetitionRegistrationStatus,
+  ConsumableInventoryStatus,
+  ConsumableRequestStatus,
+  ConsumableStatus,
   type CurrentUserProfile,
   DeviceRepairStatus,
   DeviceStatus,
+  InventoryTxnType,
   MemberGrowthRecordType,
   MemberStatus,
   normalizePagination,
@@ -296,7 +300,7 @@ export class ApprovalService {
           },
         });
 
-        await this.syncBusinessStatus(tx, instance.businessType, instance.businessId, ApprovalStatus.PENDING);
+        await this.syncBusinessStatus(tx, instance.businessType, instance.businessId, ApprovalStatus.PENDING, currentUser);
         return this.mapApprovalInstance(updated);
       }
 
@@ -328,7 +332,7 @@ export class ApprovalService {
         comment: payload.comment,
       });
 
-      await this.syncBusinessStatus(tx, instance.businessType, instance.businessId, ApprovalStatus.APPROVED);
+      await this.syncBusinessStatus(tx, instance.businessType, instance.businessId, ApprovalStatus.APPROVED, currentUser);
       return this.mapApprovalInstance(updated);
     });
   }
@@ -370,7 +374,7 @@ export class ApprovalService {
         comment,
       });
 
-      await this.syncBusinessStatus(tx, instance.businessType, instance.businessId, ApprovalStatus.REJECTED);
+      await this.syncBusinessStatus(tx, instance.businessType, instance.businessId, ApprovalStatus.REJECTED, currentUser);
       return this.mapApprovalInstance(updated);
     });
   }
@@ -518,7 +522,7 @@ export class ApprovalService {
         comment: payload.comment,
       });
 
-      await this.syncBusinessStatus(tx, instance.businessType, instance.businessId, ApprovalStatus.WITHDRAWN);
+      await this.syncBusinessStatus(tx, instance.businessType, instance.businessId, ApprovalStatus.WITHDRAWN, currentUser);
       return this.mapApprovalInstance(updated);
     });
   }
@@ -966,6 +970,7 @@ export class ApprovalService {
     businessType: string,
     businessId: string,
     status: ApprovalStatus,
+    actor?: CurrentUserProfile,
   ) {
     switch (businessType as ApprovalBusinessType) {
       case ApprovalBusinessType.DEMO_REQUEST: {
@@ -1318,6 +1323,135 @@ export class ApprovalService {
         }
         return;
       }
+      case ApprovalBusinessType.CONSUMABLE_REQUEST: {
+        const request = await tx.invConsumableRequest.findUnique({
+          where: { id: this.toBigInt(businessId) },
+          include: {
+            consumable: true,
+          },
+        });
+
+        if (!request) {
+          return;
+        }
+
+        const now = new Date();
+        const actionType =
+          status === ApprovalStatus.APPROVED
+            ? 'APPROVAL_APPROVED'
+            : status === ApprovalStatus.REJECTED
+              ? 'APPROVAL_REJECTED'
+              : status === ApprovalStatus.WITHDRAWN
+                ? 'APPROVAL_WITHDRAWN'
+                : 'APPROVAL_PENDING';
+
+        if (status === ApprovalStatus.PENDING) {
+          await tx.invConsumableRequest.update({
+            where: { id: request.id },
+            data: {
+              statusCode: ConsumableRequestStatus.IN_APPROVAL,
+              latestResult: '申领单审批中',
+              statusLogs: this.appendStatusHistory(request.statusLogs, {
+                actionType,
+                fromStatus: request.statusCode,
+                toStatus: ConsumableRequestStatus.IN_APPROVAL,
+                operatorUserId: actor?.id ?? null,
+                operatorName: actor?.displayName ?? null,
+                comment: '等待审批链路处理',
+              }),
+            },
+          });
+          return;
+        }
+
+        if (status === ApprovalStatus.APPROVED) {
+          const currentStock = Number(request.consumable.currentStock.toString());
+          const requestQty = Number(request.quantity.toString());
+          const nextStock = Number((currentStock - requestQty).toFixed(2));
+
+          if (nextStock < 0) {
+            throw new BadRequestException('审批通过失败：当前库存不足以执行出库');
+          }
+
+          const inventoryState = this.resolveConsumableInventoryState(
+            request.consumable.statusCode,
+            nextStock,
+            Number(request.consumable.warningThreshold.toString()),
+          );
+
+          const outboundTxn = await tx.invInventoryTxn.create({
+            data: {
+              consumableId: request.consumableId,
+              requestId: request.id,
+              txnType: InventoryTxnType.REQUEST_OUTBOUND,
+              quantity: request.quantity,
+              balanceAfter: new Prisma.Decimal(nextStock),
+              projectId: request.projectId,
+              projectName: request.projectName,
+              operatorUserId: actor ? this.toBigInt(actor.id) : null,
+              operatorRoleCode: actor?.activeRole.roleCode ?? null,
+              remark: `申领审批通过自动出库 / ${request.requestNo}`,
+              txnAt: now,
+            },
+          });
+
+          await tx.invConsumable.update({
+            where: { id: request.consumableId },
+            data: {
+              currentStock: new Prisma.Decimal(nextStock),
+              inventoryStatus: inventoryState.inventoryStatus,
+              warningFlag: inventoryState.warningFlag,
+              replenishmentTriggeredAt:
+                inventoryState.warningFlag && !request.consumable.warningFlag
+                  ? now
+                  : request.consumable.replenishmentTriggeredAt,
+              lastTxnAt: now,
+            },
+          });
+
+          await tx.invConsumableRequest.update({
+            where: { id: request.id },
+            data: {
+              statusCode: ConsumableRequestStatus.FULFILLED,
+              latestResult: '申领审批通过并已自动出库',
+              outboundTxnId: outboundTxn.id,
+              completedAt: now,
+              statusLogs: this.appendStatusHistory(request.statusLogs, {
+                actionType,
+                fromStatus: request.statusCode,
+                toStatus: ConsumableRequestStatus.FULFILLED,
+                operatorUserId: actor?.id ?? null,
+                operatorName: actor?.displayName ?? null,
+                comment: '审批通过并完成库存扣减',
+              }),
+            },
+          });
+          return;
+        }
+
+        const nextStatus =
+          status === ApprovalStatus.REJECTED ? ConsumableRequestStatus.REJECTED : ConsumableRequestStatus.WITHDRAWN;
+        const nextResult =
+          status === ApprovalStatus.REJECTED ? '申领审批已驳回' : '申领申请已撤回';
+
+        await tx.invConsumableRequest.update({
+          where: { id: request.id },
+          data: {
+            statusCode: nextStatus,
+            latestResult: nextResult,
+            completedAt: now,
+            statusLogs: this.appendStatusHistory(request.statusLogs, {
+              actionType,
+              fromStatus: request.statusCode,
+              toStatus: nextStatus,
+              operatorUserId: actor?.id ?? null,
+              operatorName: actor?.displayName ?? null,
+              comment: nextResult,
+            }),
+          },
+        });
+        return;
+      }
       default:
         return;
     }
@@ -1458,6 +1592,36 @@ export class ApprovalService {
           costEstimate: repair.costEstimate ? Number(repair.costEstimate.toString()) : null,
         };
       }
+      case ApprovalBusinessType.CONSUMABLE_REQUEST: {
+        const request = await this.prisma.invConsumableRequest.findUnique({
+          where: { id: this.toBigInt(businessId) },
+          include: {
+            applicant: true,
+            consumable: true,
+          },
+        });
+
+        if (!request) {
+          return null;
+        }
+
+        return {
+          requestNo: request.requestNo,
+          consumableCode: request.consumable.consumableCode,
+          consumableName: request.consumable.consumableName,
+          categoryName: request.consumable.categoryName,
+          statusCode: request.statusCode,
+          quantity: Number(request.quantity.toString()),
+          unitName: request.consumable.unitName,
+          projectId: request.projectId,
+          projectName: request.projectName,
+          purpose: request.purpose,
+          applicantName: request.applicant.displayName,
+          latestResult: request.latestResult,
+          warningFlag: request.consumable.warningFlag,
+          currentStock: Number(request.consumable.currentStock.toString()),
+        };
+      }
       default:
         return null;
     }
@@ -1492,5 +1656,18 @@ export class ApprovalService {
     }
 
     return value as Record<string, unknown>;
+  }
+
+  private resolveConsumableInventoryState(statusCode: string, currentStock: number, warningThreshold: number) {
+    if (statusCode === ConsumableStatus.DISABLED) {
+      return { inventoryStatus: ConsumableInventoryStatus.DISABLED, warningFlag: false };
+    }
+    if (currentStock <= 0) {
+      return { inventoryStatus: ConsumableInventoryStatus.OUT_OF_STOCK, warningFlag: true };
+    }
+    if (currentStock <= warningThreshold) {
+      return { inventoryStatus: ConsumableInventoryStatus.LOW_STOCK, warningFlag: true };
+    }
+    return { inventoryStatus: ConsumableInventoryStatus.NORMAL, warningFlag: false };
   }
 }

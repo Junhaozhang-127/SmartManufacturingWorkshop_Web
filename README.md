@@ -22,6 +22,7 @@ prisma/
   seed.ts
 docs/
   development-conventions.md
+  inventory-p0.md
   rbac-data-scope-foundation.md
 ```
 
@@ -69,6 +70,7 @@ Copy-Item .env.example .env
 - 开发期简化验证码
 - RBAC 权限守卫
 - 数据范围注入与示例列表过滤
+- 耗材库存、申领与出入库 P0
 - 动态菜单、路由守卫、角色化首页驾驶舱空壳
 
 ## 常用命令

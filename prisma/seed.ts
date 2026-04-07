@@ -3,11 +3,15 @@ import { PrismaClient } from '@prisma/client';
 import {
   AchievementType,
   ApprovalBusinessType,
+  ConsumableInventoryStatus,
+  ConsumableRequestStatus,
+  ConsumableStatus,
   CompetitionRegistrationStatus,
   DataScope,
   DeviceRepairSeverity,
   DeviceRepairStatus,
   DeviceStatus,
+  InventoryTxnType,
   MemberGrowthRecordType,
   MemberStatus,
   RegularizationStatus,
@@ -621,6 +625,37 @@ async function main() {
     });
   }
 
+  const consumableTemplate = await prisma.wfApprovalTemplate.upsert({
+    where: { businessType: ApprovalBusinessType.CONSUMABLE_REQUEST },
+    update: {
+      templateCode: 'CONSUMABLE_REQUEST_FLOW',
+      templateName: '耗材申领审批流程',
+      statusCode: 'ACTIVE',
+    },
+    create: {
+      templateCode: 'CONSUMABLE_REQUEST_FLOW',
+      templateName: '耗材申领审批流程',
+      businessType: ApprovalBusinessType.CONSUMABLE_REQUEST,
+      statusCode: 'ACTIVE',
+    },
+  });
+
+  for (const node of repairNodes) {
+    await prisma.wfApprovalTemplateNode.upsert({
+      where: {
+        templateId_nodeKey: {
+          templateId: consumableTemplate.id,
+          nodeKey: node.nodeKey,
+        },
+      },
+      update: node,
+      create: {
+        templateId: consumableTemplate.id,
+        ...node,
+      },
+    });
+  }
+
   const edgeCamera = await prisma.assetDevice.upsert({
     where: { deviceCode: 'DEV-CAM-001' },
     update: {
@@ -757,6 +792,214 @@ async function main() {
     where: { id: edgeCamera.id },
     data: {
       latestRepairId: null,
+    },
+  });
+
+  const solderWire = await prisma.invConsumable.upsert({
+    where: { consumableCode: 'CS-SOLDER-001' },
+    update: {
+      consumableName: '焊锡丝',
+      categoryName: '电子耗材',
+      specification: '0.8mm / 500g',
+      unitName: '卷',
+      statusCode: ConsumableStatus.ACTIVE,
+      inventoryStatus: ConsumableInventoryStatus.NORMAL,
+      currentStock: 18,
+      warningThreshold: 5,
+      warningFlag: false,
+      orgUnitId: group.id,
+      defaultLocation: '电子仓 A-01',
+      lastTxnAt: new Date('2026-04-06T09:00:00Z'),
+      createdBy: leader.id,
+      isDeleted: false,
+    },
+    create: {
+      consumableCode: 'CS-SOLDER-001',
+      consumableName: '焊锡丝',
+      categoryName: '电子耗材',
+      specification: '0.8mm / 500g',
+      unitName: '卷',
+      statusCode: ConsumableStatus.ACTIVE,
+      inventoryStatus: ConsumableInventoryStatus.NORMAL,
+      currentStock: 18,
+      warningThreshold: 5,
+      warningFlag: false,
+      orgUnitId: group.id,
+      defaultLocation: '电子仓 A-01',
+      lastTxnAt: new Date('2026-04-06T09:00:00Z'),
+      createdBy: leader.id,
+    },
+  });
+
+  const gloves = await prisma.invConsumable.upsert({
+    where: { consumableCode: 'CS-GLOVE-002' },
+    update: {
+      consumableName: '防静电手套',
+      categoryName: '防护耗材',
+      specification: 'L 码 / 12 双装',
+      unitName: '盒',
+      statusCode: ConsumableStatus.ACTIVE,
+      inventoryStatus: ConsumableInventoryStatus.LOW_STOCK,
+      currentStock: 2,
+      warningThreshold: 4,
+      warningFlag: true,
+      orgUnitId: group.id,
+      defaultLocation: '防护仓 B-03',
+      replenishmentTriggeredAt: new Date('2026-04-07T08:30:00Z'),
+      lastTxnAt: new Date('2026-04-07T08:30:00Z'),
+      createdBy: leader.id,
+      isDeleted: false,
+    },
+    create: {
+      consumableCode: 'CS-GLOVE-002',
+      consumableName: '防静电手套',
+      categoryName: '防护耗材',
+      specification: 'L 码 / 12 双装',
+      unitName: '盒',
+      statusCode: ConsumableStatus.ACTIVE,
+      inventoryStatus: ConsumableInventoryStatus.LOW_STOCK,
+      currentStock: 2,
+      warningThreshold: 4,
+      warningFlag: true,
+      orgUnitId: group.id,
+      defaultLocation: '防护仓 B-03',
+      replenishmentTriggeredAt: new Date('2026-04-07T08:30:00Z'),
+      lastTxnAt: new Date('2026-04-07T08:30:00Z'),
+      createdBy: leader.id,
+    },
+  });
+
+  await prisma.invConsumableRequest.deleteMany({
+    where: {
+      requestNo: 'REQ-20260407-001',
+    },
+  });
+
+  await prisma.invInventoryTxn.deleteMany({
+    where: {
+      remark: {
+        in: ['P0 种子建账', '样机调试领用', '现场防护领用', '种子数据：申领审批自动出库'],
+      },
+    },
+  });
+
+  await prisma.invInventoryTxn.createMany({
+    data: [
+      {
+        consumableId: solderWire.id,
+        txnType: InventoryTxnType.INBOUND,
+        quantity: 20,
+        balanceAfter: 20,
+        operatorUserId: leader.id,
+        operatorRoleCode: RoleCode.LAB_LEADER,
+        remark: 'P0 种子建账',
+        txnAt: new Date('2026-04-05T10:00:00Z'),
+      },
+      {
+        consumableId: solderWire.id,
+        txnType: InventoryTxnType.OUTBOUND,
+        quantity: 2,
+        balanceAfter: 18,
+        projectId: 'PRJ-INV-001',
+        projectName: '焊接工位改造',
+        operatorUserId: groupLeader.id,
+        operatorRoleCode: RoleCode.GROUP_LEADER,
+        remark: '样机调试领用',
+        txnAt: new Date('2026-04-06T09:00:00Z'),
+      },
+      {
+        consumableId: gloves.id,
+        txnType: InventoryTxnType.INBOUND,
+        quantity: 4,
+        balanceAfter: 4,
+        operatorUserId: leader.id,
+        operatorRoleCode: RoleCode.LAB_LEADER,
+        remark: 'P0 种子建账',
+        txnAt: new Date('2026-04-05T10:20:00Z'),
+      },
+      {
+        consumableId: gloves.id,
+        txnType: InventoryTxnType.OUTBOUND,
+        quantity: 2,
+        balanceAfter: 2,
+        projectId: 'PRJ-INV-002',
+        projectName: '产线静电防护整改',
+        operatorUserId: member.id,
+        operatorRoleCode: RoleCode.MEMBER,
+        remark: '现场防护领用',
+        txnAt: new Date('2026-04-07T08:30:00Z'),
+      },
+    ],
+  });
+
+  const request = await prisma.invConsumableRequest.create({
+    data: {
+      requestNo: 'REQ-20260407-001',
+      consumableId: gloves.id,
+      applicantUserId: member.id,
+      applicantRoleCode: RoleCode.MEMBER,
+      quantity: 1,
+      purpose: '实验线巡检防护',
+      projectId: 'PRJ-INV-002',
+      projectName: '产线静电防护整改',
+      statusCode: ConsumableRequestStatus.FULFILLED,
+      latestResult: '种子数据：审批通过并已出库',
+      statusLogs: [
+        {
+          actionType: 'REQUEST_CREATED',
+          fromStatus: null,
+          toStatus: 'DRAFT',
+          operatorUserId: String(member.id),
+          operatorName: member.displayName,
+          comment: '实验线巡检防护',
+          createdAt: '2026-04-07T09:00:00.000Z',
+        },
+        {
+          actionType: 'APPROVAL_APPROVED',
+          fromStatus: 'IN_APPROVAL',
+          toStatus: 'FULFILLED',
+          operatorUserId: String(groupLeader.id),
+          operatorName: groupLeader.displayName,
+          comment: '种子数据自动出库',
+          createdAt: '2026-04-07T09:10:00.000Z',
+        },
+      ],
+      requestedAt: new Date('2026-04-07T09:00:00Z'),
+      completedAt: new Date('2026-04-07T09:10:00Z'),
+    },
+  });
+
+  const outboundTxn = await prisma.invInventoryTxn.create({
+    data: {
+      consumableId: gloves.id,
+      requestId: request.id,
+      txnType: InventoryTxnType.REQUEST_OUTBOUND,
+      quantity: 1,
+      balanceAfter: 1,
+      projectId: 'PRJ-INV-002',
+      projectName: '产线静电防护整改',
+      operatorUserId: groupLeader.id,
+      operatorRoleCode: RoleCode.GROUP_LEADER,
+      remark: '种子数据：申领审批自动出库',
+      txnAt: new Date('2026-04-07T09:10:00Z'),
+    },
+  });
+
+  await prisma.invConsumableRequest.update({
+    where: { id: request.id },
+    data: {
+      outboundTxnId: outboundTxn.id,
+    },
+  });
+
+  await prisma.invConsumable.update({
+    where: { id: gloves.id },
+    data: {
+      currentStock: 1,
+      inventoryStatus: ConsumableInventoryStatus.LOW_STOCK,
+      warningFlag: true,
+      replenishmentTriggeredAt: new Date('2026-04-07T08:30:00Z'),
+      lastTxnAt: new Date('2026-04-07T09:10:00Z'),
     },
   });
 

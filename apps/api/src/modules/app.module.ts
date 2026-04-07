@@ -8,6 +8,7 @@ import { CompetitionAchievementModule } from './competition-achievement/competit
 import { DeviceModule } from './device/device.module';
 import { ExampleModule } from './example/example.module';
 import { HealthModule } from './health/health.module';
+import { InventoryModule } from './inventory/inventory.module';
 import { MemberModule } from './member/member.module';
 import { PrismaModule } from './prisma/prisma.module';
 
@@ -22,6 +23,7 @@ import { PrismaModule } from './prisma/prisma.module';
     AuthModule,
     ExampleModule,
     MemberModule,
+    InventoryModule,
     CompetitionAchievementModule,
     DeviceModule,
     ApprovalModule,

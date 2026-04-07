@@ -51,6 +51,20 @@ export const adminMenu: AppMenuItem[] = [
     permissions: [PermissionCodes.memberListView],
   },
   {
+    key: 'consumable-ledger',
+    label: '耗材库存',
+    path: '/inventory/ledger',
+    icon: 'Goods',
+    permissions: [PermissionCodes.inventoryView],
+  },
+  {
+    key: 'consumable-request',
+    label: '申领与出入库',
+    path: '/inventory/requests',
+    icon: 'DocumentCopy',
+    permissions: [PermissionCodes.inventoryView],
+  },
+  {
     key: 'device-ledger',
     label: '设备台账',
     path: '/devices/ledger',
