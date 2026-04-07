@@ -4,6 +4,7 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   APP_NAME: z.string().default('Smart Manufacturing Workshop Lab System'),
   APP_PORT: z.coerce.number().default(3000),
+  APP_BASE_URL: z.string().default('http://localhost:3000'),
   API_PREFIX: z.string().default('api'),
   DATABASE_URL: z.string().default('mysql://root:root@127.0.0.1:3306/smw_lab'),
   AUTH_TOKEN_SECRET: z.string().default('smw-lab-auth-secret'),

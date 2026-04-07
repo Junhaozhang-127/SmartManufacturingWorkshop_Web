@@ -79,6 +79,9 @@ importers:
       '@smw/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@types/multer':
+        specifier: ^2.1.0
+        version: 2.1.0
       bcryptjs:
         specifier: ^3.0.2
         version: 3.0.3
@@ -88,6 +91,9 @@ importers:
       class-validator:
         specifier: ^0.14.2
         version: 0.14.4
+      multer:
+        specifier: ^2.1.1
+        version: 2.1.1
       reflect-metadata:
         specifier: ^0.2.2
         version: 0.2.2
@@ -2079,6 +2085,12 @@ packages:
     resolution:
       {
         integrity: sha512-ymXWVrDiCxTBE3+RIrrP533E70eA+9qu7zdWoHuOmGujkYtzf4HQF96b8nwHLqhuf4ykX61IGRIB38CC6/sImQ==,
+      }
+
+  '@types/multer@2.1.0':
+    resolution:
+      {
+        integrity: sha512-zYZb0+nJhOHtPpGDb3vqPjwpdeGlGC157VpkqNQL+UU2qwoacoQ7MpsAmUptI/0Oa127X32JzWDqQVEXp2RcIA==,
       }
 
   '@types/node@24.12.2':
@@ -8525,6 +8537,10 @@ snapshots:
   '@types/lodash@4.17.24': {}
 
   '@types/methods@1.1.4': {}
+
+  '@types/multer@2.1.0':
+    dependencies:
+      '@types/express': 5.0.6
 
   '@types/node@24.12.2':
     dependencies:

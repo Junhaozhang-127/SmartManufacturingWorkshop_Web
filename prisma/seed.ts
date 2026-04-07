@@ -11,6 +11,8 @@ import {
   DeviceRepairSeverity,
   DeviceRepairStatus,
   DeviceStatus,
+  FundApplicationStatus,
+  FundPaymentStatus,
   InventoryTxnType,
   MemberGrowthRecordType,
   MemberStatus,
@@ -656,6 +658,37 @@ async function main() {
     });
   }
 
+  const fundTemplate = await prisma.wfApprovalTemplate.upsert({
+    where: { businessType: ApprovalBusinessType.FUND_REQUEST },
+    update: {
+      templateCode: 'FUND_REQUEST_FLOW',
+      templateName: '经费申请审批流程',
+      statusCode: 'ACTIVE',
+    },
+    create: {
+      templateCode: 'FUND_REQUEST_FLOW',
+      templateName: '经费申请审批流程',
+      businessType: ApprovalBusinessType.FUND_REQUEST,
+      statusCode: 'ACTIVE',
+    },
+  });
+
+  for (const node of repairNodes) {
+    await prisma.wfApprovalTemplateNode.upsert({
+      where: {
+        templateId_nodeKey: {
+          templateId: fundTemplate.id,
+          nodeKey: node.nodeKey,
+        },
+      },
+      update: node,
+      create: {
+        templateId: fundTemplate.id,
+        ...node,
+      },
+    });
+  }
+
   const edgeCamera = await prisma.assetDevice.upsert({
     where: { deviceCode: 'DEV-CAM-001' },
     update: {
@@ -792,6 +825,129 @@ async function main() {
     where: { id: edgeCamera.id },
     data: {
       latestRepairId: null,
+    },
+  });
+
+  const workshopAccount = await prisma.fundAccount.upsert({
+    where: { accountCode: 'FUND-RESERVED-001' },
+    update: {
+      accountName: '智能产线调试经费',
+      statusCode: 'ACTIVE',
+      categoryName: '项目预算',
+      projectId: 'PRJ-SMW-001',
+      projectName: '智能制造产线调试项目',
+      ownerOrgUnitId: group.id,
+      managerUserId: groupLeader.id,
+      totalBudget: 50000,
+      reservedAmount: 1200,
+      usedAmount: 5800,
+      paidAmount: 5200,
+      remarks: '设备维修、差旅与采购共用预算池',
+      lastExpenseAt: new Date('2026-04-07T09:30:00Z'),
+      createdBy: leader.id,
+      isDeleted: false,
+    },
+    create: {
+      accountCode: 'FUND-RESERVED-001',
+      accountName: '智能产线调试经费',
+      statusCode: 'ACTIVE',
+      categoryName: '项目预算',
+      projectId: 'PRJ-SMW-001',
+      projectName: '智能制造产线调试项目',
+      ownerOrgUnitId: group.id,
+      managerUserId: groupLeader.id,
+      totalBudget: 50000,
+      reservedAmount: 1200,
+      usedAmount: 5800,
+      paidAmount: 5200,
+      remarks: '设备维修、差旅与采购共用预算池',
+      lastExpenseAt: new Date('2026-04-07T09:30:00Z'),
+      createdBy: leader.id,
+    },
+  });
+
+  await prisma.fundAccount.upsert({
+    where: { accountCode: 'FUND-TRAVEL-002' },
+    update: {
+      accountName: '项目外出差旅经费',
+      statusCode: 'ACTIVE',
+      categoryName: '差旅预算',
+      projectId: 'PRJ-SMW-001',
+      projectName: '智能制造产线调试项目',
+      ownerOrgUnitId: department.id,
+      managerUserId: minister.id,
+      totalBudget: 18000,
+      reservedAmount: 0,
+      usedAmount: 2600,
+      paidAmount: 2600,
+      remarks: '项目现场调试差旅预算',
+      lastExpenseAt: new Date('2026-04-05T08:00:00Z'),
+      createdBy: leader.id,
+      isDeleted: false,
+    },
+    create: {
+      accountCode: 'FUND-TRAVEL-002',
+      accountName: '项目外出差旅经费',
+      statusCode: 'ACTIVE',
+      categoryName: '差旅预算',
+      projectId: 'PRJ-SMW-001',
+      projectName: '智能制造产线调试项目',
+      ownerOrgUnitId: department.id,
+      managerUserId: minister.id,
+      totalBudget: 18000,
+      reservedAmount: 0,
+      usedAmount: 2600,
+      paidAmount: 2600,
+      remarks: '项目现场调试差旅预算',
+      lastExpenseAt: new Date('2026-04-05T08:00:00Z'),
+      createdBy: leader.id,
+    },
+  });
+
+  await prisma.fundApplication.upsert({
+    where: { applicationNo: 'FUND-20260407-001' },
+    update: {
+      accountId: workshopAccount.id,
+      applicantUserId: member.id,
+      applicantRoleCode: RoleCode.MEMBER,
+      applicationType: 'EXPENSE',
+      expenseType: 'REPAIR',
+      title: 'PLC 工位维修费用',
+      purpose: '对应 RP-20260406-001 维修工单，申请更换 IO 模块维修费用',
+      amount: 1200,
+      payeeName: '设备维修供应商',
+      projectId: 'PRJ-SMW-001',
+      projectName: '智能制造产线调试项目',
+      relatedBusinessType: ApprovalBusinessType.REPAIR_ORDER,
+      relatedBusinessId: String(seededRepair.id),
+      statusCode: FundApplicationStatus.APPROVED,
+      paymentStatus: FundPaymentStatus.PENDING,
+      latestResult: '种子数据：审批通过，待支付',
+      submittedAt: new Date('2026-04-07T09:00:00Z'),
+      completedAt: new Date('2026-04-07T10:00:00Z'),
+      createdBy: member.id,
+    },
+    create: {
+      applicationNo: 'FUND-20260407-001',
+      accountId: workshopAccount.id,
+      applicantUserId: member.id,
+      applicantRoleCode: RoleCode.MEMBER,
+      applicationType: 'EXPENSE',
+      expenseType: 'REPAIR',
+      title: 'PLC 工位维修费用',
+      purpose: '对应 RP-20260406-001 维修工单，申请更换 IO 模块维修费用',
+      amount: 1200,
+      payeeName: '设备维修供应商',
+      projectId: 'PRJ-SMW-001',
+      projectName: '智能制造产线调试项目',
+      relatedBusinessType: ApprovalBusinessType.REPAIR_ORDER,
+      relatedBusinessId: String(seededRepair.id),
+      statusCode: FundApplicationStatus.APPROVED,
+      paymentStatus: FundPaymentStatus.PENDING,
+      latestResult: '种子数据：审批通过，待支付',
+      submittedAt: new Date('2026-04-07T09:00:00Z'),
+      completedAt: new Date('2026-04-07T10:00:00Z'),
+      createdBy: member.id,
     },
   });
 

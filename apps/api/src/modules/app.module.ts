@@ -7,6 +7,8 @@ import { AuthModule } from './auth/auth.module';
 import { CompetitionAchievementModule } from './competition-achievement/competition-achievement.module';
 import { DeviceModule } from './device/device.module';
 import { ExampleModule } from './example/example.module';
+import { FileModule } from './file/file.module';
+import { FinanceModule } from './finance/finance.module';
 import { HealthModule } from './health/health.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { MemberModule } from './member/member.module';
@@ -20,6 +22,8 @@ import { PrismaModule } from './prisma/prisma.module';
     }),
     PrismaModule,
     HealthModule,
+    FileModule,
+    FinanceModule,
     AuthModule,
     ExampleModule,
     MemberModule,

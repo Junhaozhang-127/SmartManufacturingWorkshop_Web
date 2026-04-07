@@ -45,6 +45,8 @@ model SysUser {
   managedConsumables        InvConsumable[]      @relation("ConsumableCreatedByUser")
   inventoryTransactions     InvInventoryTxn[]    @relation("InventoryTxnOperator")
   consumableRequests        InvConsumableRequest[] @relation("ConsumableRequestApplicant")
+  managedFundAccounts       FundAccount[]        @relation("FundAccountManager")
+  fundApplications          FundApplication[]    @relation("FundApplicationApplicant")
 
   @@map("sys_user")
 }
@@ -95,6 +97,7 @@ model OrgUnit {
   memberProfiles MemberProfile[]
   assetDevices   AssetDevice[]
   consumables    InvConsumable[]
+  fundAccounts   FundAccount[]
   parent         OrgUnit?        @relation("OrgUnitTree", fields: [parentId], references: [id])
 
   @@index([parentId])
@@ -266,6 +269,7 @@ model WfApprovalInstance {
   achievement             AchvAchievement?
   deviceRepair            AssetDeviceRepair?
   consumableRequest       InvConsumableRequest?
+  fundApplication         FundApplication?
 
   @@index([businessType, businessId])
   @@index([status, currentApproverRoleCode])
@@ -616,4 +620,75 @@ model InvInventoryTxn {
   @@index([requestId])
   @@index([operatorUserId, txnAt])
   @@map("inv_inventory_txn")
+}
+
+model FundAccount {
+  id              BigInt              @id @default(autoincrement()) @db.UnsignedBigInt
+  accountCode     String              @unique @map("account_code") @db.VarChar(64)
+  accountName     String              @map("account_name") @db.VarChar(128)
+  statusCode      String              @default("ACTIVE") @map("status_code") @db.VarChar(32)
+  categoryName    String              @map("category_name") @db.VarChar(64)
+  projectId       String?             @map("project_id") @db.VarChar(64)
+  projectName     String?             @map("project_name") @db.VarChar(128)
+  ownerOrgUnitId  BigInt?             @map("owner_org_unit_id") @db.UnsignedBigInt
+  managerUserId   BigInt?             @map("manager_user_id") @db.UnsignedBigInt
+  totalBudget     Decimal             @map("total_budget") @db.Decimal(12, 2)
+  reservedAmount  Decimal             @default(0) @map("reserved_amount") @db.Decimal(12, 2)
+  usedAmount      Decimal             @default(0) @map("used_amount") @db.Decimal(12, 2)
+  paidAmount      Decimal             @default(0) @map("paid_amount") @db.Decimal(12, 2)
+  remarks         String?             @db.VarChar(1000)
+  lastExpenseAt   DateTime?           @map("last_expense_at")
+  createdAt       DateTime            @default(now()) @map("created_at")
+  updatedAt       DateTime            @updatedAt @map("updated_at")
+  createdBy       BigInt?             @map("created_by") @db.UnsignedBigInt
+  isDeleted       Boolean             @default(false) @map("is_deleted")
+  ownerOrgUnit    OrgUnit?            @relation(fields: [ownerOrgUnitId], references: [id])
+  manager         SysUser?            @relation("FundAccountManager", fields: [managerUserId], references: [id])
+  applications    FundApplication[]
+
+  @@index([statusCode, ownerOrgUnitId])
+  @@index([projectId])
+  @@index([managerUserId, statusCode])
+  @@map("fund_account")
+}
+
+model FundApplication {
+  id                  BigInt              @id @default(autoincrement()) @db.UnsignedBigInt
+  applicationNo       String              @unique @map("application_no") @db.VarChar(64)
+  accountId           BigInt              @map("account_id") @db.UnsignedBigInt
+  applicantUserId     BigInt              @map("applicant_user_id") @db.UnsignedBigInt
+  applicantRoleCode   String?             @map("applicant_role_code") @db.VarChar(32)
+  applicationType     String              @map("application_type") @db.VarChar(32)
+  expenseType         String              @map("expense_type") @db.VarChar(32)
+  title               String              @db.VarChar(255)
+  purpose             String              @db.VarChar(1000)
+  amount              Decimal             @db.Decimal(12, 2)
+  reimbursementAmount Decimal?            @map("reimbursement_amount") @db.Decimal(12, 2)
+  payeeName           String?             @map("payee_name") @db.VarChar(128)
+  projectId           String?             @map("project_id") @db.VarChar(64)
+  projectName         String?             @map("project_name") @db.VarChar(128)
+  relatedBusinessType String?             @map("related_business_type") @db.VarChar(64)
+  relatedBusinessId   String?             @map("related_business_id") @db.VarChar(64)
+  statusCode          String              @default("DRAFT") @map("status_code") @db.VarChar(32)
+  paymentStatus       String              @default("UNPAID") @map("payment_status") @db.VarChar(32)
+  paymentRemark       String?             @map("payment_remark") @db.VarChar(500)
+  latestResult        String?             @map("latest_result") @db.VarChar(500)
+  approvalInstanceId  BigInt?             @unique @map("approval_instance_id") @db.UnsignedBigInt
+  attachments         Json?               @map("attachments")
+  statusLogs          Json?               @map("status_logs")
+  submittedAt         DateTime?           @map("submitted_at")
+  completedAt         DateTime?           @map("completed_at")
+  paidAt              DateTime?           @map("paid_at")
+  createdAt           DateTime            @default(now()) @map("created_at")
+  updatedAt           DateTime            @updatedAt @map("updated_at")
+  createdBy           BigInt?             @map("created_by") @db.UnsignedBigInt
+  account             FundAccount         @relation(fields: [accountId], references: [id])
+  applicant           SysUser             @relation("FundApplicationApplicant", fields: [applicantUserId], references: [id])
+  approvalInstance    WfApprovalInstance? @relation(fields: [approvalInstanceId], references: [id])
+
+  @@index([accountId, statusCode])
+  @@index([applicantUserId, statusCode])
+  @@index([projectId])
+  @@index([paymentStatus, statusCode])
+  @@map("fund_application")
 }

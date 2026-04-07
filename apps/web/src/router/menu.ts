@@ -51,6 +51,20 @@ export const adminMenu: AppMenuItem[] = [
     permissions: [PermissionCodes.memberListView],
   },
   {
+    key: 'fund-overview',
+    label: '经费总览',
+    path: '/funds/overview',
+    icon: 'Money',
+    permissions: [PermissionCodes.fundView],
+  },
+  {
+    key: 'fund-application',
+    label: '费用申请与报销',
+    path: '/funds/applications',
+    icon: 'Tickets',
+    permissions: [PermissionCodes.fundView],
+  },
+  {
     key: 'consumable-ledger',
     label: '耗材库存',
     path: '/inventory/ledger',

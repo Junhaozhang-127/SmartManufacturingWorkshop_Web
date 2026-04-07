@@ -116,6 +116,36 @@ const routes: RouteRecordRaw[] = [
         },
       },
       {
+        path: 'funds/overview',
+        name: 'funds.overview',
+        component: () => import('@web/views/FundOverviewPage.vue'),
+        meta: {
+          title: '经费总览',
+          breadcrumb: ['经费管理', '经费总览'],
+          permissions: [PermissionCodes.fundView],
+        },
+      },
+      {
+        path: 'funds/applications',
+        name: 'funds.applications',
+        component: () => import('@web/views/FundApplicationPage.vue'),
+        meta: {
+          title: '费用申请与报销',
+          breadcrumb: ['经费管理', '费用申请与报销'],
+          permissions: [PermissionCodes.fundView],
+        },
+      },
+      {
+        path: 'projects/:projectId',
+        name: 'projects.detail',
+        component: () => import('@web/views/ProjectFundDetailPage.vue'),
+        meta: {
+          title: '项目详情',
+          breadcrumb: ['项目详情'],
+          permissions: [PermissionCodes.fundView],
+        },
+      },
+      {
         path: 'inventory/ledger',
         name: 'inventory.ledger',
         component: () => import('@web/views/InventoryLedgerPage.vue'),

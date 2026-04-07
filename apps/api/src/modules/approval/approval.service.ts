@@ -23,6 +23,8 @@ import {
   type CurrentUserProfile,
   DeviceRepairStatus,
   DeviceStatus,
+  FundApplicationStatus,
+  FundPaymentStatus,
   InventoryTxnType,
   MemberGrowthRecordType,
   MemberStatus,
@@ -1452,6 +1454,102 @@ export class ApprovalService {
         });
         return;
       }
+      case ApprovalBusinessType.FUND_REQUEST: {
+        const application = await tx.fundApplication.findUnique({
+          where: { id: this.toBigInt(businessId) },
+          include: {
+            account: true,
+          },
+        });
+
+        if (!application) {
+          return;
+        }
+
+        const now = new Date();
+        const amount = Number(application.amount.toString());
+        const reservedAmount = Number(application.account.reservedAmount.toString());
+        const usedAmount = Number(application.account.usedAmount.toString());
+
+        if (status === ApprovalStatus.PENDING) {
+          await tx.fundApplication.update({
+            where: { id: application.id },
+            data: {
+              statusCode: FundApplicationStatus.IN_APPROVAL,
+              latestResult: '费用申请审批中',
+              statusLogs: this.appendStatusHistory(application.statusLogs, {
+                actionType: 'APPROVAL_PENDING',
+                fromStatus: application.statusCode,
+                toStatus: FundApplicationStatus.IN_APPROVAL,
+                operatorUserId: actor?.id ?? null,
+                operatorName: actor?.displayName ?? null,
+                comment: '审批链路继续流转',
+              }),
+            },
+          });
+          return;
+        }
+
+        if (status === ApprovalStatus.APPROVED) {
+          await tx.fundApplication.update({
+            where: { id: application.id },
+            data: {
+              statusCode: FundApplicationStatus.APPROVED,
+              paymentStatus: FundPaymentStatus.PENDING,
+              latestResult: '审批通过，待支付',
+              completedAt: now,
+              statusLogs: this.appendStatusHistory(application.statusLogs, {
+                actionType: 'APPROVAL_APPROVED',
+                fromStatus: application.statusCode,
+                toStatus: FundApplicationStatus.APPROVED,
+                operatorUserId: actor?.id ?? null,
+                operatorName: actor?.displayName ?? null,
+                comment: '审批通过，预算已转入已用金额',
+              }),
+            },
+          });
+
+          await tx.fundAccount.update({
+            where: { id: application.accountId },
+            data: {
+              reservedAmount: new Prisma.Decimal(Math.max(0, reservedAmount - amount)),
+              usedAmount: new Prisma.Decimal(usedAmount + amount),
+              lastExpenseAt: now,
+            },
+          });
+          return;
+        }
+
+        const nextStatus =
+          status === ApprovalStatus.REJECTED ? FundApplicationStatus.REJECTED : FundApplicationStatus.WITHDRAWN;
+        const nextResult = status === ApprovalStatus.REJECTED ? '费用申请已驳回' : '费用申请已撤回';
+
+        await tx.fundApplication.update({
+          where: { id: application.id },
+          data: {
+            statusCode: nextStatus,
+            paymentStatus: FundPaymentStatus.UNPAID,
+            latestResult: nextResult,
+            completedAt: now,
+            statusLogs: this.appendStatusHistory(application.statusLogs, {
+              actionType: status === ApprovalStatus.REJECTED ? 'APPROVAL_REJECTED' : 'APPROVAL_WITHDRAWN',
+              fromStatus: application.statusCode,
+              toStatus: nextStatus,
+              operatorUserId: actor?.id ?? null,
+              operatorName: actor?.displayName ?? null,
+              comment: nextResult,
+            }),
+          },
+        });
+
+        await tx.fundAccount.update({
+          where: { id: application.accountId },
+          data: {
+            reservedAmount: new Prisma.Decimal(Math.max(0, reservedAmount - amount)),
+          },
+        });
+        return;
+      }
       default:
         return;
     }
@@ -1620,6 +1718,39 @@ export class ApprovalService {
           latestResult: request.latestResult,
           warningFlag: request.consumable.warningFlag,
           currentStock: Number(request.consumable.currentStock.toString()),
+        };
+      }
+      case ApprovalBusinessType.FUND_REQUEST: {
+        const application = await this.prisma.fundApplication.findUnique({
+          where: { id: this.toBigInt(businessId) },
+          include: {
+            applicant: true,
+            account: true,
+          },
+        });
+
+        if (!application) {
+          return null;
+        }
+
+        return {
+          applicationNo: application.applicationNo,
+          accountCode: application.account.accountCode,
+          accountName: application.account.accountName,
+          projectId: application.projectId,
+          projectName: application.projectName,
+          title: application.title,
+          applicationType: application.applicationType,
+          expenseType: application.expenseType,
+          amount: Number(application.amount.toString()),
+          reimbursementAmount: application.reimbursementAmount
+            ? Number(application.reimbursementAmount.toString())
+            : null,
+          statusCode: application.statusCode,
+          paymentStatus: application.paymentStatus,
+          payeeName: application.payeeName,
+          applicantName: application.applicant.displayName,
+          latestResult: application.latestResult,
         };
       }
       default:
