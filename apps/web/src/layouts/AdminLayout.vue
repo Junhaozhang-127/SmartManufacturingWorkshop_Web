@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { House, List,Monitor } from '@element-plus/icons-vue';
-import { adminMenu, filterMenuByPermissions } from '@web/router/menu';
-import { useAuthStore } from '@web/stores/auth';
+import { House, List, Monitor } from '@element-plus/icons-vue';
 import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import BreadcrumbBar from '../components/layout/BreadcrumbBar.vue';
 import GlobalDrawerHost from '../components/layout/GlobalDrawerHost.vue';
 import TopBar from '../components/layout/TopBar.vue';
+import { adminMenu,filterMenuByAccess } from '../router/menu';
+import { useAuthStore } from '../stores/auth';
 
 const authStore = useAuthStore();
 const route = useRoute();
@@ -19,7 +19,9 @@ const iconMap = {
   List,
 };
 
-const menuItems = computed(() => filterMenuByPermissions(adminMenu, authStore.permissions));
+const menuItems = computed(() =>
+  filterMenuByAccess(adminMenu, authStore.permissions, authStore.activeRoleCode),
+);
 
 async function navigate(path: string) {
   await router.push(path);
@@ -33,7 +35,7 @@ async function navigate(path: string) {
         <span class="sidebar__brand-mark">SMW</span>
         <div>
           <strong>Lab Admin</strong>
-          <p>一期基线</p>
+          <p>{{ authStore.activeRole?.roleName || '未登录' }}</p>
         </div>
       </div>
       <el-menu :default-active="route.path" class="sidebar__menu">

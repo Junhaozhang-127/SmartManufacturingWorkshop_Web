@@ -1,72 +1,114 @@
-import { mockLogin } from '@web/api/auth';
+import type {
+  AuthLoginRequest,
+  ChangePasswordRequest,
+  CurrentUserProfile,
+  RoleCode,
+} from '@smw/shared';
+import { changePassword, fetchCurrentUser, login, switchRole } from '@web/api/auth';
 import { defineStore } from 'pinia';
+
+import {
+  clearPersistedAuthState,
+  readPersistedAuthState,
+  writePersistedAuthState,
+} from './auth-storage';
 
 interface AuthState {
   token: string;
-  displayName: string;
-  username: string;
-  roleCodes: string[];
-  permissions: string[];
-  orgUnitName: string;
+  user: CurrentUserProfile | null;
+  initialized: boolean;
 }
 
-const STORAGE_KEY = 'smw-web-auth';
-
-function readPersistedState(): AuthState {
-  const raw = localStorage.getItem(STORAGE_KEY);
-
-  if (!raw) {
-    return {
-      token: '',
-      displayName: '',
-      username: '',
-      roleCodes: [],
-      permissions: [],
-      orgUnitName: '',
-    };
-  }
-
-  return JSON.parse(raw) as AuthState;
+function createInitialState(): AuthState {
+  const persisted = readPersistedAuthState();
+  return {
+    token: persisted.token,
+    user: persisted.user,
+    initialized: false,
+  };
 }
 
 export const useAuthStore = defineStore('auth', {
-  state: (): AuthState => readPersistedState(),
+  state: (): AuthState => createInitialState(),
   getters: {
     isAuthenticated: (state) => Boolean(state.token),
+    displayName: (state) => state.user?.displayName ?? '',
+    username: (state) => state.user?.username ?? '',
+    permissions: (state) => state.user?.permissions ?? [],
+    roleOptions: (state) => state.user?.roleOptions ?? [],
+    activeRole: (state) => state.user?.activeRole ?? null,
+    activeRoleCode(): RoleCode | null {
+      return this.activeRole?.roleCode ?? null;
+    },
+    forcePasswordChange: (state) => state.user?.forcePasswordChange ?? false,
+    orgProfile: (state) => state.user?.orgProfile ?? null,
+    dashboard: (state) => state.user?.dashboard ?? null,
   },
   actions: {
     persist() {
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({
-          token: this.token,
-          displayName: this.displayName,
-          username: this.username,
-          roleCodes: this.roleCodes,
-          permissions: this.permissions,
-          orgUnitName: this.orgUnitName,
-        }),
-      );
+      writePersistedAuthState({
+        token: this.token,
+        user: this.user,
+      });
     },
-    async login(username: string, password: string) {
-      const response = await mockLogin({ username, password });
-
-      this.token = response.data.token;
-      this.displayName = response.data.user.displayName;
-      this.username = response.data.user.username;
-      this.roleCodes = response.data.user.roleCodes;
-      this.permissions = response.data.user.permissions;
-      this.orgUnitName = response.data.user.orgUnitName;
+    setSession(token: string, user: CurrentUserProfile) {
+      this.token = token;
+      this.user = user;
       this.persist();
     },
-    logout() {
+    clearSession() {
       this.token = '';
-      this.displayName = '';
-      this.username = '';
-      this.roleCodes = [];
-      this.permissions = [];
-      this.orgUnitName = '';
-      localStorage.removeItem(STORAGE_KEY);
+      this.user = null;
+      clearPersistedAuthState();
+    },
+    async initialize() {
+      if (this.initialized) {
+        return;
+      }
+
+      if (!this.token) {
+        this.initialized = true;
+        return;
+      }
+
+      try {
+        await this.fetchMe();
+      } catch {
+        this.clearSession();
+      } finally {
+        this.initialized = true;
+      }
+    },
+    async login(payload: AuthLoginRequest) {
+      const response = await login(payload);
+      this.setSession(response.data.token, response.data.user);
+      this.initialized = true;
+      return response.data.user;
+    },
+    async fetchMe() {
+      const response = await fetchCurrentUser();
+      this.user = response.data;
+      this.persist();
+      return response.data;
+    },
+    async switchRole(roleCode: RoleCode) {
+      const response = await switchRole({ roleCode });
+      this.setSession(response.data.token, response.data.user);
+      return response.data.user;
+    },
+    async changePassword(payload: ChangePasswordRequest) {
+      await changePassword(payload);
+      if (this.user) {
+        this.user = {
+          ...this.user,
+          forcePasswordChange: false,
+        };
+        this.persist();
+      }
+    },
+    logout() {
+      this.clearSession();
+      this.initialized = true;
     },
   },
 });

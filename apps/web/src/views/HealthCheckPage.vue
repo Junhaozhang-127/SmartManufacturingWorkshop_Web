@@ -23,8 +23,8 @@ onMounted(load);
     <div class="panel-card">
       <div class="panel-card__header">
         <div>
-          <p class="panel-card__eyebrow">联通验证</p>
-          <h2>系统健康检查页</h2>
+          <p class="panel-card__eyebrow">Connectivity Check</p>
+          <h2>系统健康检查</h2>
         </div>
         <el-button :loading="loading" type="primary" plain @click="load">刷新</el-button>
       </div>

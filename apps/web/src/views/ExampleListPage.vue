@@ -21,7 +21,7 @@ async function load() {
     rows.value = response.data.items;
     total.value = response.data.meta.total;
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '示例列表加载失败');
+    ElMessage.error(error instanceof Error ? error.message : '成员列表加载失败');
   } finally {
     loading.value = false;
   }
@@ -39,8 +39,8 @@ onMounted(load);
     <div class="panel-card">
       <div class="panel-card__header">
         <div>
-          <p class="panel-card__eyebrow">后端最小数据链路</p>
-          <h2>示例列表页</h2>
+          <p class="panel-card__eyebrow">Data Scope Demo</p>
+          <h2>成员示例列表</h2>
         </div>
       </div>
 

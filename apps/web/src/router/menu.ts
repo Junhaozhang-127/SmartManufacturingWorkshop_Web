@@ -1,30 +1,43 @@
-import { PermissionCodes } from '@smw/shared';
+import type { PermissionCode, RoleCode } from '@smw/shared';
+import { PermissionCodes, RoleCode as RoleCodeEnum } from '@smw/shared';
 import type { NavItem } from '@smw/ui';
 
-export const adminMenu: NavItem[] = [
+export interface AppMenuItem extends NavItem {
+  permissions?: PermissionCode[];
+  roles?: RoleCode[];
+}
+
+export const adminMenu: AppMenuItem[] = [
   {
     key: 'dashboard',
-    label: '工作台',
+    label: '驾驶舱',
     path: '/',
     icon: 'House',
-    permission: PermissionCodes.systemDashboardView,
+    permissions: [PermissionCodes.systemDashboardView],
   },
   {
     key: 'health',
-    label: '系统健康检查',
+    label: '系统健康',
     path: '/system/health',
     icon: 'Monitor',
-    permission: PermissionCodes.systemHealthView,
+    permissions: [PermissionCodes.systemHealthView],
+    roles: [RoleCodeEnum.TEACHER, RoleCodeEnum.LAB_LEADER],
   },
   {
     key: 'examples',
-    label: '示例列表',
+    label: '成员示例',
     path: '/system/examples',
     icon: 'List',
-    permission: PermissionCodes.memberListView,
+    permissions: [PermissionCodes.memberListView],
   },
 ];
 
-export function filterMenuByPermissions(items: NavItem[], permissions: string[]) {
-  return items.filter((item) => !item.permission || permissions.includes(item.permission));
+export function filterMenuByAccess(items: AppMenuItem[], permissions: string[], roleCode: RoleCode | null) {
+  return items.filter((item) => {
+    const permissionAllowed =
+      !item.permissions?.length || item.permissions.every((permission) => permissions.includes(permission));
+    const roleAllowed = !item.roles?.length || (roleCode ? item.roles.includes(roleCode) : false);
+
+    return permissionAllowed && roleAllowed;
+  });
 }

@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
 import { PrismaClient } from '@prisma/client';
+import { DataScope, RoleCode } from '@smw/shared';
 
 const prisma = new PrismaClient();
 
@@ -7,12 +8,12 @@ async function main() {
   const passwordHash = await bcrypt.hash(process.env.MOCK_LOGIN_PASSWORD ?? '123456', 10);
 
   const roles = [
-    { roleCode: 'TEACHER', roleName: '老师', dataScope: 'ALL', sortNo: 10 },
-    { roleCode: 'LAB_LEADER', roleName: '实验室负责人', dataScope: 'ALL', sortNo: 20 },
-    { roleCode: 'MINISTER', roleName: '部长', dataScope: 'DEPT', sortNo: 30 },
-    { roleCode: 'GROUP_LEADER', roleName: '组长', dataScope: 'GROUP', sortNo: 40 },
-    { roleCode: 'MEMBER', roleName: '成员', dataScope: 'SELF', sortNo: 50 },
-    { roleCode: 'INTERN', roleName: '实习生', dataScope: 'SELF', sortNo: 60 },
+    { roleCode: RoleCode.TEACHER, roleName: '老师', dataScope: DataScope.ALL, sortNo: 10 },
+    { roleCode: RoleCode.LAB_LEADER, roleName: '实验室负责人', dataScope: DataScope.ALL, sortNo: 20 },
+    { roleCode: RoleCode.MINISTER, roleName: '部长', dataScope: DataScope.DEPT_PROJECT, sortNo: 30 },
+    { roleCode: RoleCode.GROUP_LEADER, roleName: '组长', dataScope: DataScope.GROUP_PROJECT, sortNo: 40 },
+    { roleCode: RoleCode.MEMBER, roleName: '成员', dataScope: DataScope.SELF_PARTICIPATE, sortNo: 50 },
+    { roleCode: RoleCode.INTERN, roleName: '实习生', dataScope: DataScope.SELF_PARTICIPATE, sortNo: 60 },
   ];
 
   for (const role of roles) {
@@ -28,6 +29,8 @@ async function main() {
     update: {
       displayName: '王老师',
       passwordHash,
+      forcePasswordChange: false,
+      passwordChangedAt: new Date('2026-04-01T09:00:00Z'),
     },
     create: {
       username: 'teacher01',
@@ -35,6 +38,8 @@ async function main() {
       passwordHash,
       mobile: '13800000001',
       email: 'teacher01@lab.local',
+      forcePasswordChange: false,
+      passwordChangedAt: new Date('2026-04-01T09:00:00Z'),
     },
   });
 
@@ -43,6 +48,8 @@ async function main() {
     update: {
       displayName: '李主任',
       passwordHash,
+      forcePasswordChange: false,
+      passwordChangedAt: new Date('2026-04-01T09:10:00Z'),
     },
     create: {
       username: 'leader01',
@@ -50,6 +57,27 @@ async function main() {
       passwordHash,
       mobile: '13800000002',
       email: 'leader01@lab.local',
+      forcePasswordChange: false,
+      passwordChangedAt: new Date('2026-04-01T09:10:00Z'),
+    },
+  });
+
+  const minister = await prisma.sysUser.upsert({
+    where: { username: 'minister01' },
+    update: {
+      displayName: '周部长',
+      passwordHash,
+      forcePasswordChange: false,
+      passwordChangedAt: new Date('2026-04-01T09:20:00Z'),
+    },
+    create: {
+      username: 'minister01',
+      displayName: '周部长',
+      passwordHash,
+      mobile: '13800000004',
+      email: 'minister01@lab.local',
+      forcePasswordChange: false,
+      passwordChangedAt: new Date('2026-04-01T09:20:00Z'),
     },
   });
 
@@ -58,6 +86,8 @@ async function main() {
     update: {
       displayName: '张成员',
       passwordHash,
+      forcePasswordChange: true,
+      passwordChangedAt: null,
     },
     create: {
       username: 'member01',
@@ -65,6 +95,26 @@ async function main() {
       passwordHash,
       mobile: '13800000003',
       email: 'member01@lab.local',
+      forcePasswordChange: true,
+    },
+  });
+
+  const dualRoleUser = await prisma.sysUser.upsert({
+    where: { username: 'hybrid01' },
+    update: {
+      displayName: '钱双角色',
+      passwordHash,
+      forcePasswordChange: false,
+      passwordChangedAt: new Date('2026-04-01T09:30:00Z'),
+    },
+    create: {
+      username: 'hybrid01',
+      displayName: '钱双角色',
+      passwordHash,
+      mobile: '13800000005',
+      email: 'hybrid01@lab.local',
+      forcePasswordChange: false,
+      passwordChangedAt: new Date('2026-04-01T09:30:00Z'),
     },
   });
 
@@ -82,28 +132,47 @@ async function main() {
     },
   });
 
-  const dept = await prisma.orgUnit.upsert({
+  const department = await prisma.orgUnit.upsert({
     where: { unitCode: 'DEV_DEPT' },
     update: {
       parentId: rootOrg.id,
-      unitName: '开发方向组',
-      leaderUserId: member.id,
+      unitName: '研发部',
+      leaderUserId: minister.id,
     },
     create: {
       parentId: rootOrg.id,
       unitCode: 'DEV_DEPT',
-      unitName: '开发方向组',
+      unitName: '研发部',
       unitType: 'DEPARTMENT',
-      leaderUserId: member.id,
+      leaderUserId: minister.id,
+    },
+  });
+
+  const group = await prisma.orgUnit.upsert({
+    where: { unitCode: 'FE_GROUP' },
+    update: {
+      parentId: department.id,
+      unitName: '前端组',
+      leaderUserId: dualRoleUser.id,
+    },
+    create: {
+      parentId: department.id,
+      unitCode: 'FE_GROUP',
+      unitName: '前端组',
+      unitType: 'GROUP',
+      leaderUserId: dualRoleUser.id,
     },
   });
 
   const roleMap = new Map((await prisma.sysRole.findMany()).map((role) => [role.roleCode, role.id]));
 
   const userRoles = [
-    { userId: teacher.id, roleCode: 'TEACHER' },
-    { userId: leader.id, roleCode: 'LAB_LEADER' },
-    { userId: member.id, roleCode: 'MEMBER' },
+    { userId: teacher.id, roleCode: RoleCode.TEACHER },
+    { userId: leader.id, roleCode: RoleCode.LAB_LEADER },
+    { userId: minister.id, roleCode: RoleCode.MINISTER },
+    { userId: member.id, roleCode: RoleCode.MEMBER },
+    { userId: dualRoleUser.id, roleCode: RoleCode.MINISTER },
+    { userId: dualRoleUser.id, roleCode: RoleCode.GROUP_LEADER },
   ];
 
   for (const relation of userRoles) {
@@ -122,26 +191,43 @@ async function main() {
     });
   }
 
-  await prisma.memberProfile.upsert({
-    where: { userId: member.id },
-    update: {
-      orgUnitId: dept.id,
-      positionCode: 'MEMBER',
+  const memberProfiles = [
+    {
+      userId: minister.id,
+      orgUnitId: department.id,
+      positionCode: 'MINISTER',
       mentorUserId: teacher.id,
-      joinDate: new Date('2026-03-10'),
+      joinDate: new Date('2026-03-01'),
       memberStatus: 'ACTIVE',
-      skillTags: 'Vue,NestJS,Prisma',
+      skillTags: 'Management,Review',
     },
-    create: {
+    {
+      userId: dualRoleUser.id,
+      orgUnitId: group.id,
+      positionCode: 'GROUP_LEADER',
+      mentorUserId: minister.id,
+      joinDate: new Date('2026-03-05'),
+      memberStatus: 'ACTIVE',
+      skillTags: 'Vue,Architecture',
+    },
+    {
       userId: member.id,
-      orgUnitId: dept.id,
+      orgUnitId: group.id,
       positionCode: 'MEMBER',
-      mentorUserId: teacher.id,
+      mentorUserId: dualRoleUser.id,
       joinDate: new Date('2026-03-10'),
       memberStatus: 'ACTIVE',
       skillTags: 'Vue,NestJS,Prisma',
     },
-  });
+  ];
+
+  for (const profile of memberProfiles) {
+    await prisma.memberProfile.upsert({
+      where: { userId: profile.userId },
+      update: profile,
+      create: profile,
+    });
+  }
 }
 
 main()

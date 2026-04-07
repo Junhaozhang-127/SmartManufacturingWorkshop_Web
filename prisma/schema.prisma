@@ -15,7 +15,9 @@ model SysUser {
   mobile       String?         @db.VarChar(20)
   email        String?         @db.VarChar(128)
   statusCode   String          @default("ACTIVE") @map("status_code") @db.VarChar(20)
+  forcePasswordChange Boolean  @default(true) @map("force_password_change")
   lastLoginAt  DateTime?       @map("last_login_at")
+  passwordChangedAt DateTime?  @map("password_changed_at")
   createdAt    DateTime        @default(now()) @map("created_at")
   updatedAt    DateTime        @updatedAt @map("updated_at")
   createdBy    BigInt?         @map("created_by") @db.UnsignedBigInt

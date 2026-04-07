@@ -4,6 +4,10 @@ export function createPrismaMock() {
     $transaction: jest.fn(),
     sysUser: {
       findUnique: jest.fn(),
+      update: jest.fn(),
+    },
+    orgUnit: {
+      findMany: jest.fn(),
     },
     memberProfile: {
       findMany: jest.fn(),

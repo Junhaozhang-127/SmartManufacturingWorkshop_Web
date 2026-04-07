@@ -1,17 +1,18 @@
 import { PrismaService } from '@api/modules/prisma/prisma.service';
 import { Injectable } from '@nestjs/common';
-import { normalizePagination } from '@smw/shared';
+import { type DataScopeContext,normalizePagination } from '@smw/shared';
 
+import { buildMemberProfileWhere } from '../auth/data-scope-prisma';
 import type { ExampleQueryDto } from './dto/example-query.dto';
 
 @Injectable()
 export class ExampleService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async listMembers(query: ExampleQueryDto) {
+  async listMembers(query: ExampleQueryDto, dataScopeContext: DataScopeContext) {
     const pagination = normalizePagination(query);
-
-    const where = pagination.keyword
+    const scopeWhere = buildMemberProfileWhere(dataScopeContext);
+    const keywordWhere = pagination.keyword
       ? {
           OR: [
             { user: { displayName: { contains: pagination.keyword } } },
@@ -20,6 +21,11 @@ export class ExampleService {
           ],
         }
       : undefined;
+
+    const whereClauses = [scopeWhere, keywordWhere].filter(
+      (value): value is NonNullable<typeof value> => Boolean(value),
+    );
+    const where = whereClauses.length ? { AND: whereClauses } : undefined;
 
     const [items, total] = await this.prisma.$transaction([
       this.prisma.memberProfile.findMany({
@@ -62,7 +68,7 @@ export class ExampleService {
         mentorName: item.mentor?.displayName ?? '未分配',
         joinDate: item.joinDate.toISOString().slice(0, 10),
         roles: item.user.userRoles.map((relation) => relation.role.roleName),
-        skillTags: item.skillTags?.split(',') ?? [],
+        skillTags: typeof item.skillTags === 'string' ? item.skillTags.split(',') : [],
       })),
       meta: {
         page: pagination.page,
