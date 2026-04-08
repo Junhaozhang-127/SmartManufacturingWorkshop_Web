@@ -149,7 +149,7 @@ onMounted(async () => {
 <template>
   <section class="page-grid">
     <div class="hero-card">
-      <p class="hero-card__eyebrow">MEM-03 Internship To Member</p>
+      <p class="hero-card__eyebrow">转正管理</p>
       <h2>实习转正管理</h2>
       <p>统一管理申请、阶段评价、审批跟踪与结果同步；审批节点复用统一审批中心，不单独造流程。</p>
     </div>

@@ -241,7 +241,7 @@ onMounted(async () => {
 <template>
   <section class="page-grid">
     <div class="hero-card">
-      <p class="hero-card__eyebrow">INV-02 Requests & Transactions</p>
+      <p class="hero-card__eyebrow">申领与出入库</p>
       <h2>耗材申领与出入库</h2>
       <p>申领单统一进入审批中心；审批通过后自动出库并写入库存流水。P0 同时支持手工入库、手工出库、项目关联字段和全链路审计追踪。</p>
     </div>
@@ -312,7 +312,7 @@ onMounted(async () => {
     <div class="panel-card">
       <div class="panel-card__header">
         <div>
-          <p class="panel-card__eyebrow">Audit</p>
+          <p class="panel-card__eyebrow">审批概览</p>
           <h2>库存流水</h2>
         </div>
       </div>
@@ -360,7 +360,7 @@ onMounted(async () => {
           <div class="panel-card">
             <div class="panel-card__header">
               <div>
-                <p class="panel-card__eyebrow">Request</p>
+                <p class="panel-card__eyebrow">申领详情</p>
                 <h2>申请信息</h2>
               </div>
             </div>
@@ -390,7 +390,7 @@ onMounted(async () => {
           <div class="panel-card">
             <div class="panel-card__header">
               <div>
-                <p class="panel-card__eyebrow">Trace</p>
+                <p class="panel-card__eyebrow">处理留痕</p>
                 <h2>状态留痕</h2>
               </div>
             </div>

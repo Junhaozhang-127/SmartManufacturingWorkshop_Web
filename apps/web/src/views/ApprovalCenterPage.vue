@@ -179,7 +179,7 @@ watch(
 <template>
   <section class="page-grid">
     <div class="hero-card">
-      <p class="hero-card__eyebrow">PUB-04 Approval Center</p>
+      <p class="hero-card__eyebrow">审批中心</p>
       <h2>统一审批中心</h2>
       <p>
         所有业务单据通过统一的 `businessType + businessId` 进入审批中心。当前首版已打通待审批、已审批、退回记录、轨迹查看和意见处理。
@@ -189,7 +189,7 @@ watch(
     <div class="panel-card">
       <div class="panel-card__header">
         <div>
-          <p class="panel-card__eyebrow">Workflow Queue</p>
+          <p class="panel-card__eyebrow">流程队列</p>
           <h2>审批工作台</h2>
         </div>
       </div>

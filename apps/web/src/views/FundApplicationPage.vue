@@ -232,7 +232,7 @@ onMounted(() => {
 <template>
   <section class="page-grid">
     <div class="hero-card">
-      <p class="hero-card__eyebrow">FIN-02 Applications</p>
+      <p class="hero-card__eyebrow">经费申请</p>
       <h2>费用申请 / 报销</h2>
       <p>支持采购、报销、差旅、维修、比赛报名费等费用类型，提交后统一进入审批中心，并保留支付状态和附件凭证链路。</p>
     </div>
@@ -365,7 +365,7 @@ onMounted(() => {
         <div class="panel-card">
           <div class="panel-card__header">
             <div>
-              <p class="panel-card__eyebrow">Application</p>
+              <p class="panel-card__eyebrow">申请信息</p>
               <h2>申请信息</h2>
             </div>
             <el-button
@@ -405,7 +405,7 @@ onMounted(() => {
         <div class="panel-card">
           <div class="panel-card__header">
             <div>
-              <p class="panel-card__eyebrow">Attachments</p>
+              <p class="panel-card__eyebrow">附件材料</p>
               <h2>附件凭证</h2>
             </div>
           </div>
@@ -421,7 +421,7 @@ onMounted(() => {
         <div class="panel-card">
           <div class="panel-card__header">
             <div>
-              <p class="panel-card__eyebrow">Trace</p>
+              <p class="panel-card__eyebrow">流程留痕</p>
               <h2>流程留痕</h2>
             </div>
           </div>

@@ -46,7 +46,7 @@ onMounted(() => {
 <template>
   <section v-loading="loading" class="page-grid">
     <div class="hero-card">
-      <p class="hero-card__eyebrow">FIN-01 Overview</p>
+      <p class="hero-card__eyebrow">经费总览</p>
       <h2>经费总览</h2>
       <p>展示预算、预占、已用、可用余额，以及最近申请和待审批数量。</p>
     </div>
@@ -73,7 +73,7 @@ onMounted(() => {
     <div class="panel-card">
       <div class="panel-card__header">
         <div>
-          <p class="panel-card__eyebrow">Budget Cards</p>
+          <p class="panel-card__eyebrow">预算卡片</p>
           <h2>账户卡片</h2>
         </div>
         <el-button v-if="canManageFunds" type="primary" @click="openApplications">进入申请页</el-button>
@@ -101,7 +101,7 @@ onMounted(() => {
     <div class="panel-card">
       <div class="panel-card__header">
         <div>
-          <p class="panel-card__eyebrow">Approvals</p>
+          <p class="panel-card__eyebrow">审批入口</p>
           <h2>待审批入口</h2>
         </div>
         <el-button @click="openApprovalCenter">打开审批中心</el-button>
@@ -112,7 +112,7 @@ onMounted(() => {
     <div class="panel-card">
       <div class="panel-card__header">
         <div>
-          <p class="panel-card__eyebrow">Latest</p>
+          <p class="panel-card__eyebrow">最新申请</p>
           <h2>最近申请</h2>
         </div>
       </div>
@@ -130,7 +130,7 @@ onMounted(() => {
     <div class="panel-card">
       <div class="panel-card__header">
         <div>
-          <p class="panel-card__eyebrow">Recent Expense</p>
+          <p class="panel-card__eyebrow">近期支出占位</p>
           <h2>最近支出占位</h2>
         </div>
       </div>

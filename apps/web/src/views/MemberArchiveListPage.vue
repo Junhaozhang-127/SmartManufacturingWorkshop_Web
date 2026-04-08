@@ -60,7 +60,7 @@ onMounted(load);
 <template>
   <section class="page-grid">
     <div class="hero-card">
-      <p class="hero-card__eyebrow">MEM-01 Member Archive</p>
+      <p class="hero-card__eyebrow">成员档案</p>
       <h2>成员档案列表</h2>
       <p>支持搜索、筛选、分页和状态标签，并按角色自动收敛到全局、部门、组或本人范围。</p>
     </div>

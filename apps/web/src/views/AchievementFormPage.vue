@@ -22,7 +22,7 @@ const currentStatus = ref<string>(AchievementStatus.DRAFT);
 const approvalInstanceId = ref<string | null>(null);
 
 const isEdit = computed(() => Boolean(route.params.id));
-const pageTitle = computed(() => (isEdit.value ? 'ACH-02 Achievement Edit' : 'ACH-02 Achievement Entry'));
+const pageTitle = computed(() => (isEdit.value ? '成果编辑' : '成果录入'));
 
 const form = reactive({
   title: '',
@@ -226,7 +226,7 @@ onMounted(async () => {
     <div v-loading="loading" class="panel-card">
       <div class="panel-card__header">
         <div>
-          <p class="panel-card__eyebrow">Recognition Form</p>
+          <p class="panel-card__eyebrow">认定表单</p>
           <h2>{{ form.title || '未命名成果' }}</h2>
         </div>
         <div class="topbar__actions">

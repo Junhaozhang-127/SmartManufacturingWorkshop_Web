@@ -226,7 +226,7 @@ export class EvaluationPromotionService {
           updatedAt: new Date().toISOString(),
         },
         resultCode: this.resolveResultCode(totalScore),
-        latestResult: `Auto ${Number(record.autoScore).toFixed(2)} + manual ${payload.manualScore.toFixed(2)}`,
+        latestResult: `自动汇总分 ${Number(record.autoScore).toFixed(2)} + 人工补充分 ${payload.manualScore.toFixed(2)}`,
         evaluatedAt: new Date(),
       },
       include: {
@@ -448,14 +448,14 @@ export class EvaluationPromotionService {
           qualificationPassed: true,
           qualificationSnapshot: qualification.snapshot as Prisma.InputJsonValue,
           submittedAt: new Date(),
-          latestResult: 'Promotion request submitted',
+          latestResult: '晋升申请已提交',
         },
       });
 
       const approval = await this.approvalService.startBusinessApproval(tx, {
         businessType: ApprovalBusinessType.PROMOTION_REQUEST,
         businessId: String(created.id),
-        title: `${profile.user.displayName} promotion request`,
+        title: `${profile.user.displayName} 晋升申请`,
         applicantUserId: profile.userId,
         applicantRoleCode: currentUser.activeRole.roleCode,
         formData: {
@@ -560,7 +560,7 @@ export class EvaluationPromotionService {
           publicNoticeEndDate,
           publicNoticeResult: payload.publicNoticeResult?.trim() || null,
           appointedAt: payload.appointmentPassed ? new Date() : null,
-          latestResult: payload.appointmentPassed ? 'Promotion public notice passed' : 'Promotion public notice failed',
+          latestResult: payload.appointmentPassed ? '晋升公示已通过' : '晋升公示未通过',
         },
         create: {
           applicationId: record.id,
@@ -574,7 +574,7 @@ export class EvaluationPromotionService {
           publicNoticeEndDate,
           publicNoticeResult: payload.publicNoticeResult?.trim() || null,
           appointedAt: payload.appointmentPassed ? new Date() : null,
-          latestResult: payload.appointmentPassed ? 'Promotion public notice passed' : 'Promotion public notice failed',
+          latestResult: payload.appointmentPassed ? '晋升公示已通过' : '晋升公示未通过',
         },
       });
 
@@ -624,7 +624,7 @@ export class EvaluationPromotionService {
           data: {
             memberProfileId: record.memberProfileId,
             recordType: MemberGrowthRecordType.ROLE_UPDATED,
-            title: 'Promotion appointment completed',
+            title: '晋升任命完成',
             content: `${record.memberProfile.positionCode} -> ${record.targetPositionCode}`,
             recordDate: new Date(),
             actorUserId: this.toBigInt(currentUser.id),
@@ -638,7 +638,7 @@ export class EvaluationPromotionService {
           actionType: payload.appointmentPassed ? 'PROMOTION_APPOINTED' : 'PROMOTION_NOTICE_FAILED',
           fromStatus: record.memberProfile.positionCode,
           toStatus: payload.appointmentPassed ? record.targetPositionCode : record.memberProfile.positionCode,
-          description: appointment.latestResult ?? 'Promotion notice completed',
+          description: appointment.latestResult ?? '晋升公示处理完成',
           operatorUserId: this.toBigInt(currentUser.id),
         },
       });
@@ -893,7 +893,7 @@ export class EvaluationPromotionService {
       projectCount: projectMap.size,
       rewardPenaltyCount: rewardItems.length,
       autoScore,
-      summary: `Auto summary: achievements ${achievementScore.toFixed(2)}, projects ${projectScore.toFixed(2)}, rewards ${rewardScore.toFixed(2)}`,
+      summary: `自动汇总：成果 ${achievementScore.toFixed(2)} 分，项目 ${projectScore.toFixed(2)} 分，奖惩 ${rewardScore.toFixed(2)} 分`,
       detail: {
         achievementScore,
         projectScore,
@@ -930,18 +930,18 @@ export class EvaluationPromotionService {
     const reasons: string[] = [];
 
     if (!scoreRecord) {
-      reasons.push('Missing evaluation score for current period');
+      reasons.push('当前周期缺少考核评分');
     } else if (totalScore < rule.minimumTotalScore) {
-      reasons.push(`Total score must be at least ${rule.minimumTotalScore}`);
+      reasons.push(`总分需不低于 ${rule.minimumTotalScore}`);
     }
     if (scoreRecord && !rule.minimumResultCodes.includes(scoreRecord.resultCode)) {
-      reasons.push(`Evaluation result must be one of ${rule.minimumResultCodes.join(', ')}`);
+      reasons.push(`考核结果需达到：${rule.minimumResultCodes.join('、')}`);
     }
     if (autoMetrics.achievementCount < rule.minimumAchievementCount) {
-      reasons.push(`At least ${rule.minimumAchievementCount} recognized achievements are required`);
+      reasons.push(`至少需要 ${rule.minimumAchievementCount} 项已认定成果`);
     }
     if (autoMetrics.projectCount < rule.minimumProjectCount) {
-      reasons.push(`At least ${rule.minimumProjectCount} project experiences are required`);
+      reasons.push(`至少需要 ${rule.minimumProjectCount} 项项目经历`);
     }
 
     const grades = (
@@ -954,7 +954,7 @@ export class EvaluationPromotionService {
       rule.minimumAchievementGrades.length &&
       !grades.some((grade) => rule.minimumAchievementGrades.includes(grade))
     ) {
-      reasons.push(`Achievement grade must include one of ${rule.minimumAchievementGrades.join(', ')}`);
+      reasons.push(`成果等级需包含以下之一：${rule.minimumAchievementGrades.join('、')}`);
     }
 
     return {

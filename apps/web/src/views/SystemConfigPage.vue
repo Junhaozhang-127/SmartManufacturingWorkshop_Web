@@ -252,7 +252,7 @@ onMounted(() => {
 <template>
   <section v-loading="loading" class="page-grid">
     <div class="hero-card">
-      <p class="hero-card__eyebrow">SYS-01 Configuration</p>
+      <p class="hero-card__eyebrow">系统配置</p>
       <h2>字典与基础配置</h2>
       <p>当前版本先开放字典项、成果级别、审批流基础配置和关键系统参数维护，严格受高权限角色控制。</p>
     </div>
@@ -263,7 +263,7 @@ onMounted(() => {
           <div class="panel-card">
             <div class="panel-card__header">
               <div>
-                <p class="panel-card__eyebrow">Dictionary Types</p>
+                <p class="panel-card__eyebrow">字典类型</p>
                 <h2>字典类型</h2>
               </div>
               <el-button type="primary" @click="openDictionaryDialog()">新增字典</el-button>
@@ -286,7 +286,7 @@ onMounted(() => {
           <div class="panel-card">
             <div class="panel-card__header">
               <div>
-                <p class="panel-card__eyebrow">Dictionary Items</p>
+                <p class="panel-card__eyebrow">字典项</p>
                 <h2>{{ selectedDictionary?.dictName || '字典项' }}</h2>
               </div>
               <el-button type="primary" :disabled="!selectedDictionary" @click="openDictItemDialog()">新增字典项</el-button>
@@ -311,7 +311,7 @@ onMounted(() => {
         <div class="panel-card">
           <div class="panel-card__header">
             <div>
-              <p class="panel-card__eyebrow">Config Items</p>
+              <p class="panel-card__eyebrow">配置项</p>
               <h2>系统参数</h2>
             </div>
             <el-button type="primary" @click="openConfigDialog()">新增参数</el-button>
@@ -336,7 +336,7 @@ onMounted(() => {
         <div class="panel-card">
           <div class="panel-card__header">
             <div>
-              <p class="panel-card__eyebrow">Approval Templates</p>
+              <p class="panel-card__eyebrow">审批模板</p>
               <h2>审批流模板</h2>
             </div>
           </div>

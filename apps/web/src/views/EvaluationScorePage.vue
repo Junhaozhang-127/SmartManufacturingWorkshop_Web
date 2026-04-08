@@ -39,10 +39,10 @@ const canUpdate = computed(() => hasPermission(PermissionCodes.evaluationUpdate)
 
 const resultOptions = [
   { label: '全部结果', value: '' },
-  { label: EvaluationResultCode.EXCELLENT, value: EvaluationResultCode.EXCELLENT },
-  { label: EvaluationResultCode.GOOD, value: EvaluationResultCode.GOOD },
-  { label: EvaluationResultCode.PASS, value: EvaluationResultCode.PASS },
-  { label: EvaluationResultCode.FAIL, value: EvaluationResultCode.FAIL },
+  { label: '优秀', value: EvaluationResultCode.EXCELLENT },
+  { label: '良好', value: EvaluationResultCode.GOOD },
+  { label: '通过', value: EvaluationResultCode.PASS },
+  { label: '不通过', value: EvaluationResultCode.FAIL },
 ];
 
 async function loadSchemes() {
@@ -118,18 +118,18 @@ onMounted(async () => {
 <template>
   <section class="page-grid">
     <div class="hero-card">
-      <p class="hero-card__eyebrow">EVA-02 Evaluation Score</p>
+      <p class="hero-card__eyebrow">考核评分</p>
       <h2>考核评分与结果</h2>
-      <p>按考核周期自动采集成果、项目与奖惩数据生成汇总分，再由评审人补充人工分，最终形成总分与结果。</p>
+      <p>按考核周期自动汇总成果、项目与奖惩数据生成基础分，再由评审人补充人工分，最终形成总分和结果。</p>
     </div>
 
     <div class="panel-card">
       <div class="toolbar-row">
-        <el-select v-model="query.schemeId" style="width: 14rem" @change="load">
-          <el-option v-for="item in schemes" :key="item.id" :label="`${item.schemeName} (${item.periodKey})`" :value="item.id" />
+        <el-select v-model="query.schemeId" @change="load">
+          <el-option v-for="item in schemes" :key="item.id" :label="`${item.schemeName}（${item.periodKey}）`" :value="item.id" />
         </el-select>
-        <el-input v-model="query.keyword" placeholder="搜索成员/组织" clearable @keyup.enter="load" />
-        <el-select v-model="query.resultCode" style="width: 12rem">
+        <el-input v-model="query.keyword" placeholder="搜索成员或组织" clearable @keyup.enter="load" />
+        <el-select v-model="query.resultCode">
           <el-option v-for="item in resultOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
         <el-button type="primary" @click="load">查询</el-button>
@@ -147,7 +147,7 @@ onMounted(async () => {
         <el-table-column prop="manualScore" label="人工补充分" width="120" />
         <el-table-column prop="totalScore" label="总分" width="100" />
         <el-table-column prop="resultCode" label="结果" width="120" />
-        <el-table-column prop="latestResult" label="说明" min-width="260" />
+        <el-table-column prop="latestResult" label="说明" min-width="260" show-overflow-tooltip />
         <el-table-column label="操作" width="140" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click="openManualEditor(row.id)">查看/补分</el-button>

@@ -71,7 +71,7 @@ onMounted(() => {
 <template>
   <section v-loading="loading" class="page-grid">
     <div class="hero-card">
-      <p class="hero-card__eyebrow">PUB-05 Personal Center</p>
+      <p class="hero-card__eyebrow">个人中心</p>
       <h2>个人中心</h2>
       <p>集中查看个人资料、角色信息、我的申请、我的待办与未读消息，并支持直接修改登录密码。</p>
     </div>
@@ -80,7 +80,7 @@ onMounted(() => {
       <div class="panel-card">
         <div class="panel-card__header">
           <div>
-            <p class="panel-card__eyebrow">Profile</p>
+            <p class="panel-card__eyebrow">个人资料</p>
             <h2>资料概览</h2>
           </div>
         </div>
@@ -99,7 +99,7 @@ onMounted(() => {
       <div class="panel-card">
         <div class="panel-card__header">
           <div>
-            <p class="panel-card__eyebrow">Roles</p>
+            <p class="panel-card__eyebrow">角色信息</p>
             <h2>角色信息</h2>
           </div>
         </div>
@@ -137,7 +137,7 @@ onMounted(() => {
       <div class="panel-card">
         <div class="panel-card__header">
           <div>
-            <p class="panel-card__eyebrow">My Todo</p>
+            <p class="panel-card__eyebrow">我的待办</p>
             <h2>我的待办</h2>
           </div>
         </div>
@@ -159,7 +159,7 @@ onMounted(() => {
       <div class="panel-card">
         <div class="panel-card__header">
           <div>
-            <p class="panel-card__eyebrow">My Applications</p>
+            <p class="panel-card__eyebrow">我的申请</p>
             <h2>我的申请</h2>
           </div>
         </div>
@@ -183,7 +183,7 @@ onMounted(() => {
       <div class="panel-card">
         <div class="panel-card__header">
           <div>
-            <p class="panel-card__eyebrow">Recent Messages</p>
+            <p class="panel-card__eyebrow">近期消息</p>
             <h2>最近消息</h2>
           </div>
           <el-button link type="primary" @click="navigate('/notifications')">消息中心</el-button>
@@ -206,7 +206,7 @@ onMounted(() => {
       <div class="panel-card">
         <div class="panel-card__header">
           <div>
-            <p class="panel-card__eyebrow">Password</p>
+            <p class="panel-card__eyebrow">密码设置</p>
             <h2>密码修改</h2>
           </div>
         </div>

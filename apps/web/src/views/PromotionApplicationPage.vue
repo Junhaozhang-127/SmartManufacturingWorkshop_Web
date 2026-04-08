@@ -127,7 +127,7 @@ async function saveReviewFields() {
       teamEvaluation: reviewForm.teamEvaluation,
       departmentReview: reviewForm.departmentReview,
     });
-    ElMessage.success('团队评价/部门审核已保存');
+    ElMessage.success('团队评价和部门审核已保存');
     await openDetail(detail.value.id);
     await load();
   } catch (error) {
@@ -205,18 +205,18 @@ onMounted(async () => {
 <template>
   <section class="page-grid">
     <div class="hero-card">
-      <p class="hero-card__eyebrow">PRO-05 Promotion Application</p>
+      <p class="hero-card__eyebrow">晋升申请与评审</p>
       <h2>晋升申请与评审</h2>
-      <p>统一承载申请、团队评价、部门审核、公示结果与审批流转，不自建私有流程表，审批轨迹仍回到统一审批中心查看。</p>
+      <p>统一承载申请、团队评价、部门审核、公示结果与审批流转，审批轨迹仍回到统一审批中心查看。</p>
     </div>
 
     <div class="panel-card">
       <div class="toolbar-row">
-        <el-select v-model="query.schemeId" style="width: 14rem" clearable>
-          <el-option v-for="item in schemes" :key="item.id" :label="`${item.schemeName} (${item.periodKey})`" :value="item.id" />
+        <el-select v-model="query.schemeId" clearable>
+          <el-option v-for="item in schemes" :key="item.id" :label="`${item.schemeName}（${item.periodKey}）`" :value="item.id" />
         </el-select>
-        <el-input v-model="query.keyword" placeholder="搜索申请单号/成员/组织" clearable @keyup.enter="load" />
-        <el-select v-model="query.statusCode" style="width: 12rem" clearable>
+        <el-input v-model="query.keyword" placeholder="搜索申请单号、成员或组织" clearable @keyup.enter="load" />
+        <el-select v-model="query.statusCode" clearable>
           <el-option label="审批中" :value="PromotionApplicationStatus.IN_APPROVAL" />
           <el-option label="待公示" :value="PromotionApplicationStatus.PUBLIC_NOTICE" />
           <el-option label="已任命" :value="PromotionApplicationStatus.APPOINTED" />
@@ -224,7 +224,7 @@ onMounted(async () => {
           <el-option label="已驳回" :value="PromotionApplicationStatus.REJECTED" />
           <el-option label="已撤回" :value="PromotionApplicationStatus.WITHDRAWN" />
         </el-select>
-        <el-select v-model="query.targetPositionCode" style="width: 12rem" clearable>
+        <el-select v-model="query.targetPositionCode" clearable>
           <el-option label="组长" value="GROUP_LEADER" />
           <el-option label="部长" value="MINISTER" />
         </el-select>
@@ -245,7 +245,7 @@ onMounted(async () => {
           </template>
         </el-table-column>
         <el-table-column prop="statusCode" label="状态" width="130" />
-        <el-table-column prop="latestResult" label="最近结果" min-width="220" />
+        <el-table-column prop="latestResult" label="最近结果" min-width="220" show-overflow-tooltip />
         <el-table-column label="操作" width="120" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click="openDetail(row.id)">详情</el-button>
@@ -273,7 +273,7 @@ onMounted(async () => {
         </el-form-item>
         <el-form-item label="考核周期">
           <el-select v-model="createForm.schemeId" style="width: 100%">
-            <el-option v-for="item in schemes" :key="item.id" :label="`${item.schemeName} (${item.periodKey})`" :value="item.id" />
+            <el-option v-for="item in schemes" :key="item.id" :label="`${item.schemeName}（${item.periodKey}）`" :value="item.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="目标岗位">

@@ -15,7 +15,7 @@
 
 body {
   margin: 0;
-  min-width: 1280px;
+  min-width: 0;
 }
 
 #app {
@@ -100,7 +100,7 @@ body {
   color: #0f4c81;
   font-size: 0.82rem;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
+  text-transform: none;
 }
 
 .topbar__title,
@@ -157,6 +157,7 @@ body {
 .hero-card,
 .panel-card {
   padding: 1.5rem;
+  min-width: 0;
 }
 
 .stat-grid,
@@ -204,8 +205,20 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 1rem;
   margin-bottom: 1rem;
+}
+
+.toolbar-row .el-input,
+.toolbar-row .el-select {
+  flex: 1 1 12rem;
+  min-width: min(100%, 12rem);
+}
+
+.toolbar-row .el-button,
+.toolbar-row .el-segmented {
+  flex: 0 0 auto;
 }
 
 .pagination-row {
@@ -363,6 +376,7 @@ body {
 
 .approval-toolbar__search {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.75rem;
   width: min(28rem, 100%);
 }
@@ -571,6 +585,10 @@ body {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.el-table .cell {
+  word-break: break-word;
 }
 
 @media (max-width: 1024px) {

@@ -110,7 +110,7 @@ onMounted(loadList);
 <template>
   <section class="page-grid">
     <div class="hero-card">
-      <p class="hero-card__eyebrow">INV-01 Consumable Ledger</p>
+      <p class="hero-card__eyebrow">耗材台账</p>
       <h2>耗材库存台账</h2>
       <p>统一维护耗材基础档案、库存余量、预警阈值与补货触发状态。P0 采用冗余库存字段 + 交易流水审计，优先保证查询筛选和审批联动的稳定性。</p>
     </div>
@@ -180,7 +180,7 @@ onMounted(loadList);
           <div class="panel-card">
             <div class="panel-card__header">
               <div>
-                <p class="panel-card__eyebrow">Ledger</p>
+                <p class="panel-card__eyebrow">台账明细</p>
                 <h2>基础信息</h2>
               </div>
             </div>
@@ -202,7 +202,7 @@ onMounted(loadList);
           <div class="panel-card">
             <div class="panel-card__header">
               <div>
-                <p class="panel-card__eyebrow">Trace</p>
+                <p class="panel-card__eyebrow">变更留痕</p>
                 <h2>最近库存流水</h2>
               </div>
             </div>

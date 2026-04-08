@@ -122,7 +122,7 @@ onMounted(async () => {
 <template>
   <section class="page-grid">
     <div class="hero-card">
-      <p class="hero-card__eyebrow">DEV-01 Device Ledger</p>
+      <p class="hero-card__eyebrow">设备台账</p>
       <h2>设备台账</h2>
       <p>聚合设备基础档案、责任人、状态筛选和维修历史入口。P0 版本保持只读台账，报修通过通用审批中心进入处理流程。</p>
     </div>

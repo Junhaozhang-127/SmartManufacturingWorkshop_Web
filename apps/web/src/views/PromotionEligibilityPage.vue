@@ -69,22 +69,22 @@ onMounted(async () => {
 <template>
   <section class="page-grid">
     <div class="hero-card">
-      <p class="hero-card__eyebrow">PRO-04 Promotion Eligibility</p>
+      <p class="hero-card__eyebrow">晋升资格看板</p>
       <h2>晋升资格看板</h2>
-      <p>结合最近考核结果、成果等级与项目经历做首版资格校验，输出可申请名单、未达标原因与目标岗位建议。</p>
+      <p>结合最近考核结果、成果等级与项目经历进行资格校验，输出可申请名单、未达标原因和目标岗位建议。</p>
     </div>
 
     <div class="panel-card">
       <div class="toolbar-row">
-        <el-select v-model="query.schemeId" style="width: 14rem" @change="load">
-          <el-option v-for="item in schemes" :key="item.id" :label="`${item.schemeName} (${item.periodKey})`" :value="item.id" />
+        <el-select v-model="query.schemeId" @change="load">
+          <el-option v-for="item in schemes" :key="item.id" :label="`${item.schemeName}（${item.periodKey}）`" :value="item.id" />
         </el-select>
-        <el-input v-model="query.keyword" placeholder="搜索成员/组织" clearable @keyup.enter="load" />
-        <el-select v-model="query.targetPositionCode" style="width: 12rem" clearable>
+        <el-input v-model="query.keyword" placeholder="搜索成员或组织" clearable @keyup.enter="load" />
+        <el-select v-model="query.targetPositionCode" clearable>
           <el-option label="组长" value="GROUP_LEADER" />
           <el-option label="部长" value="MINISTER" />
         </el-select>
-        <el-select v-model="query.qualified" style="width: 12rem" clearable>
+        <el-select v-model="query.qualified" clearable>
           <el-option label="仅看可申请" :value="true" />
           <el-option label="仅看未达标" :value="false" />
         </el-select>
@@ -105,8 +105,8 @@ onMounted(async () => {
             <el-tag :type="row.qualified ? 'success' : 'danger'">{{ row.qualified ? '通过' : '未通过' }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="原因" min-width="280">
-          <template #default="{ row }">{{ row.reasons.length ? row.reasons.join('；') : '满足当前规则' }}</template>
+        <el-table-column label="原因" min-width="320" show-overflow-tooltip>
+          <template #default="{ row }">{{ row.reasons.length ? row.reasons.join('；') : '满足当前规则，可发起晋升申请' }}</template>
         </el-table-column>
         <el-table-column prop="latestPromotionStatus" label="最近申请状态" width="150" />
         <el-table-column label="操作" width="120" fixed="right">

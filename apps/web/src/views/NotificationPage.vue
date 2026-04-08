@@ -60,7 +60,7 @@ onMounted(() => {
 <template>
   <section class="page-grid">
     <div class="hero-card">
-      <p class="hero-card__eyebrow">PUB Notification Center</p>
+      <p class="hero-card__eyebrow">通知中心</p>
       <h2>通知消息</h2>
       <p>统一查看审批消息、资格提醒和系统公告，支持已读/未读状态管理与关联业务跳转。</p>
     </div>

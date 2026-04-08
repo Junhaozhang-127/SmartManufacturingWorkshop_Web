@@ -23,7 +23,7 @@ onMounted(load);
     <div class="panel-card">
       <div class="panel-card__header">
         <div>
-          <p class="panel-card__eyebrow">Connectivity Check</p>
+          <p class="panel-card__eyebrow">连通性检查</p>
           <h2>系统健康检查</h2>
         </div>
         <el-button :loading="loading" type="primary" plain @click="load">刷新</el-button>

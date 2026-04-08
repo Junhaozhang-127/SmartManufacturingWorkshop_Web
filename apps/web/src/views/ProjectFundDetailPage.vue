@@ -47,7 +47,7 @@ onMounted(() => {
 <template>
   <section v-loading="loading" class="page-grid">
     <div v-if="detail" class="hero-card">
-      <p class="hero-card__eyebrow">Project Detail</p>
+      <p class="hero-card__eyebrow">项目经费详情</p>
       <h2>{{ detail.projectName || detail.projectId }}</h2>
       <p>仅展示该项目关联经费、经费申请和维修联动记录，不扩展为完整项目管理模块。</p>
     </div>
@@ -74,7 +74,7 @@ onMounted(() => {
     <div class="panel-card">
       <div class="panel-card__header">
         <div>
-          <p class="panel-card__eyebrow">Accounts</p>
+          <p class="panel-card__eyebrow">账户信息</p>
           <h2>关联经费账户</h2>
         </div>
       </div>
@@ -91,7 +91,7 @@ onMounted(() => {
     <div class="panel-card">
       <div class="panel-card__header">
         <div>
-          <p class="panel-card__eyebrow">Applications</p>
+          <p class="panel-card__eyebrow">申请记录</p>
           <h2>关联费用申请</h2>
         </div>
       </div>
@@ -112,7 +112,7 @@ onMounted(() => {
     <div class="panel-card">
       <div class="panel-card__header">
         <div>
-          <p class="panel-card__eyebrow">Repair Links</p>
+          <p class="panel-card__eyebrow">维修关联</p>
           <h2>设备维修联动</h2>
         </div>
       </div>

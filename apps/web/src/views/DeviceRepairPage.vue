@@ -153,7 +153,7 @@ onMounted(async () => {
 <template>
   <section class="page-grid">
     <div class="hero-card">
-      <p class="hero-card__eyebrow">DEV-03 Repair Orders</p>
+      <p class="hero-card__eyebrow">维修工单</p>
       <h2>维修报修工单</h2>
       <p>工单统一接入审批中心；P0 覆盖发起、处理人分配、处理结果回填、报修人确认和全程状态留痕。</p>
     </div>
@@ -216,7 +216,7 @@ onMounted(async () => {
           <div class="panel-card">
             <div class="panel-card__header">
               <div>
-                <p class="panel-card__eyebrow">Work Order</p>
+                <p class="panel-card__eyebrow">工单信息</p>
                 <h2>工单信息</h2>
               </div>
               <div class="drawer-actions">
@@ -264,7 +264,7 @@ onMounted(async () => {
           <div class="panel-card">
             <div class="panel-card__header">
               <div>
-                <p class="panel-card__eyebrow">Trace</p>
+                <p class="panel-card__eyebrow">处理留痕</p>
                 <h2>状态留痕</h2>
               </div>
             </div>

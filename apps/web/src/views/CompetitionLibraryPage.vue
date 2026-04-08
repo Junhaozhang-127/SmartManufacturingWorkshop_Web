@@ -226,7 +226,7 @@ onMounted(async () => {
 <template>
   <section class="page-grid">
     <div class="hero-card">
-      <p class="hero-card__eyebrow">COM-01 Competition Library</p>
+      <p class="hero-card__eyebrow">竞赛库</p>
       <h2>赛事库与报名</h2>
       <p>赛事作为独立生命周期对象维护，支持赛事库检索、队伍组建、指导老师绑定与报名审批轨迹回看。</p>
     </div>

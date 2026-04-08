@@ -32,7 +32,7 @@ onMounted(load);
 <template>
   <section class="page-grid">
     <div class="hero-card">
-      <p class="hero-card__eyebrow">ORG-01 Organization Overview</p>
+      <p class="hero-card__eyebrow">组织总览</p>
       <h2>组织架构总览</h2>
       <p>展示部门、组别、负责人和成员规模，并按当前角色自动收敛可见范围。</p>
     </div>
@@ -59,7 +59,7 @@ onMounted(load);
     <div class="panel-card">
       <div class="panel-card__header">
         <div>
-          <p class="panel-card__eyebrow">Tree View</p>
+          <p class="panel-card__eyebrow">树形结构</p>
           <h2>组织树</h2>
         </div>
       </div>
