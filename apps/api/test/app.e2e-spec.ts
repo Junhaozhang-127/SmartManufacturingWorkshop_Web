@@ -71,6 +71,7 @@ type MemberWhere = {
   OR?: MemberWhere[];
   userId?: bigint | { in: bigint[] };
   orgUnitId?: bigint | { in: bigint[] };
+  memberStatus?: string;
   user?: {
     displayName?: { contains: string };
     username?: { contains: string };
@@ -276,6 +277,10 @@ describe('App e2e', () => {
       return where.orgUnitId === member.orgUnitId;
     }
 
+    if (where.memberStatus) {
+      return where.memberStatus === member.memberStatus;
+    }
+
     if (where.user?.displayName?.contains) {
       return matchesContains(member.user.displayName, where.user.displayName.contains);
     }
@@ -421,5 +426,16 @@ describe('App e2e', () => {
 
     expect(groupListResponse.status).toBe(200);
     expect(groupListResponse.body.data.meta.total).toBe(2);
+  });
+
+  it('accepts memberStatus query alias for member list filtering', async () => {
+    const loginResponse = await loginAs('hybrid01');
+    const response = await request(app.getHttpServer())
+      .get('/api/members')
+      .query({ memberStatus: 'ACTIVE' })
+      .set('Authorization', `Bearer ${loginResponse.body.data.token}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.meta.total).toBe(3);
   });
 });

@@ -19,6 +19,7 @@ export async function fetchMemberList(params: {
   pageSize: number;
   keyword?: string;
   orgUnitId?: string;
+  memberStatus?: string;
   statusCode?: string;
 }) {
   return http.get<never, { data: MemberListResult }>('/members', {
@@ -26,7 +27,8 @@ export async function fetchMemberList(params: {
       ...params,
       keyword: params.keyword || undefined,
       orgUnitId: params.orgUnitId || undefined,
-      statusCode: params.statusCode || undefined,
+      memberStatus: params.memberStatus || params.statusCode || undefined,
+      statusCode: undefined,
     },
   });
 }

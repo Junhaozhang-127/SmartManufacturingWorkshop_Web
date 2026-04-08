@@ -212,6 +212,7 @@ export class MemberService {
 
   async listMembers(query: MemberQueryDto, dataScopeContext: DataScopeContext) {
     const pagination = normalizePagination(query);
+    const memberStatus = query.memberStatus ?? query.statusCode;
     const scopeWhere = buildMemberProfileWhere(dataScopeContext);
     const clauses: Prisma.MemberProfileWhereInput[] = [{ isDeleted: false }];
 
@@ -221,8 +222,8 @@ export class MemberService {
     if (query.orgUnitId) {
       clauses.push({ orgUnitId: this.toBigInt(query.orgUnitId) });
     }
-    if (query.statusCode) {
-      clauses.push({ memberStatus: query.statusCode });
+    if (memberStatus) {
+      clauses.push({ memberStatus });
     }
     if (pagination.keyword) {
       clauses.push({

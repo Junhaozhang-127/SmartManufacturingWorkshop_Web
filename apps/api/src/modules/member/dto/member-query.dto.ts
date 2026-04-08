@@ -18,5 +18,9 @@ export class MemberQueryDto {
 
   @IsOptional()
   @IsString()
+  memberStatus?: string;
+
+  @IsOptional()
+  @IsString()
   statusCode?: string;
 }
