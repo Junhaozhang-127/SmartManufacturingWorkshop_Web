@@ -1,52 +1,26 @@
 <script setup lang="ts">
-import { fetchCaptcha } from '@web/api/auth';
 import { useAuthStore } from '@web/stores/auth';
 import { ElMessage } from 'element-plus';
-import { onMounted, reactive, ref } from 'vue';
+import { reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 const authStore = useAuthStore();
 const route = useRoute();
 const router = useRouter();
 const loading = ref(false);
-const captchaLoading = ref(false);
-const captchaSvg = ref('');
-const captchaId = ref('');
-const captchaError = ref('');
 
 const form = reactive({
   username: 'teacher01',
   password: '123456',
-  captchaCode: '',
 });
 
 const demoAccounts = [
-  { username: 'teacher01', label: '老师', org: '全局视角' },
-  { username: 'leader01', label: '实验室负责人', org: '实验室' },
-  { username: 'minister01', label: '部长', org: '研发部' },
-  { username: 'hybrid01', label: '部长 / 组长', org: '研发部 / 前端组' },
-  { username: 'member01', label: '成员', org: '前端组' },
+  { username: 'teacher01', label: 'Teacher', org: 'Global View' },
+  { username: 'leader01', label: 'Lab Leader', org: 'Lab' },
+  { username: 'minister01', label: 'Minister', org: 'R&D Department' },
+  { username: 'hybrid01', label: 'Minister / Group Leader', org: 'R&D / Frontend Group' },
+  { username: 'member01', label: 'Member', org: 'Frontend Group' },
 ];
-
-async function refreshCaptcha() {
-  try {
-    captchaLoading.value = true;
-    captchaError.value = '';
-
-    const response = await fetchCaptcha();
-
-    captchaSvg.value = response.data.captchaSvg;
-    captchaId.value = response.data.captchaId;
-    form.captchaCode = '';
-  } catch (error) {
-    captchaSvg.value = '';
-    captchaId.value = '';
-    captchaError.value = error instanceof Error ? error.message : '验证码加载失败';
-    ElMessage.error(captchaError.value);
-  } finally {
-    captchaLoading.value = false;
-  }
-}
 
 async function submit() {
   try {
@@ -55,11 +29,9 @@ async function submit() {
     const user = await authStore.login({
       username: form.username,
       password: form.password,
-      captchaId: captchaId.value,
-      captchaCode: form.captchaCode,
     });
 
-    ElMessage.success('登录成功');
+    ElMessage.success('Login successful');
 
     if (user.forcePasswordChange) {
       await router.push('/change-password');
@@ -68,8 +40,7 @@ async function submit() {
 
     await router.push(String(route.query.redirect || '/'));
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '登录失败');
-    await refreshCaptcha();
+    ElMessage.error(error instanceof Error ? error.message : 'Login failed');
   } finally {
     loading.value = false;
   }
@@ -79,19 +50,16 @@ function useAccount(username: string) {
   form.username = username;
   form.password = '123456';
 }
-
-onMounted(async () => {
-  await refreshCaptcha();
-});
 </script>
 
 <template>
   <div class="login-page">
     <section class="login-page__hero">
       <p class="login-page__eyebrow">Smart Manufacturing Workshop</p>
-      <h1>实验室管理系统登录页</h1>
+      <h1>Workshop Management System Login</h1>
       <p>
-        当前版本已接入统一登录、角色切换、RBAC 与数据范围控制。登录后首页、菜单与业务数据会随当前角色自动切换。
+        This version already integrates unified login, role switching, RBAC, and data-scope control.
+        After login, the home page, menu, and business data switch automatically with the active role.
       </p>
       <div class="login-page__chips">
         <span>Vue 3 + Pinia + Element Plus</span>
@@ -102,45 +70,26 @@ onMounted(async () => {
 
     <section class="login-card">
       <div class="login-card__header">
-        <h2>PUB-01 登录页</h2>
-        <p>默认密码统一为 `123456`，首次登录用户会被引导修改密码。</p>
+        <h2>PUB-01 Login</h2>
+        <p>Default password is `123456`. First-time users will be redirected to change their password.</p>
       </div>
 
       <el-form label-position="top" @submit.prevent="submit">
-        <el-form-item label="账号">
+        <el-form-item label="Username">
           <el-input v-model="form.username" placeholder="teacher01 / hybrid01 / member01" />
         </el-form-item>
 
-        <el-form-item label="密码">
+        <el-form-item label="Password">
           <el-input v-model="form.password" show-password type="password" />
         </el-form-item>
 
-        <el-form-item label="验证码">
-          <div class="captcha-row">
-            <el-input v-model="form.captchaCode" maxlength="8" placeholder="请输入验证码" />
-            <button class="captcha-box" type="button" @click="refreshCaptcha">
-              <img v-if="captchaSvg" :src="captchaSvg" alt="验证码" />
-              <span v-else>{{ captchaLoading ? '加载中...' : captchaError || '点击获取' }}</span>
-            </button>
-            <el-button class="captcha-refresh" plain type="primary" @click="refreshCaptcha">
-              刷新验证码
-            </el-button>
-          </div>
-        </el-form-item>
-
-        <el-button
-          :disabled="!captchaId"
-          :loading="loading"
-          class="login-card__submit"
-          type="primary"
-          @click="submit"
-        >
-          登录系统
+        <el-button :loading="loading" class="login-card__submit" type="primary" @click="submit">
+          Login
         </el-button>
       </el-form>
 
       <div class="login-card__accounts">
-        <h3>种子账号</h3>
+        <h3>Seed Accounts</h3>
         <button
           v-for="item in demoAccounts"
           :key="item.username"

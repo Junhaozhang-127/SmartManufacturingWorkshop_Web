@@ -57,19 +57,11 @@ export interface CurrentUserProfile {
 export interface AuthLoginRequest {
   username: string;
   password: string;
-  captchaId: string;
-  captchaCode: string;
 }
 
 export interface AuthLoginResponse {
   token: string;
   user: CurrentUserProfile;
-}
-
-export interface AuthCaptchaResponse {
-  captchaId: string;
-  captchaSvg: string;
-  expiresAt: string;
 }
 
 export interface SwitchRoleRequest {

@@ -31,23 +31,6 @@ const authUser = {
 };
 
 export async function mockLoginApis(page: Page) {
-  await page.route('**/api/auth/captcha', async (route) => {
-    await route.fulfill({
-      json: {
-        code: 0,
-        message: 'ok',
-        data: {
-          captchaId: 'captcha-1',
-          captchaSvg:
-            'data:image/svg+xml,' +
-            encodeURIComponent(
-              '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="40"><text x="10" y="28">A</text><text x="35" y="28">1</text><text x="60" y="28">B</text><text x="85" y="28">2</text></svg>',
-            ),
-        },
-      },
-    });
-  });
-
   await page.route('**/api/auth/login', async (route) => {
     await route.fulfill({
       json: {

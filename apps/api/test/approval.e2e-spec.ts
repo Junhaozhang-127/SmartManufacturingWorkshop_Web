@@ -681,25 +681,10 @@ describe('Approval engine e2e', () => {
   afterAll(async () => {
     await app.close();
   });
-
-  async function getCaptchaCode() {
-    const response = await request(app.getHttpServer()).get('/api/auth/captcha');
-    const svg = decodeURIComponent(String(response.body.data.captchaSvg).split(',')[1]);
-    const captchaCode = [...svg.matchAll(/<text[^>]*>([A-Z0-9])<\/text>/g)].map((item) => item[1]).join('');
-
-    return {
-      captchaId: response.body.data.captchaId as string,
-      captchaCode,
-    };
-  }
-
   async function loginAs(username: string) {
-    const captcha = await getCaptchaCode();
     return request(app.getHttpServer()).post('/api/auth/login').send({
       username,
       password: '123456',
-      captchaId: captcha.captchaId,
-      captchaCode: captcha.captchaCode,
     });
   }
 

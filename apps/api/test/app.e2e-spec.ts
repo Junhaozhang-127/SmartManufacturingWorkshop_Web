@@ -353,25 +353,10 @@ describe('App e2e', () => {
     await app.close();
   });
 
-  async function getCaptchaCode() {
-    const response = await request(app.getHttpServer()).get('/api/auth/captcha');
-    const svg = decodeURIComponent(String(response.body.data.captchaSvg).split(',')[1]);
-    const captchaCode = [...svg.matchAll(/<text[^>]*>([A-Z0-9])<\/text>/g)].map((item) => item[1]).join('');
-
-    return {
-      captchaId: response.body.data.captchaId as string,
-      captchaCode,
-    };
-  }
-
   async function loginAs(username: string, password = '123456') {
-    const captcha = await getCaptchaCode();
-
     return request(app.getHttpServer()).post('/api/auth/login').send({
       username,
       password,
-      captchaId: captcha.captchaId,
-      captchaCode: captcha.captchaCode,
     });
   }
 
@@ -382,7 +367,7 @@ describe('App e2e', () => {
     expect(response.body.data.app.status).toBe('up');
   });
 
-  it('logs in successfully with username, password and captcha', async () => {
+  it('logs in successfully with username and password', async () => {
     const response = await loginAs('teacher01');
 
     expect(response.status).toBe(201);
@@ -395,19 +380,6 @@ describe('App e2e', () => {
 
     expect(response.status).toBe(401);
     expect(response.body.message).toContain('账号或密码错误');
-  });
-
-  it('fails login with wrong captcha', async () => {
-    const captcha = await getCaptchaCode();
-    const response = await request(app.getHttpServer()).post('/api/auth/login').send({
-      username: 'teacher01',
-      password: '123456',
-      captchaId: captcha.captchaId,
-      captchaCode: 'ZZZZ',
-    });
-
-    expect(response.status).toBe(401);
-    expect(response.body.message).toContain('验证码错误');
   });
 
   it('blocks first-login users from protected business endpoints before password change', async () => {

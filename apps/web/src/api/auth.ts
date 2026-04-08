@@ -1,5 +1,4 @@
 import type {
-  AuthCaptchaResponse,
   AuthLoginRequest,
   AuthLoginResponse,
   ChangePasswordRequest,
@@ -8,10 +7,6 @@ import type {
 } from '@smw/shared';
 
 import { http } from './client';
-
-export async function fetchCaptcha() {
-  return http.get<never, { data: AuthCaptchaResponse }>('/auth/captcha');
-}
 
 export async function login(payload: AuthLoginRequest) {
   return http.post<never, { data: AuthLoginResponse }>('/auth/login', payload);

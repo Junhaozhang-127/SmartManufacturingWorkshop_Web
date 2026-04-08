@@ -9,7 +9,6 @@ test('login redirects to dashboard and persists session', async ({ page }) => {
 
   await page.locator('input[type="text"]').first().fill('teacher01');
   await page.locator('input[type="password"]').fill('123456');
-  await page.locator('.captcha-row input').fill('A1B2');
   await page.locator('.login-card__submit').click();
 
   await expect(page).toHaveURL(/\/$/);

@@ -138,8 +138,6 @@ describe('useAuthStore', () => {
     await authStore.login({
       username: 'teacher01',
       password: '123456',
-      captchaId: 'captcha-1',
-      captchaCode: 'ABCD',
     });
 
     expect(authStore.token).toBe('token-1');
@@ -151,8 +149,6 @@ describe('useAuthStore', () => {
     await authStore.login({
       username: 'teacher01',
       password: '123456',
-      captchaId: 'captcha-1',
-      captchaCode: 'ABCD',
     });
 
     await authStore.switchRole(RoleCode.LAB_LEADER);

@@ -4,29 +4,20 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import { type AuthLoginRequest, type ChangePasswordRequest,RoleCode } from '@smw/shared';
+import { type AuthLoginRequest, type ChangePasswordRequest, RoleCode } from '@smw/shared';
 import bcrypt from 'bcryptjs';
 
 import { AccessControlService } from './access-control.service';
 import { AccessTokenService } from './access-token.service';
-import { CaptchaService } from './captcha.service';
-
 @Injectable()
 export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly accessControlService: AccessControlService,
     private readonly accessTokenService: AccessTokenService,
-    private readonly captchaService: CaptchaService,
   ) {}
 
-  getCaptcha() {
-    return this.captchaService.issueCaptcha();
-  }
-
   async login(payload: AuthLoginRequest) {
-    this.captchaService.verifyCaptcha(payload.captchaId, payload.captchaCode);
-
     const user = await this.accessControlService.loadUserByUsername(payload.username);
 
     if (!user || user.isDeleted || user.statusCode !== 'ACTIVE') {

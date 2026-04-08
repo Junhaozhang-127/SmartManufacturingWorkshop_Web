@@ -6,7 +6,6 @@ import { AccessTokenService } from './access-token.service';
 import { AuthController } from './auth.controller';
 import { AuthGuard } from './auth.guard';
 import { AuthService } from './auth.service';
-import { CaptchaService } from './captcha.service';
 import { DataScopeGuard } from './data-scope.guard';
 import { PermissionGuard } from './permission.guard';
 
@@ -17,7 +16,6 @@ import { PermissionGuard } from './permission.guard';
     AuthService,
     AccessControlService,
     AccessTokenService,
-    CaptchaService,
     AuthGuard,
     PermissionGuard,
     DataScopeGuard,

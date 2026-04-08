@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
-import { type CurrentUserProfile,PermissionCodes } from '@smw/shared';
+import { type CurrentUserProfile, PermissionCodes } from '@smw/shared';
 
 import { CurrentUser, RequirePermissions } from './auth.decorators';
 import { AuthGuard } from './auth.guard';
@@ -12,11 +12,6 @@ import { PermissionGuard } from './permission.guard';
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
-
-  @Get('captcha')
-  getCaptcha() {
-    return this.authService.getCaptcha();
-  }
 
   @Post('login')
   login(@Body() payload: LoginDto) {
