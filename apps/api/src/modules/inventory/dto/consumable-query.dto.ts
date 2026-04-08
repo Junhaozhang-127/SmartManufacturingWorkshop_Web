@@ -1,9 +1,21 @@
-import { IsBooleanString, IsOptional, IsString, Max, Min } from 'class-validator';
+import { Transform } from 'class-transformer';
+import { IsBooleanString, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 
 export class ConsumableQueryDto {
+  @Transform(({ value }) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed >= 1 ? Math.trunc(parsed) : 1;
+  })
+  @IsInt()
   @Min(1)
   page = 1;
 
+  @Transform(({ value }) => {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return 10;
+    return Math.min(100, Math.max(1, Math.trunc(parsed)));
+  })
+  @IsInt()
   @Min(1)
   @Max(100)
   pageSize = 10;

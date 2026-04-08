@@ -154,8 +154,8 @@ onMounted(async () => {
   <section class="page-grid">
     <div class="hero-card">
       <p class="hero-card__eyebrow">维修工单</p>
-      <h2>维修报修工单</h2>
-      <p>工单统一接入审批中心；P0 覆盖发起、处理人分配、处理结果回填、报修人确认和全程状态留痕。</p>
+      <h2>设备报修工单</h2>
+      <p>工单统一接入审批中心，覆盖发起、处理人分配、处理结果回填、报修人确认和全程状态留痕。</p>
     </div>
 
     <div class="panel-card">

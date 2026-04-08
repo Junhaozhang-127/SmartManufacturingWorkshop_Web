@@ -42,7 +42,7 @@ async function load() {
     rows.value = response.data.items;
     total.value = response.data.meta.total;
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '资格看板加载失败');
+    ElMessage.error(error instanceof Error ? error.message : '晋升资格看板加载失败');
   } finally {
     loading.value = false;
   }

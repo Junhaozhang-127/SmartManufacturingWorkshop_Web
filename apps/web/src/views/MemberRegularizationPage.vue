@@ -174,7 +174,7 @@ onMounted(async () => {
           </template>
         </el-table-column>
         <el-table-column prop="memberStatus" label="成员状态" min-width="170" />
-        <el-table-column prop="plannedRegularDate" label="计划转正日" min-width="140" />
+        <el-table-column prop="plannedRegularDate" label="计划转正日期" min-width="140" />
         <el-table-column prop="latestResult" label="最近结果" min-width="180" />
         <el-table-column label="操作" width="180" fixed="right">
           <template #default="{ row }">
@@ -245,7 +245,7 @@ onMounted(async () => {
             <dd>{{ detail.statusCode }}</dd>
             <dt>成员状态</dt>
             <dd>{{ detail.memberStatus }}</dd>
-            <dt>计划转正日</dt>
+            <dt>计划转正日期</dt>
             <dd>{{ detail.plannedRegularDate }}</dd>
           </dl>
         </div>

@@ -118,7 +118,7 @@ async function load() {
     rows.value = response.data.items;
     total.value = response.data.meta.total;
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '赛事列表加载失败');
+    ElMessage.error(error instanceof Error ? error.message : '竞赛列表加载失败');
   } finally {
     loading.value = false;
   }
@@ -136,7 +136,7 @@ async function openDetail(id: string) {
     const response = await fetchCompetitionDetail(id);
     detail.value = response.data;
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '赛事详情加载失败');
+    ElMessage.error(error instanceof Error ? error.message : '竞赛详情加载失败');
     detailVisible.value = false;
   } finally {
     detailLoading.value = false;
@@ -177,15 +177,15 @@ async function submitCompetition() {
   try {
     if (editingCompetitionId.value) {
       await updateCompetition(editingCompetitionId.value, competitionForm);
-      ElMessage.success('赛事已更新');
+      ElMessage.success('竞赛已更新');
     } else {
       await createCompetition(competitionForm);
-      ElMessage.success('赛事已创建');
+      ElMessage.success('竞赛已创建');
     }
     competitionDialogVisible.value = false;
     await load();
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '赛事保存失败');
+    ElMessage.error(error instanceof Error ? error.message : '竞赛保存失败');
   } finally {
     submitting.value = false;
   }
@@ -227,13 +227,13 @@ onMounted(async () => {
   <section class="page-grid">
     <div class="hero-card">
       <p class="hero-card__eyebrow">竞赛库</p>
-      <h2>赛事库与报名</h2>
-      <p>赛事作为独立生命周期对象维护，支持赛事库检索、队伍组建、指导老师绑定与报名审批轨迹回看。</p>
+      <h2>竞赛库与报名</h2>
+      <p>竞赛作为独立生命周期对象维护，支持竞赛库检索、队伍组建、指导老师绑定与报名审批轨迹回看。</p>
     </div>
 
     <div class="panel-card">
       <div class="toolbar-row">
-        <el-input v-model="query.keyword" placeholder="搜索赛事编码、名称、主办方" clearable @keyup.enter="load" />
+        <el-input v-model="query.keyword" placeholder="搜索竞赛编码、名称、主办方" clearable @keyup.enter="load" />
         <el-select v-model="query.statusCode" style="width: 12rem">
           <el-option v-for="option in statusOptions" :key="option.value" :label="option.label" :value="option.value" />
         </el-select>
@@ -241,12 +241,12 @@ onMounted(async () => {
           <el-option v-for="option in levelOptions" :key="option.value" :label="option.label" :value="option.value" />
         </el-select>
         <el-button type="primary" @click="load">查询</el-button>
-        <el-button v-if="canMaintain" type="success" @click="openCreateCompetition">维护赛事</el-button>
+        <el-button v-if="canMaintain" type="success" @click="openCreateCompetition">维护竞赛</el-button>
       </div>
 
       <el-table v-loading="loading" :data="rows" border stripe>
-        <el-table-column prop="competitionCode" label="赛事编码" min-width="140" />
-        <el-table-column prop="name" label="赛事名称" min-width="220" />
+        <el-table-column prop="competitionCode" label="竞赛编码" min-width="140" />
+        <el-table-column prop="name" label="竞赛名称" min-width="220" />
         <el-table-column prop="competitionLevel" label="级别" width="120" />
         <el-table-column prop="competitionCategory" label="类别" min-width="140" />
         <el-table-column prop="organizer" label="主办方" min-width="180" />
@@ -274,14 +274,14 @@ onMounted(async () => {
       </div>
     </div>
 
-    <el-dialog v-model="competitionDialogVisible" :title="editingCompetitionId ? '编辑赛事' : '新建赛事'" width="42rem">
+    <el-dialog v-model="competitionDialogVisible" :title="editingCompetitionId ? '编辑竞赛' : '新建竞赛'" width="42rem">
       <el-form label-position="top">
         <div class="grid-two">
-          <el-form-item label="赛事编码"><el-input v-model="competitionForm.competitionCode" /></el-form-item>
-          <el-form-item label="赛事名称"><el-input v-model="competitionForm.name" /></el-form-item>
+          <el-form-item label="竞赛编码"><el-input v-model="competitionForm.competitionCode" /></el-form-item>
+          <el-form-item label="竞赛名称"><el-input v-model="competitionForm.name" /></el-form-item>
           <el-form-item label="主办方"><el-input v-model="competitionForm.organizer" /></el-form-item>
-          <el-form-item label="赛事级别"><el-input v-model="competitionForm.competitionLevel" /></el-form-item>
-          <el-form-item label="赛事类别"><el-input v-model="competitionForm.competitionCategory" /></el-form-item>
+          <el-form-item label="竞赛级别"><el-input v-model="competitionForm.competitionLevel" /></el-form-item>
+          <el-form-item label="竞赛类别"><el-input v-model="competitionForm.competitionCategory" /></el-form-item>
           <el-form-item label="状态"><el-input v-model="competitionForm.statusCode" /></el-form-item>
           <el-form-item label="报名开始">
             <el-date-picker v-model="competitionForm.registrationStartDate" type="date" value-format="YYYY-MM-DD" style="width: 100%" />
@@ -289,10 +289,10 @@ onMounted(async () => {
           <el-form-item label="报名截止">
             <el-date-picker v-model="competitionForm.registrationEndDate" type="date" value-format="YYYY-MM-DD" style="width: 100%" />
           </el-form-item>
-          <el-form-item label="赛事开始">
+          <el-form-item label="竞赛开始">
             <el-date-picker v-model="competitionForm.eventStartDate" type="date" value-format="YYYY-MM-DD" style="width: 100%" />
           </el-form-item>
-          <el-form-item label="赛事结束">
+          <el-form-item label="竞赛结束">
             <el-date-picker v-model="competitionForm.eventEndDate" type="date" value-format="YYYY-MM-DD" style="width: 100%" />
           </el-form-item>
         </div>
@@ -304,7 +304,7 @@ onMounted(async () => {
       </template>
     </el-dialog>
 
-    <el-dialog v-model="registerDialogVisible" title="赛事报名申请" width="42rem">
+    <el-dialog v-model="registerDialogVisible" title="竞赛报名申请" width="42rem">
       <el-form label-position="top">
         <div class="grid-two">
           <el-form-item label="队伍名称"><el-input v-model="registerForm.teamName" /></el-form-item>
@@ -337,18 +337,18 @@ onMounted(async () => {
     <el-drawer v-model="detailVisible" size="56%">
       <template #header>
         <div>
-          <strong>{{ detail?.name || '赛事详情' }}</strong>
+          <strong>{{ detail?.name || '竞赛详情' }}</strong>
           <p class="drawer-caption">{{ detail?.competitionCode || '' }}</p>
         </div>
       </template>
 
       <div v-loading="detailLoading" class="approval-detail">
         <div v-if="detail" class="approval-detail__section">
-          <h3>赛事信息</h3>
+          <h3>竞赛信息</h3>
           <dl class="drawer-descriptions">
-            <dt>赛事级别</dt>
+            <dt>竞赛级别</dt>
             <dd>{{ detail.competitionLevel }}</dd>
-            <dt>赛事类别</dt>
+            <dt>竞赛类别</dt>
             <dd>{{ detail.competitionCategory }}</dd>
             <dt>主办方</dt>
             <dd>{{ detail.organizer }}</dd>
@@ -357,7 +357,7 @@ onMounted(async () => {
             <dt>状态</dt>
             <dd>{{ detail.statusCode }}</dd>
           </dl>
-          <p class="drawer-caption">{{ detail.description || '未填写赛事说明' }}</p>
+          <p class="drawer-caption">{{ detail.description || '未填写竞赛说明' }}</p>
         </div>
 
         <div v-if="detail" class="approval-detail__section">
