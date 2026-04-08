@@ -38,6 +38,7 @@ const evaluationForm = reactive({
 
 const canEdit = computed(() => hasPermission(PermissionCodes.memberUpdate));
 const canEvaluate = computed(() => hasPermission(PermissionCodes.memberApprove));
+const canViewFull = computed(() => detail.value?.canViewFull ?? false);
 
 async function load() {
   loading.value = true;
@@ -84,11 +85,11 @@ async function submitMentorBinding() {
   submitting.value = true;
   try {
     await bindMentor(detail.value.id, mentorForm.mentorUserId);
-    ElMessage.success('带教绑定已更新');
+    ElMessage.success('导师绑定已更新');
     mentorVisible.value = false;
     await load();
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '带教绑定失败');
+    ElMessage.error(error instanceof Error ? error.message : '导师绑定失败');
   } finally {
     submitting.value = false;
   }
@@ -109,7 +110,9 @@ async function submitEvaluation() {
   }
 }
 
-onMounted(load);
+onMounted(() => {
+  void load();
+});
 </script>
 
 <template>
@@ -117,15 +120,17 @@ onMounted(load);
     <div v-if="detail" class="panel-card">
       <div class="member-summary-card">
         <div>
-          <p class="panel-card__eyebrow">MEM-02 Member Detail</p>
+          <p class="panel-card__eyebrow">成员档案详情</p>
           <h2>{{ detail.displayName }}</h2>
-          <p>{{ detail.orgUnitName }} · {{ detail.positionCode }} · {{ detail.statusCode }}</p>
+          <p>{{ detail.orgUnitName }} / {{ detail.positionCode }} / {{ detail.statusCode }}</p>
         </div>
         <div class="member-summary-card__actions">
           <el-button @click="router.back()">返回</el-button>
-          <el-button v-if="canEdit" type="primary" @click="editVisible = true">编辑档案</el-button>
-          <el-button v-if="canEdit" @click="mentorVisible = true">带教绑定</el-button>
-          <el-button v-if="canEvaluate" type="success" plain @click="evaluationVisible = true">阶段评价</el-button>
+          <el-button v-if="canEdit && canViewFull" type="primary" @click="editVisible = true">编辑档案</el-button>
+          <el-button v-if="canEdit && canViewFull" @click="mentorVisible = true">导师绑定</el-button>
+          <el-button v-if="canEvaluate && canViewFull" type="success" plain @click="evaluationVisible = true">
+            阶段评价
+          </el-button>
         </div>
       </div>
 
@@ -135,7 +140,7 @@ onMounted(load);
           <strong>{{ detail.username }}</strong>
         </article>
         <article class="stat-card">
-          <span>带教人</span>
+          <span>导师</span>
           <strong>{{ detail.mentorName || '未绑定' }}</strong>
         </article>
         <article class="stat-card">
@@ -143,12 +148,18 @@ onMounted(load);
           <strong>{{ detail.joinDate }}</strong>
         </article>
         <article class="stat-card">
+          <span>所属部门</span>
+          <strong>{{ detail.departmentName || '-' }}</strong>
+        </article>
+        <article v-if="canViewFull" class="stat-card">
           <span>最近转正</span>
           <strong>{{ detail.latestRegularization?.statusCode || '暂无' }}</strong>
         </article>
-        <article class="stat-card">
+        <article v-if="canViewFull" class="stat-card">
           <span>最近考核</span>
-          <strong>{{ detail.latestEvaluation ? `${detail.latestEvaluation.totalScore} / ${detail.latestEvaluation.resultCode}` : '暂无' }}</strong>
+          <strong>
+            {{ detail.latestEvaluation ? `${detail.latestEvaluation.totalScore} / ${detail.latestEvaluation.resultCode}` : '暂无' }}
+          </strong>
         </article>
       </div>
 
@@ -159,10 +170,6 @@ onMounted(load);
             <dd>{{ detail.orgUnitName }}</dd>
             <dt>部门</dt>
             <dd>{{ detail.departmentName || '-' }}</dd>
-            <dt>手机号</dt>
-            <dd>{{ detail.mobile || '-' }}</dd>
-            <dt>邮箱</dt>
-            <dd>{{ detail.email || '-' }}</dd>
             <dt>角色</dt>
             <dd>
               <el-tag v-for="role in detail.roleCodes" :key="role" class="tag-spacing">{{ role }}</el-tag>
@@ -171,10 +178,16 @@ onMounted(load);
             <dd>
               <el-tag v-for="tag in detail.skillTags" :key="tag" class="tag-spacing" effect="plain">{{ tag }}</el-tag>
             </dd>
+            <template v-if="canViewFull">
+              <dt>手机号</dt>
+              <dd>{{ detail.mobile || '-' }}</dd>
+              <dt>邮箱</dt>
+              <dd>{{ detail.email || '-' }}</dd>
+            </template>
           </dl>
         </el-tab-pane>
 
-        <el-tab-pane label="成长记录">
+        <el-tab-pane v-if="canViewFull" label="成长记录">
           <el-timeline>
             <el-timeline-item
               v-for="record in detail.growthRecords"
@@ -183,12 +196,12 @@ onMounted(load);
             >
               <strong>{{ record.title }}</strong>
               <p>{{ record.content || '-' }}</p>
-              <span class="drawer-caption">{{ record.recordType }} · {{ record.actorName || '系统' }}</span>
+              <span class="drawer-caption">{{ record.recordType }} / {{ record.actorName || '系统' }}</span>
             </el-timeline-item>
           </el-timeline>
         </el-tab-pane>
 
-        <el-tab-pane label="阶段评价">
+        <el-tab-pane v-if="canViewFull" label="阶段评价">
           <el-table :data="detail.stageEvaluations" border>
             <el-table-column prop="stageCode" label="阶段" min-width="140" />
             <el-table-column prop="summary" label="评价摘要" min-width="220" />
@@ -198,18 +211,18 @@ onMounted(load);
           </el-table>
         </el-tab-pane>
 
-        <el-tab-pane label="项目经历/成果">
+        <el-tab-pane v-if="canViewFull" label="项目经历与成果">
           <el-table :data="detail.projectExperiences" border>
             <el-table-column prop="projectKey" label="项目标识" min-width="160" />
             <el-table-column prop="projectName" label="项目名称" min-width="180" />
             <el-table-column label="来源" min-width="180">
-              <template #default="{ row }">{{ row.sourceTypes.join('、') }}</template>
+              <template #default="{ row }">{{ row.sourceTypes.join(' / ') }}</template>
             </el-table-column>
             <el-table-column prop="lastActivityDate" label="最近活动时间" min-width="140" />
           </el-table>
         </el-tab-pane>
 
-        <el-tab-pane label="考核奖惩">
+        <el-tab-pane v-if="canViewFull" label="考核奖惩">
           <div class="page-grid">
             <div class="panel-card">
               <h3>最近考核</h3>
@@ -241,7 +254,7 @@ onMounted(load);
           </div>
         </el-tab-pane>
 
-        <el-tab-pane label="晋升记录">
+        <el-tab-pane v-if="canViewFull" label="晋升记录">
           <el-table :data="detail.promotionRecords" border>
             <el-table-column prop="applicationNo" label="申请单号" min-width="160" />
             <el-table-column prop="targetPositionCode" label="目标岗位" width="120" />
@@ -251,7 +264,7 @@ onMounted(load);
           </el-table>
         </el-tab-pane>
 
-        <el-tab-pane label="流程留痕">
+        <el-tab-pane v-if="canViewFull" label="流程留痕">
           <el-table :data="detail.operationLogs" border>
             <el-table-column prop="actionType" label="动作" min-width="150" />
             <el-table-column prop="fromStatus" label="原状态" min-width="120" />
@@ -284,10 +297,10 @@ onMounted(load);
       </template>
     </el-dialog>
 
-    <el-dialog v-model="mentorVisible" title="带教绑定" width="28rem">
+    <el-dialog v-model="mentorVisible" title="导师绑定" width="28rem">
       <el-form label-position="top">
-        <el-form-item label="带教人用户 ID">
-          <el-input v-model="mentorForm.mentorUserId" placeholder="请输入 mentor user id" />
+        <el-form-item label="导师用户 ID">
+          <el-input v-model="mentorForm.mentorUserId" placeholder="请输入导师用户 ID" />
         </el-form-item>
       </el-form>
       <template #footer>

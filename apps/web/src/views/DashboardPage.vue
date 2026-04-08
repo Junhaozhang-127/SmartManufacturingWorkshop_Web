@@ -14,7 +14,7 @@ async function load() {
     const response = await fetchHomeDashboard();
     dashboard.value = response.data;
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '首页聚合数据加载失败');
+    ElMessage.error(error instanceof Error ? error.message : '首页数据加载失败');
   } finally {
     loading.value = false;
   }
@@ -29,7 +29,7 @@ async function openNotification(id: string, path: string | null, query: Record<s
   try {
     await markNotificationAsRead(id);
   } catch {
-    // Keep navigation responsive even if read status update fails.
+    // Ignore read-state failures and keep navigation responsive.
   }
   await navigate(path ?? '/notifications', query);
 }
@@ -42,9 +42,9 @@ onMounted(() => {
 <template>
   <section v-loading="loading" class="page-grid">
     <div class="hero-card">
-      <p class="hero-card__eyebrow">PUB-02 Dashboard</p>
-      <h2>{{ dashboard?.roleName || '角色化驾驶舱' }}</h2>
-      <p>首页统一由后端聚合项目、成果、库存预警、待审批、资格提醒和通知消息，前端只负责展示与跳转。</p>
+      <p class="hero-card__eyebrow">首页总览</p>
+      <h2>{{ dashboard?.roleName || '角色化首页' }}</h2>
+      <p>首页统一展示待办、申请、通知和快捷入口，帮助你快速进入当前最需要处理的工作。</p>
     </div>
 
     <div class="stat-grid dashboard-stat-grid">
@@ -64,8 +64,8 @@ onMounted(() => {
       <div class="panel-card">
         <div class="panel-card__header">
           <div>
-            <p class="panel-card__eyebrow">Todo Summary</p>
-            <h2>待办聚合</h2>
+            <p class="panel-card__eyebrow">待办汇总</p>
+            <h2>工作概览</h2>
           </div>
           <el-button link type="primary" @click="navigate('/workflow/approval-center')">进入审批中心</el-button>
         </div>
@@ -80,8 +80,8 @@ onMounted(() => {
       <div class="panel-card">
         <div class="panel-card__header">
           <div>
-            <p class="panel-card__eyebrow">Shortcuts</p>
-            <h2>快捷入口</h2>
+            <p class="panel-card__eyebrow">快捷入口</p>
+            <h2>常用功能</h2>
           </div>
         </div>
         <div class="shortcut-grid">
@@ -103,10 +103,10 @@ onMounted(() => {
       <div class="panel-card">
         <div class="panel-card__header">
           <div>
-            <p class="panel-card__eyebrow">Pending Approvals</p>
+            <p class="panel-card__eyebrow">待审批事项</p>
             <h2>我的待办</h2>
           </div>
-          <el-button link type="primary" @click="navigate('/workflow/approval-center')">全部查看</el-button>
+          <el-button link type="primary" @click="navigate('/workflow/approval-center')">查看全部</el-button>
         </div>
         <div v-if="dashboard?.pendingApprovals.length" class="dashboard-list">
           <button
@@ -126,7 +126,7 @@ onMounted(() => {
       <div class="panel-card">
         <div class="panel-card__header">
           <div>
-            <p class="panel-card__eyebrow">My Applications</p>
+            <p class="panel-card__eyebrow">申请记录</p>
             <h2>我的申请</h2>
           </div>
           <el-button link type="primary" @click="navigate('/profile')">进入个人中心</el-button>
@@ -150,8 +150,8 @@ onMounted(() => {
     <div class="panel-card">
       <div class="panel-card__header">
         <div>
-          <p class="panel-card__eyebrow">Notifications</p>
-          <h2>通知消息</h2>
+          <p class="panel-card__eyebrow">通知消息</p>
+          <h2>最新通知</h2>
         </div>
         <el-button link type="primary" @click="navigate('/notifications')">消息中心</el-button>
       </div>

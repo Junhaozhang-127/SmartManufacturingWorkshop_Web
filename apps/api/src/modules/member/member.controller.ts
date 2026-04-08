@@ -41,8 +41,12 @@ export class MemberController {
   @Get('members/:id')
   @RequirePermissions(PermissionCodes.memberListView)
   @RequireDataScope()
-  getMemberDetail(@Param('id') id: string, @DataScopeContextParam() dataScopeContext: DataScopeContext) {
-    return this.memberService.getMemberDetail(id, dataScopeContext);
+  getMemberDetail(
+    @CurrentUser() currentUser: CurrentUserProfile,
+    @Param('id') id: string,
+    @DataScopeContextParam() dataScopeContext: DataScopeContext,
+  ) {
+    return this.memberService.getMemberDetail(currentUser, id, dataScopeContext);
   }
 
   @Patch('members/:id')

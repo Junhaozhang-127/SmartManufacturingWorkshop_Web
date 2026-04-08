@@ -142,6 +142,7 @@ export interface MemberDetail {
   userId: string;
   displayName: string;
   username: string;
+  canViewFull: boolean;
   mobile: string | null;
   email: string | null;
   statusCode: MemberStatus | string;

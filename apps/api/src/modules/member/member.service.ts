@@ -18,6 +18,7 @@ import {
   normalizePagination,
   PermissionCodes,
   RegularizationStatus,
+  RoleCode,
 } from '@smw/shared';
 
 import type { ApprovalCommentDto } from '../approval/dto/approval-comment.dto';
@@ -293,7 +294,7 @@ export class MemberService {
     };
   }
 
-  async getMemberDetail(memberId: string, dataScopeContext: DataScopeContext) {
+  async getMemberDetail(currentUser: CurrentUserProfile, memberId: string, dataScopeContext: DataScopeContext) {
     const profile = await this.loadScopedMemberProfile(memberId, dataScopeContext);
     const latestRegularization = await this.prisma.memberRegularization.findFirst({
       where: {
@@ -309,7 +310,13 @@ export class MemberService {
       profile.userId,
     );
 
-    return this.mapMemberDetail(profile, latestRegularization, promotionSnapshot, projectAndRewardSnapshot);
+    return this.mapMemberDetail(
+      currentUser,
+      profile,
+      latestRegularization,
+      promotionSnapshot,
+      projectAndRewardSnapshot,
+    );
   }
 
   async updateMember(
@@ -357,7 +364,7 @@ export class MemberService {
       });
     });
 
-    return this.getMemberDetail(memberId, dataScopeContext);
+    return this.getMemberDetail(currentUser, memberId, dataScopeContext);
   }
 
   async bindMentor(
@@ -410,7 +417,7 @@ export class MemberService {
       });
     });
 
-    return this.getMemberDetail(memberId, dataScopeContext);
+    return this.getMemberDetail(currentUser, memberId, dataScopeContext);
   }
 
   async createStageEvaluation(
@@ -819,18 +826,21 @@ export class MemberService {
   }
 
   private mapMemberDetail(
+    currentUser: CurrentUserProfile,
     profile: MemberProfileDetail,
     latestRegularization: Awaited<ReturnType<typeof this.prisma.memberRegularization.findFirst>>,
     promotionSnapshot: Awaited<ReturnType<EvaluationPromotionService['buildMemberPromotionSnapshot']>>,
     projectAndRewardSnapshot: Awaited<ReturnType<EvaluationPromotionService['buildMemberProjectAndRewardSnapshot']>>,
   ) {
+    const canViewFull = this.canViewFullMemberDetail(currentUser);
+
     return {
       id: String(profile.id),
       userId: String(profile.userId),
       displayName: profile.user.displayName,
       username: profile.user.username,
-      mobile: profile.user.mobile,
-      email: profile.user.email,
+      mobile: canViewFull ? profile.user.mobile : null,
+      email: canViewFull ? profile.user.email : null,
       statusCode: profile.memberStatus,
       positionCode: profile.positionCode,
       orgUnitId: String(profile.orgUnitId),
@@ -842,34 +852,40 @@ export class MemberService {
       joinDate: profile.joinDate.toISOString().slice(0, 10),
       roleCodes: profile.user.userRoles.map((relation) => relation.role.roleCode),
       skillTags: this.parseSkillTags(profile.skillTags),
-      growthRecords: profile.growthRecords.map((record) => ({
-        id: String(record.id),
-        recordType: record.recordType,
-        title: record.title,
-        content: record.content,
-        recordDate: record.recordDate.toISOString().slice(0, 10),
-        actorName: record.actor?.displayName ?? null,
-      })),
-      stageEvaluations: profile.stageEvaluations.map((evaluation) => ({
-        id: String(evaluation.id),
-        stageCode: evaluation.stageCode,
-        summary: evaluation.summary,
-        score: evaluation.score,
-        resultCode: evaluation.resultCode,
-        nextAction: evaluation.nextAction,
-        evaluatorName: evaluation.evaluator.displayName,
-        evaluatedAt: evaluation.evaluatedAt.toISOString(),
-      })),
-      operationLogs: profile.operationLogs.map((log) => ({
-        id: String(log.id),
-        actionType: log.actionType,
-        fromStatus: log.fromStatus,
-        toStatus: log.toStatus,
-        description: log.description,
-        operatorName: log.operator?.displayName ?? null,
-        createdAt: log.createdAt.toISOString(),
-      })),
-      latestRegularization: latestRegularization
+      growthRecords: canViewFull
+        ? profile.growthRecords.map((record) => ({
+            id: String(record.id),
+            recordType: record.recordType,
+            title: record.title,
+            content: record.content,
+            recordDate: record.recordDate.toISOString().slice(0, 10),
+            actorName: record.actor?.displayName ?? null,
+          }))
+        : [],
+      stageEvaluations: canViewFull
+        ? profile.stageEvaluations.map((evaluation) => ({
+            id: String(evaluation.id),
+            stageCode: evaluation.stageCode,
+            summary: evaluation.summary,
+            score: evaluation.score,
+            resultCode: evaluation.resultCode,
+            nextAction: evaluation.nextAction,
+            evaluatorName: evaluation.evaluator.displayName,
+            evaluatedAt: evaluation.evaluatedAt.toISOString(),
+          }))
+        : [],
+      operationLogs: canViewFull
+        ? profile.operationLogs.map((log) => ({
+            id: String(log.id),
+            actionType: log.actionType,
+            fromStatus: log.fromStatus,
+            toStatus: log.toStatus,
+            description: log.description,
+            operatorName: log.operator?.displayName ?? null,
+            createdAt: log.createdAt.toISOString(),
+          }))
+        : [],
+      latestRegularization: canViewFull && latestRegularization
         ? {
             id: String(latestRegularization.id),
             statusCode: latestRegularization.statusCode,
@@ -883,11 +899,20 @@ export class MemberService {
               : null,
           }
         : null,
-      latestEvaluation: promotionSnapshot.latestEvaluation,
-      promotionRecords: promotionSnapshot.promotionRecords,
-      projectExperiences: projectAndRewardSnapshot.projectExperiences,
-      rewardsAndPenalties: projectAndRewardSnapshot.rewardsAndPenalties,
+      latestEvaluation: canViewFull ? promotionSnapshot.latestEvaluation : null,
+      promotionRecords: canViewFull ? promotionSnapshot.promotionRecords : [],
+      projectExperiences: canViewFull ? projectAndRewardSnapshot.projectExperiences : [],
+      rewardsAndPenalties: canViewFull ? projectAndRewardSnapshot.rewardsAndPenalties : [],
+      canViewFull,
     };
+  }
+
+  private canViewFullMemberDetail(currentUser: CurrentUserProfile) {
+    return [
+      RoleCode.TEACHER,
+      RoleCode.LAB_LEADER,
+      RoleCode.MINISTER,
+    ].includes(currentUser.activeRole.roleCode);
   }
 
   private mapRegularization(item: MemberRegularizationRecord | Prisma.MemberRegularizationGetPayload<{
