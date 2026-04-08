@@ -12,6 +12,7 @@ const loading = ref(false);
 const captchaLoading = ref(false);
 const captchaSvg = ref('');
 const captchaId = ref('');
+const captchaError = ref('');
 
 const form = reactive({
   username: 'teacher01',
@@ -30,12 +31,18 @@ const demoAccounts = [
 async function refreshCaptcha() {
   try {
     captchaLoading.value = true;
+    captchaError.value = '';
+
     const response = await fetchCaptcha();
+
     captchaSvg.value = response.data.captchaSvg;
     captchaId.value = response.data.captchaId;
     form.captchaCode = '';
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '验证码加载失败');
+    captchaSvg.value = '';
+    captchaId.value = '';
+    captchaError.value = error instanceof Error ? error.message : '验证码加载失败';
+    ElMessage.error(captchaError.value);
   } finally {
     captchaLoading.value = false;
   }
@@ -44,6 +51,7 @@ async function refreshCaptcha() {
 async function submit() {
   try {
     loading.value = true;
+
     const user = await authStore.login({
       username: form.username,
       password: form.password,
@@ -81,9 +89,9 @@ onMounted(async () => {
   <div class="login-page">
     <section class="login-page__hero">
       <p class="login-page__eyebrow">Smart Manufacturing Workshop</p>
-      <h1>实验室管理系统登录</h1>
+      <h1>实验室管理系统登录页</h1>
       <p>
-        本次版本完成登录鉴权、角色切换、RBAC 与数据范围控制底座。登录后首页、菜单和数据集合都会随当前角色变化。
+        当前版本已接入统一登录、角色切换、RBAC 与数据范围控制。登录后首页、菜单与业务数据会随当前角色自动切换。
       </p>
       <div class="login-page__chips">
         <span>Vue 3 + Pinia + Element Plus</span>
@@ -97,23 +105,36 @@ onMounted(async () => {
         <h2>PUB-01 登录页</h2>
         <p>默认密码统一为 `123456`，首次登录用户会被引导修改密码。</p>
       </div>
+
       <el-form label-position="top" @submit.prevent="submit">
         <el-form-item label="账号">
           <el-input v-model="form.username" placeholder="teacher01 / hybrid01 / member01" />
         </el-form-item>
+
         <el-form-item label="密码">
           <el-input v-model="form.password" show-password type="password" />
         </el-form-item>
+
         <el-form-item label="验证码">
           <div class="captcha-row">
             <el-input v-model="form.captchaCode" maxlength="8" placeholder="请输入验证码" />
             <button class="captcha-box" type="button" @click="refreshCaptcha">
               <img v-if="captchaSvg" :src="captchaSvg" alt="验证码" />
-              <span v-else>{{ captchaLoading ? '加载中...' : '刷新验证码' }}</span>
+              <span v-else>{{ captchaLoading ? '加载中...' : captchaError || '点击获取' }}</span>
             </button>
+            <el-button class="captcha-refresh" plain type="primary" @click="refreshCaptcha">
+              刷新验证码
+            </el-button>
           </div>
         </el-form-item>
-        <el-button :loading="loading" class="login-card__submit" type="primary" @click="submit">
+
+        <el-button
+          :disabled="!captchaId"
+          :loading="loading"
+          class="login-card__submit"
+          type="primary"
+          @click="submit"
+        >
           登录系统
         </el-button>
       </el-form>

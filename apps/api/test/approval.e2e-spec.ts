@@ -26,6 +26,7 @@ type MockUser = {
   isDeleted: boolean;
   userRoles: Array<{ role: MockRole }>;
   member: null | {
+    orgUnitId: bigint;
     positionCode: string;
     orgUnit: {
       id: bigint;
@@ -125,6 +126,8 @@ describe('Approval engine e2e', () => {
     { id: 10n, parentId: null, unitName: '智能制造实验室' },
     { id: 20n, parentId: 10n, unitName: '研发部' },
     { id: 30n, parentId: 20n, unitName: '前端组' },
+    { id: 21n, parentId: 10n, unitName: '测试部' },
+    { id: 31n, parentId: 21n, unitName: '后端组' },
   ];
 
   const users: Record<string, MockUser> = {
@@ -149,6 +152,7 @@ describe('Approval engine e2e', () => {
       isDeleted: false,
       userRoles: [{ role: { roleCode: 'MINISTER', roleName: '部长', dataScope: 'DEPT_PROJECT', sortNo: 30 } }],
       member: {
+        orgUnitId: 20n,
         positionCode: 'MINISTER',
         orgUnit: {
           id: 20n,
@@ -175,6 +179,7 @@ describe('Approval engine e2e', () => {
         { role: { roleCode: 'GROUP_LEADER', roleName: '组长', dataScope: 'GROUP_PROJECT', sortNo: 40 } },
       ],
       member: {
+        orgUnitId: 30n,
         positionCode: 'GROUP_LEADER',
         orgUnit: {
           id: 30n,
@@ -184,6 +189,78 @@ describe('Approval engine e2e', () => {
             id: 20n,
             unitName: '研发部',
             unitType: 'DEPARTMENT',
+          },
+        },
+      },
+    },
+    member01: {
+      id: 4n,
+      username: 'member01',
+      passwordHash,
+      displayName: '成员甲',
+      statusCode: 'ACTIVE',
+      forcePasswordChange: false,
+      isDeleted: false,
+      userRoles: [{ role: { roleCode: 'MEMBER', roleName: '成员', dataScope: 'SELF_PARTICIPATE', sortNo: 50 } }],
+      member: {
+        orgUnitId: 30n,
+        positionCode: 'MEMBER',
+        orgUnit: {
+          id: 30n,
+          unitName: '前端组',
+          unitType: 'GROUP',
+          parent: {
+            id: 20n,
+            unitName: '研发部',
+            unitType: 'DEPARTMENT',
+          },
+        },
+      },
+    },
+    outsiderLeader01: {
+      id: 5n,
+      username: 'outsiderLeader01',
+      passwordHash,
+      displayName: '外部组长',
+      statusCode: 'ACTIVE',
+      forcePasswordChange: false,
+      isDeleted: false,
+      userRoles: [{ role: { roleCode: 'GROUP_LEADER', roleName: '组长', dataScope: 'GROUP_PROJECT', sortNo: 40 } }],
+      member: {
+        orgUnitId: 31n,
+        positionCode: 'GROUP_LEADER',
+        orgUnit: {
+          id: 31n,
+          unitName: '后端组',
+          unitType: 'GROUP',
+          parent: {
+            id: 21n,
+            unitName: '测试部',
+            unitType: 'DEPARTMENT',
+          },
+        },
+      },
+    },
+    outsiderMinister01: {
+      id: 6n,
+      username: 'outsiderMinister01',
+      passwordHash,
+      displayName: '外部部长',
+      statusCode: 'ACTIVE',
+      forcePasswordChange: false,
+      isDeleted: false,
+      userRoles: [{ role: { roleCode: 'MINISTER', roleName: '部长', dataScope: 'DEPT_PROJECT', sortNo: 30 } }],
+      member: {
+        orgUnitId: 21n,
+        positionCode: 'MINISTER',
+        orgUnit: {
+          id: 21n,
+          unitName: '测试部',
+          unitType: 'DEPARTMENT',
+          parent: {
+            id: 10n,
+            unitName: '智能制造实验室',
+            unitType: 'LAB',
           },
         },
       },
@@ -590,6 +667,17 @@ describe('Approval engine e2e', () => {
     await app.init();
   });
 
+  beforeEach(() => {
+    demoForms.length = 0;
+    approvalInstances.length = 0;
+    approvalLogs.length = 0;
+    notifications.length = 0;
+    nextFormId = 100n;
+    nextInstanceId = 200n;
+    nextLogId = 300n;
+    nextNotificationId = 400n;
+  });
+
   afterAll(async () => {
     await app.close();
   });
@@ -615,13 +703,75 @@ describe('Approval engine e2e', () => {
     });
   }
 
-  it('runs the demo workflow end to end through the generic approval center', async () => {
-    const teacherLogin = await loginAs('teacher01');
-    const teacherToken = teacherLogin.body.data.token as string;
+  it('blocks out-of-scope approvers from seeing and handling pending approvals', async () => {
+    const memberLogin = await loginAs('member01');
+    const memberToken = memberLogin.body.data.token as string;
 
     const createResponse = await request(app.getHttpServer())
       .post('/api/approval-demo-forms')
-      .set('Authorization', `Bearer ${teacherToken}`)
+      .set('Authorization', `Bearer ${memberToken}`)
+      .send({
+        title: '组内审批隔离校验',
+        reason: '验证审批中心会按数据范围隔离待办',
+      });
+
+    expect(createResponse.status).toBe(201);
+    const instanceId = createResponse.body.data.approvalInstanceId as string;
+
+    const outsiderLogin = await loginAs('outsiderLeader01');
+    const outsiderToken = outsiderLogin.body.data.token as string;
+
+    const pendingResponse = await request(app.getHttpServer())
+      .get('/api/approval-center')
+      .query({ tab: 'PENDING' })
+      .set('Authorization', `Bearer ${outsiderToken}`);
+
+    expect(pendingResponse.status).toBe(200);
+    expect(pendingResponse.body.data.items).toHaveLength(0);
+
+    const detailResponse = await request(app.getHttpServer())
+      .get(`/api/approval-center/${instanceId}`)
+      .set('Authorization', `Bearer ${outsiderToken}`);
+
+    expect(detailResponse.status).toBe(403);
+
+    const transferCandidatesResponse = await request(app.getHttpServer())
+      .get(`/api/approval-center/${instanceId}/transfer-candidates`)
+      .set('Authorization', `Bearer ${outsiderToken}`);
+
+    expect(transferCandidatesResponse.status).toBe(403);
+  });
+
+  it('requires non-empty approval comments for supplement actions', async () => {
+    const memberLogin = await loginAs('member01');
+    const memberToken = memberLogin.body.data.token as string;
+
+    const createResponse = await request(app.getHttpServer())
+      .post('/api/approval-demo-forms')
+      .set('Authorization', `Bearer ${memberToken}`)
+      .send({
+        title: '补充说明必填校验',
+        reason: '验证补充说明不允许空内容',
+      });
+
+    expect(createResponse.status).toBe(201);
+    const instanceId = createResponse.body.data.approvalInstanceId as string;
+
+    const commentResponse = await request(app.getHttpServer())
+      .post(`/api/approval-center/${instanceId}/comment`)
+      .set('Authorization', `Bearer ${memberToken}`)
+      .send({ comment: '   ' });
+
+    expect(commentResponse.status).toBe(400);
+  });
+
+  it('runs the demo workflow end to end through the generic approval center', async () => {
+    const memberLogin = await loginAs('member01');
+    const memberToken = memberLogin.body.data.token as string;
+
+    const createResponse = await request(app.getHttpServer())
+      .post('/api/approval-demo-forms')
+      .set('Authorization', `Bearer ${memberToken}`)
       .send({
         title: '通用流程联调单',
         reason: '验证审批中心首版可复用能力',
@@ -680,6 +830,7 @@ describe('Approval engine e2e', () => {
     expect(candidatesResponse.status).toBe(200);
     const candidates = candidatesResponse.body.data as Array<{ username: string }>;
     expect(candidates.map((item) => item.username)).toContain('minister01');
+    expect(candidates.map((item) => item.username)).not.toContain('outsiderMinister01');
 
     const transferResponse = await request(app.getHttpServer())
       .post(`/api/approval-center/${instanceId}/transfer`)
@@ -702,11 +853,12 @@ describe('Approval engine e2e', () => {
 
     expect(rejectResponse.status).toBe(201);
     expect(rejectResponse.body.data.status).toBe('REJECTED');
+    expect(rejectResponse.body.data.currentNodeName).toBeNull();
 
     const returnedResponse = await request(app.getHttpServer())
       .get('/api/approval-center')
       .query({ tab: 'RETURNED' })
-      .set('Authorization', `Bearer ${teacherToken}`);
+      .set('Authorization', `Bearer ${memberToken}`);
 
     expect(returnedResponse.status).toBe(200);
     expect(returnedResponse.body.data.items).toHaveLength(1);
@@ -714,9 +866,10 @@ describe('Approval engine e2e', () => {
 
     const detailAfterReject = await request(app.getHttpServer())
       .get(`/api/approval-center/${instanceId}`)
-      .set('Authorization', `Bearer ${teacherToken}`);
+      .set('Authorization', `Bearer ${memberToken}`);
 
     expect(detailAfterReject.status).toBe(200);
+    expect(detailAfterReject.body.data.currentNodeName).toBeNull();
     const logItems = detailAfterReject.body.data.logs as Array<{ actionType: string }>;
     expect(logItems.map((log) => log.actionType)).toEqual([
       'SUBMIT',

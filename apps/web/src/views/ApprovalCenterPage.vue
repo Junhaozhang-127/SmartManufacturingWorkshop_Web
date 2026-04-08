@@ -96,6 +96,11 @@ async function submitAction(action: 'approve' | 'reject' | 'transfer' | 'comment
     return;
   }
 
+  if (action === 'comment' && !opinionForm.comment.trim()) {
+    ElMessage.warning('补充说明时必须填写内容');
+    return;
+  }
+
   if (action === 'withdraw') {
     await ElMessageBox.confirm('撤回后流程会立即终止，是否继续？', '撤回确认', {
       type: 'warning',

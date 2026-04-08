@@ -297,7 +297,7 @@ body {
 
 .captcha-row {
   display: grid;
-  grid-template-columns: 1fr 9rem;
+  grid-template-columns: minmax(0, 1fr) 10rem 9rem;
   gap: 0.75rem;
 }
 
@@ -310,6 +310,7 @@ body {
   border: 1px solid #d7dee8;
   border-radius: 0.75rem;
   background: #f8fbfd;
+  color: #4f6478;
   cursor: pointer;
   overflow: hidden;
 }
@@ -318,6 +319,15 @@ body {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.captcha-box span {
+  padding: 0 0.75rem;
+  font-size: 0.9rem;
+}
+
+.captcha-refresh {
+  min-height: 2.5rem;
 }
 
 .login-card__accounts {

@@ -2,6 +2,7 @@
 import { ApprovalBusinessType, FundApplicationStatus, FundPaymentStatus, PermissionCodes } from '@smw/shared';
 import {
   createFundApplication,
+  downloadFundAttachment,
   fetchFundAccounts,
   fetchFundApplicationDetail,
   fetchFundApplications,
@@ -197,6 +198,22 @@ function removeAttachment(index: number) {
   form.attachments.splice(index, 1);
 }
 
+async function handleAttachmentDownload(item: { storageKey: string; fileName: string }) {
+  try {
+    const blob = await downloadFundAttachment(item.storageKey, item.fileName);
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = item.fileName;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '附件下载失败');
+  }
+}
+
 watch(
   () => route.query.focus,
   (focus) => {
@@ -324,7 +341,7 @@ onMounted(() => {
           </el-upload>
           <div class="attachment-list">
             <div v-for="(item, index) in form.attachments" :key="item.storageKey" class="attachment-list__item">
-              <el-link :href="item.downloadUrl" target="_blank">{{ item.fileName }}</el-link>
+              <el-button link type="primary" @click="handleAttachmentDownload(item)">{{ item.fileName }}</el-button>
               <el-button link type="danger" @click="removeAttachment(index)">删除</el-button>
             </div>
           </div>
@@ -395,7 +412,7 @@ onMounted(() => {
           <el-empty v-if="!detail.attachments.length" description="暂无附件" />
           <div v-else class="attachment-list">
             <div v-for="item in detail.attachments" :key="item.storageKey" class="attachment-list__item">
-              <el-link :href="item.downloadUrl" target="_blank">{{ item.fileName }}</el-link>
+              <el-button link type="primary" @click="handleAttachmentDownload(item)">{{ item.fileName }}</el-button>
               <span>{{ item.size || 0 }} bytes</span>
             </div>
           </div>

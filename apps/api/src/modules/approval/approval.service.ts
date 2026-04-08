@@ -21,6 +21,7 @@ import {
   ConsumableRequestStatus,
   ConsumableStatus,
   type CurrentUserProfile,
+  DataScope,
   DeviceRepairStatus,
   DeviceStatus,
   FundApplicationStatus,
@@ -42,14 +43,30 @@ import type { CreateDemoApprovalDto } from './dto/create-demo-approval.dto';
 
 type ApprovalInstanceRecord = Prisma.WfApprovalInstanceGetPayload<{
   include: {
-    applicant: true;
+    applicant: {
+      include: {
+        member: {
+          select: {
+            orgUnitId: true;
+          };
+        };
+      };
+    };
     currentApprover: true;
   };
 }>;
 
 type ApprovalDetailRecord = Prisma.WfApprovalInstanceGetPayload<{
   include: {
-    applicant: true;
+    applicant: {
+      include: {
+        member: {
+          select: {
+            orgUnitId: true;
+          };
+        };
+      };
+    };
     currentApprover: true;
     logs: {
       include: {
@@ -65,7 +82,15 @@ type ApprovalDetailRecord = Prisma.WfApprovalInstanceGetPayload<{
 
 type ApprovalActionRecord = Prisma.WfApprovalInstanceGetPayload<{
   include: {
-    applicant: true;
+    applicant: {
+      include: {
+        member: {
+          select: {
+            orgUnitId: true;
+          };
+        };
+      };
+    };
     template: {
       include: {
         nodes: {
@@ -162,7 +187,15 @@ export class ApprovalService {
     const record = await this.prisma.wfApprovalInstance.findUnique({
       where: { id: this.toBigInt(instanceId) },
       include: {
-        applicant: true,
+        applicant: {
+          include: {
+            member: {
+              select: {
+                orgUnitId: true,
+              },
+            },
+          },
+        },
         currentApprover: true,
         logs: {
           include: {
@@ -241,17 +274,24 @@ export class ApprovalService {
         id: true,
         username: true,
         displayName: true,
+        member: {
+          select: {
+            orgUnitId: true,
+          },
+        },
       },
       orderBy: {
         id: 'asc',
       },
     });
 
-    return users.map((user) => ({
-      id: String(user.id),
-      username: user.username,
-      displayName: user.displayName,
-    }));
+    return users
+      .filter((user) => this.isUserWithinDataScope(currentUser, String(user.id), user.member?.orgUnitId ?? null))
+      .map((user) => ({
+        id: String(user.id),
+        username: user.username,
+        displayName: user.displayName,
+      }));
   }
 
   async approve(currentUser: CurrentUserProfile, instanceId: string, payload: ApprovalCommentDto) {
@@ -275,7 +315,15 @@ export class ApprovalService {
             latestComment: payload.comment?.trim() || null,
           },
           include: {
-            applicant: true,
+            applicant: {
+              include: {
+                member: {
+                  select: {
+                    orgUnitId: true,
+                  },
+                },
+              },
+            },
             currentApprover: true,
           },
         });
@@ -328,7 +376,15 @@ export class ApprovalService {
           finishedAt: now,
         },
         include: {
-          applicant: true,
+          applicant: {
+            include: {
+              member: {
+                select: {
+                  orgUnitId: true,
+                },
+              },
+            },
+          },
           currentApprover: true,
         },
       });
@@ -373,13 +429,24 @@ export class ApprovalService {
         where: { id: instance.id },
         data: {
           status: ApprovalStatus.REJECTED,
+          currentNodeKey: null,
+          currentNodeName: null,
+          currentNodeSort: null,
           latestComment: comment,
           currentApproverRoleCode: null,
           currentApproverUserId: null,
           finishedAt: new Date(),
         },
         include: {
-          applicant: true,
+          applicant: {
+            include: {
+              member: {
+                select: {
+                  orgUnitId: true,
+                },
+              },
+            },
+          },
           currentApprover: true,
         },
       });
@@ -421,6 +488,11 @@ export class ApprovalService {
       const targetUser = await tx.sysUser.findUnique({
         where: { id: this.toBigInt(payload.targetUserId) },
         include: {
+          member: {
+            select: {
+              orgUnitId: true,
+            },
+          },
           userRoles: {
             include: {
               role: true,
@@ -441,6 +513,10 @@ export class ApprovalService {
         throw new BadRequestException('转交目标用户不具备当前节点所需角色');
       }
 
+      if (!this.isUserWithinDataScope(currentUser, String(targetUser.id), targetUser.member?.orgUnitId ?? null)) {
+        throw new ForbiddenException('转交目标不在当前数据范围内');
+      }
+
       const updated = await tx.wfApprovalInstance.update({
         where: { id: instance.id },
         data: {
@@ -448,7 +524,15 @@ export class ApprovalService {
           latestComment: payload.comment?.trim() || null,
         },
         include: {
-          applicant: true,
+          applicant: {
+            include: {
+              member: {
+                select: {
+                  orgUnitId: true,
+                },
+              },
+            },
+          },
           currentApprover: true,
         },
       });
@@ -477,6 +561,12 @@ export class ApprovalService {
   }
 
   async comment(currentUser: CurrentUserProfile, instanceId: string, payload: ApprovalCommentDto) {
+    const comment = payload.comment?.trim();
+
+    if (!comment) {
+      throw new BadRequestException('补充说明时必须填写内容');
+    }
+
     const record = await this.prisma.wfApprovalInstance.findUnique({
       where: { id: this.toBigInt(instanceId) },
     });
@@ -500,10 +590,18 @@ export class ApprovalService {
       const entity = await tx.wfApprovalInstance.update({
         where: { id: record.id },
         data: {
-          latestComment: payload.comment?.trim() || null,
+          latestComment: comment,
         },
         include: {
-          applicant: true,
+          applicant: {
+            include: {
+              member: {
+                select: {
+                  orgUnitId: true,
+                },
+              },
+            },
+          },
           currentApprover: true,
         },
       });
@@ -515,7 +613,7 @@ export class ApprovalService {
         actionType: ApprovalActionType.COMMENT,
         actorUserId: this.toBigInt(currentUser.id),
         actorRoleCode: currentUser.activeRole.roleCode,
-        comment: payload.comment,
+        comment,
       });
 
       return entity;
@@ -537,6 +635,9 @@ export class ApprovalService {
         where: { id: instance.id },
         data: {
           status: ApprovalStatus.WITHDRAWN,
+          currentNodeKey: null,
+          currentNodeName: null,
+          currentNodeSort: null,
           latestComment: payload.comment?.trim() || null,
           currentApproverRoleCode: null,
           currentApproverUserId: null,
@@ -544,7 +645,15 @@ export class ApprovalService {
           withdrawnAt: new Date(),
         },
         include: {
-          applicant: true,
+          applicant: {
+            include: {
+              member: {
+                select: {
+                  orgUnitId: true,
+                },
+              },
+            },
+          },
           currentApprover: true,
         },
       });
@@ -625,24 +734,35 @@ export class ApprovalService {
         : {}),
     } satisfies Prisma.WfApprovalInstanceWhereInput;
 
-    const [items, total] = await this.prisma.$transaction([
-      this.prisma.wfApprovalInstance.findMany({
-        where,
-        include: {
-          applicant: true,
-          currentApprover: true,
+    const items = await this.prisma.wfApprovalInstance.findMany({
+      where,
+      include: {
+        applicant: {
+          include: {
+            member: {
+              select: {
+                orgUnitId: true,
+              },
+            },
+          },
         },
-        orderBy: {
-          updatedAt: 'desc',
-        },
-        skip: (pagination.page - 1) * pagination.pageSize,
-        take: pagination.pageSize,
-      }),
-      this.prisma.wfApprovalInstance.count({ where }),
-    ]);
+        currentApprover: true,
+      },
+      orderBy: {
+        updatedAt: 'desc',
+      },
+    });
+    const scopedItems = items.filter((item) =>
+      this.isUserWithinDataScope(currentUser, String(item.applicantUserId), item.applicant.member?.orgUnitId ?? null),
+    );
+    const total = scopedItems.length;
+    const pagedItems = scopedItems.slice(
+      (pagination.page - 1) * pagination.pageSize,
+      pagination.page * pagination.pageSize,
+    );
 
     return {
-      items: items.map((item) => this.mapApprovalInstance(item)),
+      items: pagedItems.map((item) => this.mapApprovalInstance(item)),
       meta: {
         page: pagination.page,
         pageSize: pagination.pageSize,
@@ -669,7 +789,15 @@ export class ApprovalService {
       this.prisma.wfApprovalInstance.findMany({
         where,
         include: {
-          applicant: true,
+          applicant: {
+            include: {
+              member: {
+                select: {
+                  orgUnitId: true,
+                },
+              },
+            },
+          },
           currentApprover: true,
         },
         orderBy: {
@@ -705,7 +833,15 @@ export class ApprovalService {
       include: {
         instance: {
           include: {
-            applicant: true,
+            applicant: {
+              include: {
+                member: {
+                  select: {
+                    orgUnitId: true,
+                  },
+                },
+              },
+            },
             currentApprover: true,
           },
         },
@@ -795,7 +931,15 @@ export class ApprovalService {
         formData: payload.formData as Prisma.InputJsonValue,
       },
       include: {
-        applicant: true,
+        applicant: {
+          include: {
+            member: {
+              select: {
+                orgUnitId: true,
+              },
+            },
+          },
+        },
         currentApprover: true,
       },
     });
@@ -845,7 +989,15 @@ export class ApprovalService {
     const instance = await tx.wfApprovalInstance.findUnique({
       where: { id: this.toBigInt(instanceId) },
       include: {
-        applicant: true,
+        applicant: {
+          include: {
+            member: {
+              select: {
+                orgUnitId: true,
+              },
+            },
+          },
+        },
         template: {
           include: {
             nodes: {
@@ -874,6 +1026,16 @@ export class ApprovalService {
   private ensureCanHandle(currentUser: CurrentUserProfile, instance: ApprovalActionRecord) {
     if (!currentUser.permissions.includes(PermissionCodes.approvalApprove)) {
       throw new ForbiddenException('当前角色没有审批处理权限');
+    }
+
+    if (
+      !this.isUserWithinDataScope(
+        currentUser,
+        String(instance.applicantUserId),
+        instance.applicant.member?.orgUnitId ?? null,
+      )
+    ) {
+      throw new ForbiddenException('当前数据范围不允许处理该审批单据');
     }
 
     if (instance.currentApproverUserId) {
@@ -920,6 +1082,16 @@ export class ApprovalService {
     const instance = await this.prisma.wfApprovalInstance.findUnique({
       where: { id: instanceId },
       select: {
+        applicantUserId: true,
+        applicant: {
+          select: {
+            member: {
+              select: {
+                orgUnitId: true,
+              },
+            },
+          },
+        },
         status: true,
         currentApproverRoleCode: true,
         currentApproverUserId: true,
@@ -927,6 +1099,16 @@ export class ApprovalService {
     });
 
     if (!instance || instance.status !== ApprovalStatus.PENDING) {
+      return false;
+    }
+
+    if (
+      !this.isUserWithinDataScope(
+        currentUser,
+        String(instance.applicantUserId),
+        instance.applicant.member?.orgUnitId ?? null,
+      )
+    ) {
       return false;
     }
 
@@ -2086,5 +2268,26 @@ export class ApprovalService {
       return { inventoryStatus: ConsumableInventoryStatus.LOW_STOCK, warningFlag: true };
     }
     return { inventoryStatus: ConsumableInventoryStatus.NORMAL, warningFlag: false };
+  }
+
+  private isUserWithinDataScope(
+    currentUser: CurrentUserProfile,
+    targetUserId: string,
+    targetOrgUnitId: bigint | null,
+  ) {
+    const context = currentUser.dataScopeContext;
+
+    switch (context.scope) {
+      case DataScope.ALL:
+        return true;
+      case DataScope.DEPT_PROJECT:
+        return targetOrgUnitId ? context.departmentAndDescendantIds.includes(String(targetOrgUnitId)) : true;
+      case DataScope.GROUP_PROJECT:
+        return targetOrgUnitId ? String(targetOrgUnitId) === context.groupId : true;
+      case DataScope.SELF_PARTICIPATE:
+        return [...context.selfUserIds, ...context.participatingUserIds].includes(targetUserId);
+      default:
+        return targetUserId === currentUser.id;
+    }
   }
 }

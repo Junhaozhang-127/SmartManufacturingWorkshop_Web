@@ -94,3 +94,13 @@ export async function uploadFundAttachment(file: File) {
     },
   });
 }
+
+export async function downloadFundAttachment(storageKey: string, fileName: string) {
+  return http.get<never, Blob>('/files/download', {
+    params: {
+      key: storageKey,
+      name: fileName,
+    },
+    responseType: 'blob',
+  });
+}
