@@ -32,7 +32,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const message = exception instanceof HttpException
       ? exception.message
       : isDatabaseUnavailable
-        ? '数据库连接失败，请确认 MySQL 服务已启动并且 DATABASE_URL 配置正确'
+        ? '数据库连接失败，请确认 MySQL 服务已启动且 DATABASE_URL 配置正确'
         : isDatabaseRequestError || isDatabaseValidationError
           ? '数据库请求失败，请检查初始化数据和表结构'
           : 'Internal server error';
@@ -48,7 +48,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
               ? StatusCode.BAD_REQUEST
               : status === HttpStatus.SERVICE_UNAVAILABLE
                 ? StatusCode.INTERNAL_ERROR
-              : StatusCode.INTERNAL_ERROR;
+                : StatusCode.INTERNAL_ERROR;
 
     response.status(status);
     response.json({
