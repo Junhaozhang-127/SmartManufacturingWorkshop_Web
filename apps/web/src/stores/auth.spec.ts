@@ -87,13 +87,13 @@ vi.mock('@web/api/auth', () => ({
         displayName: '王老师',
         statusCode: 'ACTIVE',
         activeRole: {
-          roleCode: RoleCode.LAB_LEADER,
-          roleName: '实验室负责人',
-          dataScope: DataScope.ALL,
+          roleCode: RoleCode.GROUP_LEADER,
+          roleName: '组长',
+          dataScope: DataScope.GROUP_PROJECT,
         },
         roleOptions: [
           { roleCode: RoleCode.TEACHER, roleName: '老师', dataScope: DataScope.ALL },
-          { roleCode: RoleCode.LAB_LEADER, roleName: '实验室负责人', dataScope: DataScope.ALL },
+          { roleCode: RoleCode.GROUP_LEADER, roleName: '组长', dataScope: DataScope.GROUP_PROJECT },
         ],
         permissions: ['SYSTEM:VIEW', 'MEMBER:VIEW'],
         forcePasswordChange: false,
@@ -107,7 +107,7 @@ vi.mock('@web/api/auth', () => ({
           positionCode: null,
         },
         dataScopeContext: {
-          scope: DataScope.ALL,
+          scope: DataScope.GROUP_PROJECT,
           userId: '1',
           orgUnitId: null,
           departmentId: null,
@@ -151,9 +151,9 @@ describe('useAuthStore', () => {
       password: '123456',
     });
 
-    await authStore.switchRole(RoleCode.LAB_LEADER);
+    await authStore.switchRole(RoleCode.GROUP_LEADER);
 
     expect(authStore.token).toBe('token-2');
-    expect(authStore.activeRoleCode).toBe(RoleCode.LAB_LEADER);
+    expect(authStore.activeRoleCode).toBe(RoleCode.GROUP_LEADER);
   });
 });

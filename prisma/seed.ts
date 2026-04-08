@@ -23,6 +23,7 @@ import {
 } from '@smw/shared';
 
 const prisma = new PrismaClient();
+(globalThis as typeof globalThis & { __lastFakePrisma?: PrismaClient }).__lastFakePrisma = prisma;
 
 async function upsertUser(
   username: string,
@@ -59,7 +60,6 @@ async function main() {
 
   const roles = [
     { roleCode: RoleCode.TEACHER, roleName: '老师', dataScope: DataScope.ALL, sortNo: 10 },
-    { roleCode: RoleCode.LAB_LEADER, roleName: '实验室负责人', dataScope: DataScope.ALL, sortNo: 20 },
     { roleCode: RoleCode.MINISTER, roleName: '部长', dataScope: DataScope.DEPT_PROJECT, sortNo: 30 },
     { roleCode: RoleCode.GROUP_LEADER, roleName: '组长', dataScope: DataScope.GROUP_PROJECT, sortNo: 40 },
     { roleCode: RoleCode.MEMBER, roleName: '正式成员', dataScope: DataScope.SELF_PARTICIPATE, sortNo: 50 },
@@ -80,13 +80,6 @@ async function main() {
     passwordHash,
     '13800000001',
     'teacher01@lab.local',
-  );
-  const leader = await upsertUser(
-    'leader01',
-    '李负责人',
-    passwordHash,
-    '13800000002',
-    'leader01@lab.local',
   );
   const minister = await upsertUser(
     'minister01',
@@ -123,13 +116,13 @@ async function main() {
     update: {
       unitName: '智能制造实验室',
       unitType: 'LAB',
-      leaderUserId: leader.id,
+      leaderUserId: teacher.id,
     },
     create: {
       unitCode: 'LAB_ROOT',
       unitName: '智能制造实验室',
       unitType: 'LAB',
-      leaderUserId: leader.id,
+      leaderUserId: teacher.id,
     },
   });
 
@@ -170,7 +163,6 @@ async function main() {
   const roleMap = new Map((await prisma.sysRole.findMany()).map((role) => [role.roleCode, role.id]));
   const userRoleRelations = [
     { userId: teacher.id, roleCode: RoleCode.TEACHER },
-    { userId: leader.id, roleCode: RoleCode.LAB_LEADER },
     { userId: minister.id, roleCode: RoleCode.MINISTER },
     { userId: groupLeader.id, roleCode: RoleCode.GROUP_LEADER },
     { userId: member.id, roleCode: RoleCode.MEMBER },
@@ -234,7 +226,6 @@ async function main() {
     { dictCode: DictionaryKeys.achievementGrade, itemCode: 'C', itemLabel: 'C 等', itemValue: 'C', sortNo: 30 },
     { dictCode: DictionaryKeys.approvalNodeRole, itemCode: RoleCode.GROUP_LEADER, itemLabel: '组长', itemValue: RoleCode.GROUP_LEADER, sortNo: 10 },
     { dictCode: DictionaryKeys.approvalNodeRole, itemCode: RoleCode.MINISTER, itemLabel: '部长', itemValue: RoleCode.MINISTER, sortNo: 20 },
-    { dictCode: DictionaryKeys.approvalNodeRole, itemCode: RoleCode.LAB_LEADER, itemLabel: '实验室负责人', itemValue: RoleCode.LAB_LEADER, sortNo: 30 },
     { dictCode: DictionaryKeys.notificationCategory, itemCode: 'APPROVAL', itemLabel: '审批消息', itemValue: 'APPROVAL', sortNo: 10 },
     { dictCode: DictionaryKeys.notificationCategory, itemCode: 'QUALIFICATION', itemLabel: '资格提醒', itemValue: 'QUALIFICATION', sortNo: 20 },
     { dictCode: DictionaryKeys.notificationCategory, itemCode: 'SYSTEM', itemLabel: '系统公告', itemValue: 'SYSTEM', sortNo: 30 },
@@ -466,7 +457,6 @@ async function main() {
   const regularizationNodes = [
     { nodeKey: 'GROUP_LEADER_REVIEW', nodeName: '组长评价', sortNo: 1, approverRoleCode: RoleCode.GROUP_LEADER },
     { nodeKey: 'MINISTER_REVIEW', nodeName: '部长审核', sortNo: 2, approverRoleCode: RoleCode.MINISTER },
-    { nodeKey: 'LAB_LEADER_CONFIRM', nodeName: '负责人确认', sortNo: 3, approverRoleCode: RoleCode.LAB_LEADER },
   ];
 
   for (const node of regularizationNodes) {
@@ -949,7 +939,6 @@ async function main() {
   const promotionNodes = [
     { nodeKey: 'GROUP_LEADER_REVIEW', nodeName: '团队评价', sortNo: 1, approverRoleCode: RoleCode.GROUP_LEADER },
     { nodeKey: 'MINISTER_REVIEW', nodeName: '部门审核', sortNo: 2, approverRoleCode: RoleCode.MINISTER },
-    { nodeKey: 'LAB_LEADER_CONFIRM', nodeName: '负责人确认', sortNo: 3, approverRoleCode: RoleCode.LAB_LEADER },
   ];
 
   for (const node of promotionNodes) {
@@ -987,7 +976,7 @@ async function main() {
       purchaseAmount: 12800,
       remarks: '用于缺陷检测演示线',
       statusChangedAt: new Date('2026-04-01T09:00:00Z'),
-      createdBy: leader.id,
+      createdBy: teacher.id,
       isDeleted: false,
     },
     create: {
@@ -1008,7 +997,7 @@ async function main() {
       purchaseAmount: 12800,
       remarks: '用于缺陷检测演示线',
       statusChangedAt: new Date('2026-04-01T09:00:00Z'),
-      createdBy: leader.id,
+      createdBy: teacher.id,
     },
   });
 
@@ -1031,7 +1020,7 @@ async function main() {
       purchaseAmount: 18600,
       remarks: '保留一条进行中报修单用于首页聚合',
       statusChangedAt: new Date('2026-04-06T10:00:00Z'),
-      createdBy: leader.id,
+      createdBy: teacher.id,
       isDeleted: false,
     },
     create: {
@@ -1052,7 +1041,7 @@ async function main() {
       purchaseAmount: 18600,
       remarks: '保留一条进行中报修单用于首页聚合',
       statusChangedAt: new Date('2026-04-06T10:00:00Z'),
-      createdBy: leader.id,
+      createdBy: teacher.id,
     },
   });
 
@@ -1123,7 +1112,7 @@ async function main() {
       paidAmount: 5200,
       remarks: '设备维修、差旅与采购共用预算池',
       lastExpenseAt: new Date('2026-04-07T09:30:00Z'),
-      createdBy: leader.id,
+      createdBy: teacher.id,
       isDeleted: false,
     },
     create: {
@@ -1141,7 +1130,7 @@ async function main() {
       paidAmount: 5200,
       remarks: '设备维修、差旅与采购共用预算池',
       lastExpenseAt: new Date('2026-04-07T09:30:00Z'),
-      createdBy: leader.id,
+      createdBy: teacher.id,
     },
   });
 
@@ -1161,7 +1150,7 @@ async function main() {
       paidAmount: 2600,
       remarks: '项目现场调试差旅预算',
       lastExpenseAt: new Date('2026-04-05T08:00:00Z'),
-      createdBy: leader.id,
+      createdBy: teacher.id,
       isDeleted: false,
     },
     create: {
@@ -1179,7 +1168,7 @@ async function main() {
       paidAmount: 2600,
       remarks: '项目现场调试差旅预算',
       lastExpenseAt: new Date('2026-04-05T08:00:00Z'),
-      createdBy: leader.id,
+      createdBy: teacher.id,
     },
   });
 
@@ -1245,7 +1234,7 @@ async function main() {
       orgUnitId: group.id,
       defaultLocation: '电子仓 A-01',
       lastTxnAt: new Date('2026-04-06T09:00:00Z'),
-      createdBy: leader.id,
+      createdBy: teacher.id,
       isDeleted: false,
     },
     create: {
@@ -1262,7 +1251,7 @@ async function main() {
       orgUnitId: group.id,
       defaultLocation: '电子仓 A-01',
       lastTxnAt: new Date('2026-04-06T09:00:00Z'),
-      createdBy: leader.id,
+      createdBy: teacher.id,
     },
   });
 
@@ -1282,7 +1271,7 @@ async function main() {
       defaultLocation: '防护仓 B-03',
       replenishmentTriggeredAt: new Date('2026-04-07T08:30:00Z'),
       lastTxnAt: new Date('2026-04-07T08:30:00Z'),
-      createdBy: leader.id,
+      createdBy: teacher.id,
       isDeleted: false,
     },
     create: {
@@ -1300,7 +1289,7 @@ async function main() {
       defaultLocation: '防护仓 B-03',
       replenishmentTriggeredAt: new Date('2026-04-07T08:30:00Z'),
       lastTxnAt: new Date('2026-04-07T08:30:00Z'),
-      createdBy: leader.id,
+      createdBy: teacher.id,
     },
   });
 
@@ -1325,8 +1314,8 @@ async function main() {
         txnType: InventoryTxnType.INBOUND,
         quantity: 20,
         balanceAfter: 20,
-        operatorUserId: leader.id,
-        operatorRoleCode: RoleCode.LAB_LEADER,
+        operatorUserId: teacher.id,
+        operatorRoleCode: RoleCode.TEACHER,
         remark: 'P0 种子建账',
         txnAt: new Date('2026-04-05T10:00:00Z'),
       },
@@ -1347,8 +1336,8 @@ async function main() {
         txnType: InventoryTxnType.INBOUND,
         quantity: 4,
         balanceAfter: 4,
-        operatorUserId: leader.id,
-        operatorRoleCode: RoleCode.LAB_LEADER,
+        operatorUserId: teacher.id,
+        operatorRoleCode: RoleCode.TEACHER,
         remark: 'P0 种子建账',
         txnAt: new Date('2026-04-05T10:20:00Z'),
       },
@@ -1448,7 +1437,7 @@ async function main() {
   await prisma.sysNotification.deleteMany({
     where: {
       userId: {
-        in: [teacher.id, leader.id, minister.id, groupLeader.id, member.id, intern.id],
+        in: [teacher.id, minister.id, groupLeader.id, member.id, intern.id],
       },
       categoryCode: {
         in: ['SYSTEM', 'QUALIFICATION', 'APPROVAL'],
@@ -1492,7 +1481,7 @@ async function main() {
         businessId: String(gloves.id),
         routePath: '/inventory/ledger',
         routeQuery: { focus: String(gloves.id) } as never,
-        createdBy: leader.id,
+        createdBy: teacher.id,
       },
       {
         userId: minister.id,
@@ -1513,7 +1502,7 @@ async function main() {
         categoryCode: 'SYSTEM',
         levelCode: 'INFO',
         routePath: '/profile',
-        createdBy: leader.id,
+        createdBy: teacher.id,
       },
     ],
   });

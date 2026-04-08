@@ -16,10 +16,10 @@ const form = reactive({
 
 const demoAccounts = [
   { username: 'teacher01', label: '老师', org: '全局视图' },
-  { username: 'leader01', label: '实验室负责人', org: '实验室' },
   { username: 'minister01', label: '部长', org: '研发部' },
   { username: 'hybrid01', label: '部长 / 组长', org: '研发部 / 前端组' },
   { username: 'member01', label: '成员', org: '前端组' },
+  { username: 'intern01', label: '实习生', org: '前端组' },
 ];
 
 async function submit() {
@@ -76,7 +76,7 @@ function useAccount(username: string) {
 
       <el-form label-position="top" @submit.prevent="submit">
         <el-form-item label="用户名">
-          <el-input v-model="form.username" placeholder="teacher01 / hybrid01 / member01" />
+          <el-input v-model="form.username" placeholder="teacher01 / hybrid01 / member01 / intern01" />
         </el-form-item>
 
         <el-form-item label="密码">

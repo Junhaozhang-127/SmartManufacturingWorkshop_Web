@@ -12,6 +12,7 @@ import { Prisma } from '@prisma/client';
 import {
   ApprovalBusinessType,
   type CurrentUserProfile,
+  DataScope,
   type DataScopeContext,
   MemberGrowthRecordType,
   MemberStatus,
@@ -120,6 +121,8 @@ export class MemberService {
       },
     });
 
+    const scopedUnitIds = this.resolveOrgOverviewUnitIds(dataScopeContext, units);
+    const scopedUnitIdSet = new Set(scopedUnitIds);
     const scopeWhere = buildMemberProfileWhere(dataScopeContext);
     const scopedProfiles = await this.prisma.memberProfile.findMany({
       where: {
@@ -135,15 +138,6 @@ export class MemberService {
     const parentMap = new Map<string, string | null>(
       units.map((unit) => [String(unit.id), unit.parentId ? String(unit.parentId) : null]),
     );
-    const visibleUnitIds = new Set<string>();
-
-    for (const profile of scopedProfiles) {
-      let cursor: string | null = String(profile.orgUnitId);
-      while (cursor) {
-        visibleUnitIds.add(cursor);
-        cursor = parentMap.get(cursor) ?? null;
-      }
-    }
 
     const counters = new Map<
       string,
@@ -166,12 +160,16 @@ export class MemberService {
           current.regularizationPendingCount += 1;
         }
         counters.set(cursor, current);
-        cursor = parentMap.get(cursor) ?? null;
+        const nextCursor: string | null = parentMap.get(cursor) ?? null;
+        if (nextCursor && !scopedUnitIdSet.has(nextCursor)) {
+          break;
+        }
+        cursor = nextCursor;
       }
     }
 
     const nodes = units
-      .filter((unit) => visibleUnitIds.size === 0 || visibleUnitIds.has(String(unit.id)))
+      .filter((unit) => scopedUnitIdSet.has(String(unit.id)))
       .map((unit) => ({
         id: String(unit.id),
         parentId: unit.parentId ? String(unit.parentId) : null,
@@ -197,6 +195,7 @@ export class MemberService {
         ...node,
         children: buildTree(node.id),
       }));
+    const rootParentId = this.resolveOrgOverviewRootParentId(dataScopeContext, parentMap);
 
     return {
       summary: {
@@ -207,7 +206,7 @@ export class MemberService {
           (item) => item.memberStatus === MemberStatus.REGULARIZATION_PENDING,
         ).length,
       },
-      tree: buildTree(null),
+      tree: buildTree(rootParentId),
     };
   }
 
@@ -910,9 +909,44 @@ export class MemberService {
   private canViewFullMemberDetail(currentUser: CurrentUserProfile) {
     return [
       RoleCode.TEACHER,
-      RoleCode.LAB_LEADER,
       RoleCode.MINISTER,
     ].includes(currentUser.activeRole.roleCode);
+  }
+
+  private resolveOrgOverviewUnitIds(
+    dataScopeContext: DataScopeContext,
+    units: Array<{ id: bigint }>,
+  ) {
+    switch (dataScopeContext.scope) {
+      case DataScope.ALL:
+        return units.map((unit) => String(unit.id));
+      case DataScope.DEPT_PROJECT:
+        return dataScopeContext.departmentAndDescendantIds;
+      case DataScope.GROUP_PROJECT:
+        return dataScopeContext.groupId ? [dataScopeContext.groupId] : [];
+      case DataScope.SELF_PARTICIPATE:
+      default:
+        return dataScopeContext.orgUnitId ? [dataScopeContext.orgUnitId] : [];
+    }
+  }
+
+  private resolveOrgOverviewRootParentId(
+    dataScopeContext: DataScopeContext,
+    parentMap: Map<string, string | null>,
+  ) {
+    if (dataScopeContext.scope === DataScope.DEPT_PROJECT && dataScopeContext.departmentId) {
+      return parentMap.get(dataScopeContext.departmentId) ?? null;
+    }
+
+    if (dataScopeContext.scope === DataScope.GROUP_PROJECT && dataScopeContext.groupId) {
+      return parentMap.get(dataScopeContext.groupId) ?? null;
+    }
+
+    if (dataScopeContext.scope === DataScope.SELF_PARTICIPATE && dataScopeContext.orgUnitId) {
+      return parentMap.get(dataScopeContext.orgUnitId) ?? null;
+    }
+
+    return null;
   }
 
   private mapRegularization(item: MemberRegularizationRecord | Prisma.MemberRegularizationGetPayload<{

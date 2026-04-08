@@ -1,33 +1,6 @@
-import type {
-  DeviceDashboardSummary,
-  DeviceDetail,
-  DeviceListResult,
-  DeviceRepairDetail,
-  DeviceRepairListResult,
-} from '@smw/shared';
+import type { DeviceDashboardSummary, DeviceRepairDetail, DeviceRepairListResult } from '@smw/shared';
 
 import { http } from './client';
-
-export async function fetchDeviceList(params: {
-  page: number;
-  pageSize: number;
-  keyword?: string;
-  statusCode?: string;
-  responsibleUserId?: string;
-}) {
-  return http.get<never, { data: DeviceListResult }>('/devices', {
-    params: {
-      ...params,
-      keyword: params.keyword || undefined,
-      statusCode: params.statusCode || undefined,
-      responsibleUserId: params.responsibleUserId || undefined,
-    },
-  });
-}
-
-export async function fetchDeviceDetail(id: string) {
-  return http.get<never, { data: DeviceDetail }>(`/devices/${id}`);
-}
 
 export async function fetchDeviceRepairList(params: {
   page: number;

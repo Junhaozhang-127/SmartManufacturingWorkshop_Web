@@ -1251,7 +1251,7 @@ export class ApprovalService {
       return;
     }
 
-    if (nodeKey === 'MINISTER_REVIEW' || nodeKey === 'LAB_LEADER_CONFIRM') {
+    if (nodeKey === 'MINISTER_REVIEW') {
       await tx.promApplication.update({
         where: { id: this.toBigInt(businessId) },
         data: {

@@ -88,9 +88,9 @@ describe('AuthService', () => {
               },
               {
                 role: {
-                  roleCode: RoleCode.LAB_LEADER,
-                  roleName: 'Leader',
-                  dataScope: DataScope.ALL,
+                  roleCode: RoleCode.GROUP_LEADER,
+                  roleName: 'Group Leader',
+                  dataScope: DataScope.GROUP_PROJECT,
                   sortNo: 20,
                 },
               },
@@ -207,16 +207,19 @@ describe('AuthService', () => {
   it('switches role for a valid granted role', async () => {
     const { service, accessTokenService, accessControlService } = createService();
 
-    const result = await service.switchRole('1', RoleCode.LAB_LEADER);
+    const result = await service.switchRole('1', RoleCode.GROUP_LEADER);
 
     expect(accessTokenService.sign).toHaveBeenCalledWith(
       expect.objectContaining({
         sub: '1',
-        activeRoleCode: RoleCode.LAB_LEADER,
-        roleCodes: [RoleCode.MEMBER, RoleCode.LAB_LEADER],
+        activeRoleCode: RoleCode.GROUP_LEADER,
+        roleCodes: [RoleCode.MEMBER, RoleCode.GROUP_LEADER],
       }),
     );
-    expect(accessControlService.buildCurrentUserProfile).toHaveBeenCalledWith(expect.anything(), RoleCode.LAB_LEADER);
+    expect(accessControlService.buildCurrentUserProfile).toHaveBeenCalledWith(
+      expect.anything(),
+      RoleCode.GROUP_LEADER,
+    );
     expect(result.token).toBe('signed-token');
   });
 
@@ -229,7 +232,7 @@ describe('AuthService', () => {
   it('rejects switchRole when user is unavailable', async () => {
     const { service } = createService({ switchRoleUser: null });
 
-    await expect(service.switchRole('1', RoleCode.LAB_LEADER)).rejects.toBeInstanceOf(UnauthorizedException);
+    await expect(service.switchRole('1', RoleCode.GROUP_LEADER)).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
   it('changes password and clears force-password-change flag', async () => {

@@ -970,7 +970,6 @@ ALTER TABLE `sys_dict_item`
 -- Data: sys_user
 INSERT INTO `sys_user` (`id`, `username`, `password_hash`, `display_name`, `mobile`, `email`, `force_password_change`, `password_changed_at`, `created_at`, `updated_at`) VALUES
   (1, 'teacher01', '$2b$10$uZ5BH.xc.P4.0lAA8bu4luhZ0ThjfTXZPOsVVWcygxnuwfDtkU5tW', '王老师', '13800000001', 'teacher01@lab.local', false, '2026-04-01 09:00:00.000', '2026-04-08 04:35:53.697', '2026-04-08 04:35:53.697'),
-  (2, 'leader01', '$2b$10$uZ5BH.xc.P4.0lAA8bu4luhZ0ThjfTXZPOsVVWcygxnuwfDtkU5tW', '李负责人', '13800000002', 'leader01@lab.local', false, '2026-04-01 09:00:00.000', '2026-04-08 04:35:53.697', '2026-04-08 04:35:53.697'),
   (3, 'minister01', '$2b$10$uZ5BH.xc.P4.0lAA8bu4luhZ0ThjfTXZPOsVVWcygxnuwfDtkU5tW', '周部长', '13800000003', 'minister01@lab.local', false, '2026-04-01 09:00:00.000', '2026-04-08 04:35:53.697', '2026-04-08 04:35:53.697'),
   (4, 'hybrid01', '$2b$10$uZ5BH.xc.P4.0lAA8bu4luhZ0ThjfTXZPOsVVWcygxnuwfDtkU5tW', '钱组长', '13800000004', 'hybrid01@lab.local', false, '2026-04-01 09:00:00.000', '2026-04-08 04:35:53.697', '2026-04-08 04:35:53.697'),
   (5, 'member01', '$2b$10$uZ5BH.xc.P4.0lAA8bu4luhZ0ThjfTXZPOsVVWcygxnuwfDtkU5tW', '张成员', '13800000005', 'member01@lab.local', false, '2026-04-01 09:00:00.000', '2026-04-08 04:35:53.697', '2026-04-08 04:35:53.697'),
@@ -979,7 +978,6 @@ INSERT INTO `sys_user` (`id`, `username`, `password_hash`, `display_name`, `mobi
 -- Data: sys_role
 INSERT INTO `sys_role` (`id`, `role_code`, `role_name`, `data_scope`, `sort_no`, `created_at`, `updated_at`) VALUES
   (1, 'TEACHER', '老师', 'ALL', 10, '2026-04-08 04:35:53.696', '2026-04-08 04:35:53.696'),
-  (2, 'LAB_LEADER', '实验室负责人', 'ALL', 20, '2026-04-08 04:35:53.697', '2026-04-08 04:35:53.697'),
   (3, 'MINISTER', '部长', 'DEPT_PROJECT', 30, '2026-04-08 04:35:53.697', '2026-04-08 04:35:53.697'),
   (4, 'GROUP_LEADER', '组长', 'GROUP_PROJECT', 40, '2026-04-08 04:35:53.697', '2026-04-08 04:35:53.697'),
   (5, 'MEMBER', '正式成员', 'SELF_PARTICIPATE', 50, '2026-04-08 04:35:53.697', '2026-04-08 04:35:53.697'),
@@ -987,14 +985,13 @@ INSERT INTO `sys_role` (`id`, `role_code`, `role_name`, `data_scope`, `sort_no`,
 
 -- Data: org_unit
 INSERT INTO `org_unit` (`id`, `parent_id`, `unit_code`, `unit_name`, `unit_type`, `leader_user_id`, `created_at`, `updated_at`) VALUES
-  (1, NULL, 'LAB_ROOT', '智能制造实验室', 'LAB', 2, '2026-04-08 04:35:53.697', '2026-04-08 04:35:53.697'),
+  (1, NULL, 'LAB_ROOT', '智能制造实验室', 'LAB', 1, '2026-04-08 04:35:53.697', '2026-04-08 04:35:53.697'),
   (2, 1, 'DEV_DEPT', '研发部', 'DEPARTMENT', 3, '2026-04-08 04:35:53.697', '2026-04-08 04:35:53.697'),
   (3, 2, 'FE_GROUP', '前端组', 'GROUP', 4, '2026-04-08 04:35:53.698', '2026-04-08 04:35:53.698');
 
 -- Data: sys_user_role
 INSERT INTO `sys_user_role` (`id`, `user_id`, `role_id`, `created_at`, `updated_at`) VALUES
   (1, 1, 1, '2026-04-08 04:35:53.699', '2026-04-08 04:35:53.699'),
-  (2, 2, 2, '2026-04-08 04:35:53.699', '2026-04-08 04:35:53.699'),
   (3, 3, 3, '2026-04-08 04:35:53.699', '2026-04-08 04:35:53.699'),
   (4, 4, 4, '2026-04-08 04:35:53.699', '2026-04-08 04:35:53.699'),
   (5, 5, 5, '2026-04-08 04:35:53.699', '2026-04-08 04:35:53.699'),
@@ -1024,7 +1021,6 @@ INSERT INTO `sys_dict_item` (`id`, `dict_type_id`, `item_code`, `item_label`, `i
   (6, 2, 'C', 'C 等', 'C', 30, 'ACTIVE', '2026-04-08 04:35:53.699', '2026-04-08 04:35:53.699'),
   (7, 3, 'GROUP_LEADER', '组长', 'GROUP_LEADER', 10, 'ACTIVE', '2026-04-08 04:35:53.699', '2026-04-08 04:35:53.699'),
   (8, 3, 'MINISTER', '部长', 'MINISTER', 20, 'ACTIVE', '2026-04-08 04:35:53.699', '2026-04-08 04:35:53.699'),
-  (9, 3, 'LAB_LEADER', '实验室负责人', 'LAB_LEADER', 30, 'ACTIVE', '2026-04-08 04:35:53.699', '2026-04-08 04:35:53.699'),
   (10, 4, 'APPROVAL', '审批消息', 'APPROVAL', 10, 'ACTIVE', '2026-04-08 04:35:53.699', '2026-04-08 04:35:53.699'),
   (11, 4, 'QUALIFICATION', '资格提醒', 'QUALIFICATION', 20, 'ACTIVE', '2026-04-08 04:35:53.699', '2026-04-08 04:35:53.699'),
   (12, 4, 'SYSTEM', '系统公告', 'SYSTEM', 30, 'ACTIVE', '2026-04-08 04:35:53.699', '2026-04-08 04:35:53.699');
@@ -1052,7 +1048,6 @@ INSERT INTO `wf_approval_template_node` (`id`, `template_id`, `node_key`, `node_
   (2, 1, 'MINISTER_REVIEW', '部长审批', 2, 'MINISTER', '2026-04-08 04:35:53.699', '2026-04-08 04:35:53.699'),
   (3, 2, 'GROUP_LEADER_REVIEW', '组长评价', 1, 'GROUP_LEADER', '2026-04-08 04:35:53.700', '2026-04-08 04:35:53.700'),
   (4, 2, 'MINISTER_REVIEW', '部长审核', 2, 'MINISTER', '2026-04-08 04:35:53.700', '2026-04-08 04:35:53.700'),
-  (5, 2, 'LAB_LEADER_CONFIRM', '负责人确认', 3, 'LAB_LEADER', '2026-04-08 04:35:53.700', '2026-04-08 04:35:53.700'),
   (6, 3, 'GROUP_LEADER_REVIEW', '组长审批', 1, 'GROUP_LEADER', '2026-04-08 04:35:53.700', '2026-04-08 04:35:53.700'),
   (7, 3, 'MINISTER_REVIEW', '部长审批', 2, 'MINISTER', '2026-04-08 04:35:53.700', '2026-04-08 04:35:53.700'),
   (8, 4, 'GROUP_LEADER_REVIEW', '组长初审', 1, 'GROUP_LEADER', '2026-04-08 04:35:53.700', '2026-04-08 04:35:53.700'),
@@ -1065,7 +1060,7 @@ INSERT INTO `wf_approval_template_node` (`id`, `template_id`, `node_key`, `node_
   (15, 7, 'MINISTER_REVIEW', '部长审批', 2, 'MINISTER', '2026-04-08 04:35:53.700', '2026-04-08 04:35:53.700'),
   (16, 8, 'GROUP_LEADER_REVIEW', '团队评价', 1, 'GROUP_LEADER', '2026-04-08 04:35:53.700', '2026-04-08 04:35:53.700'),
   (17, 8, 'MINISTER_REVIEW', '部门审核', 2, 'MINISTER', '2026-04-08 04:35:53.700', '2026-04-08 04:35:53.700'),
-  (18, 8, 'LAB_LEADER_CONFIRM', '负责人确认', 3, 'LAB_LEADER', '2026-04-08 04:35:53.700', '2026-04-08 04:35:53.700');
+  (17, 8, 'MINISTER_REVIEW', '部门审核', 2, 'MINISTER', '2026-04-08 04:35:53.700', '2026-04-08 04:35:53.700');
 
 -- Data: comp_competition
 INSERT INTO `comp_competition` (`id`, `competition_code`, `name`, `organizer`, `competition_level`, `competition_category`, `status_code`, `registration_start_date`, `registration_end_date`, `event_start_date`, `event_end_date`, `description`, `created_at`, `updated_at`, `created_by`) VALUES
@@ -1100,8 +1095,8 @@ INSERT INTO `gov_reward_penalty` (`id`, `member_profile_id`, `subject_user_id`, 
 
 -- Data: asset_device
 INSERT INTO `asset_device` (`id`, `device_code`, `device_name`, `category_name`, `model`, `specification`, `manufacturer`, `serial_no`, `asset_tag`, `status_code`, `org_unit_id`, `responsible_user_id`, `location_label`, `purchase_date`, `warranty_until`, `purchase_amount`, `remarks`, `latest_repair_id`, `status_changed_at`, `created_at`, `updated_at`, `created_by`) VALUES
-  (1, 'DEV-CAM-001', '产线边缘相机', '视觉采集', 'SMW-CAM-A1', '5MP / GigE', 'Smart Vision', 'CAM-2026-001', 'AT-DEV-001', 'IDLE', 3, 5, 'A区产线工位 01', '2026-02-01 00:00:00.000', '2028-02-01 00:00:00.000', 12800, '用于缺陷检测演示线', NULL, '2026-04-01 09:00:00.000', '2026-04-08 04:35:53.700', '2026-04-08 04:35:53.700', 2),
-  (2, 'DEV-PLC-002', 'PLC 调试工位', '控制设备', 'SMW-PLC-X2', '48 I/O', 'Factory Core', 'PLC-2026-002', 'AT-DEV-002', 'REPAIRING', 3, 4, 'B区调试台', '2026-01-15 00:00:00.000', '2027-01-15 00:00:00.000', 18600, '保留一条进行中报修单用于首页聚合', 1, '2026-04-06 10:00:00.000', '2026-04-08 04:35:53.700', '2026-04-08 04:35:53.700', 2);
+  (1, 'DEV-CAM-001', '产线边缘相机', '视觉采集', 'SMW-CAM-A1', '5MP / GigE', 'Smart Vision', 'CAM-2026-001', 'AT-DEV-001', 'IDLE', 3, 5, 'A区产线工位 01', '2026-02-01 00:00:00.000', '2028-02-01 00:00:00.000', 12800, '用于缺陷检测演示线', NULL, '2026-04-01 09:00:00.000', '2026-04-08 04:35:53.700', '2026-04-08 04:35:53.700', 1),
+  (2, 'DEV-PLC-002', 'PLC 调试工位', '控制设备', 'SMW-PLC-X2', '48 I/O', 'Factory Core', 'PLC-2026-002', 'AT-DEV-002', 'REPAIRING', 3, 4, 'B区调试台', '2026-01-15 00:00:00.000', '2027-01-15 00:00:00.000', 18600, '保留一条进行中报修单用于首页聚合', 1, '2026-04-06 10:00:00.000', '2026-04-08 04:35:53.700', '2026-04-08 04:35:53.700', 1);
 
 -- Data: asset_device_repair
 INSERT INTO `asset_device_repair` (`id`, `device_id`, `repair_no`, `applicant_user_id`, `applicant_role_code`, `handler_user_id`, `status_code`, `severity`, `fault_description`, `latest_result`, `requested_amount`, `cost_estimate`, `fund_link_code`, `device_status_before_repair`, `reported_at`, `approved_at`, `accepted_at`, `status_changed_at`, `created_at`, `updated_at`, `created_by`) VALUES
@@ -1109,8 +1104,8 @@ INSERT INTO `asset_device_repair` (`id`, `device_id`, `repair_no`, `applicant_us
 
 -- Data: fund_account
 INSERT INTO `fund_account` (`id`, `account_code`, `account_name`, `status_code`, `category_name`, `project_id`, `project_name`, `owner_org_unit_id`, `manager_user_id`, `total_budget`, `reserved_amount`, `used_amount`, `paid_amount`, `remarks`, `last_expense_at`, `created_at`, `updated_at`, `created_by`) VALUES
-  (1, 'FUND-RESERVED-001', '智能产线调试经费', 'ACTIVE', '项目预算', 'PRJ-SMW-001', '智能制造产线调试项目', 3, 4, 50000, 1200, 5800, 5200, '设备维修、差旅与采购共用预算池', '2026-04-07 09:30:00.000', '2026-04-08 04:35:53.700', '2026-04-08 04:35:53.700', 2),
-  (2, 'FUND-TRAVEL-002', '项目外出差旅经费', 'ACTIVE', '差旅预算', 'PRJ-SMW-001', '智能制造产线调试项目', 2, 3, 18000, 0, 2600, 2600, '项目现场调试差旅预算', '2026-04-05 08:00:00.000', '2026-04-08 04:35:53.700', '2026-04-08 04:35:53.700', 2);
+  (1, 'FUND-RESERVED-001', '智能产线调试经费', 'ACTIVE', '项目预算', 'PRJ-SMW-001', '智能制造产线调试项目', 3, 4, 50000, 1200, 5800, 5200, '设备维修、差旅与采购共用预算池', '2026-04-07 09:30:00.000', '2026-04-08 04:35:53.700', '2026-04-08 04:35:53.700', 1),
+  (2, 'FUND-TRAVEL-002', '项目外出差旅经费', 'ACTIVE', '差旅预算', 'PRJ-SMW-001', '智能制造产线调试项目', 2, 3, 18000, 0, 2600, 2600, '项目现场调试差旅预算', '2026-04-05 08:00:00.000', '2026-04-08 04:35:53.700', '2026-04-08 04:35:53.700', 1);
 
 -- Data: fund_application
 INSERT INTO `fund_application` (`id`, `application_no`, `account_id`, `applicant_user_id`, `applicant_role_code`, `application_type`, `expense_type`, `title`, `purpose`, `amount`, `payee_name`, `project_id`, `project_name`, `related_business_type`, `related_business_id`, `status_code`, `payment_status`, `latest_result`, `submitted_at`, `completed_at`, `created_at`, `updated_at`, `created_by`) VALUES
@@ -1118,14 +1113,14 @@ INSERT INTO `fund_application` (`id`, `application_no`, `account_id`, `applicant
 
 -- Data: inv_consumable
 INSERT INTO `inv_consumable` (`id`, `consumable_code`, `consumable_name`, `category_name`, `specification`, `unit_name`, `status_code`, `inventory_status`, `current_stock`, `warning_threshold`, `warning_flag`, `org_unit_id`, `default_location`, `replenishment_triggered_at`, `last_txn_at`, `created_at`, `updated_at`, `created_by`) VALUES
-  (1, 'CS-SOLDER-001', '焊锡丝', '电子耗材', '0.8mm / 500g', '卷', 'ACTIVE', 'NORMAL', 18, 5, false, 3, '电子仓 A-01', NULL, '2026-04-06 09:00:00.000', '2026-04-08 04:35:53.701', '2026-04-08 04:35:53.701', 2),
-  (2, 'CS-GLOVE-002', '防静电手套', '防护耗材', 'L 码 / 12 双装', '盒', 'ACTIVE', 'LOW_STOCK', 1, 4, true, 3, '防护仓 B-03', '2026-04-07 08:30:00.000', '2026-04-07 09:10:00.000', '2026-04-08 04:35:53.701', '2026-04-08 04:35:53.701', 2);
+  (1, 'CS-SOLDER-001', '焊锡丝', '电子耗材', '0.8mm / 500g', '卷', 'ACTIVE', 'NORMAL', 18, 5, false, 3, '电子仓 A-01', NULL, '2026-04-06 09:00:00.000', '2026-04-08 04:35:53.701', '2026-04-08 04:35:53.701', 1),
+  (2, 'CS-GLOVE-002', '防静电手套', '防护耗材', 'L 码 / 12 双装', '盒', 'ACTIVE', 'LOW_STOCK', 1, 4, true, 3, '防护仓 B-03', '2026-04-07 08:30:00.000', '2026-04-07 09:10:00.000', '2026-04-08 04:35:53.701', '2026-04-08 04:35:53.701', 1);
 
 -- Data: inv_inventory_txn
 INSERT INTO `inv_inventory_txn` (`id`, `consumable_id`, `request_id`, `txn_type`, `quantity`, `balance_after`, `project_id`, `project_name`, `operator_user_id`, `operator_role_code`, `remark`, `txn_at`, `created_at`) VALUES
-  (1, 1, NULL, 'INBOUND', 20, 20, NULL, NULL, 2, 'LAB_LEADER', 'P0 种子建账', '2026-04-05 10:00:00.000', '2026-04-08 04:35:53.701'),
+  (1, 1, NULL, 'INBOUND', 20, 20, NULL, NULL, 1, 'TEACHER', 'P0 种子建账', '2026-04-05 10:00:00.000', '2026-04-08 04:35:53.701'),
   (2, 1, NULL, 'OUTBOUND', 2, 18, 'PRJ-INV-001', '焊接工位改造', 4, 'GROUP_LEADER', '样机调试领用', '2026-04-06 09:00:00.000', '2026-04-08 04:35:53.701'),
-  (3, 2, NULL, 'INBOUND', 4, 4, NULL, NULL, 2, 'LAB_LEADER', 'P0 种子建账', '2026-04-05 10:20:00.000', '2026-04-08 04:35:53.701'),
+  (3, 2, NULL, 'INBOUND', 4, 4, NULL, NULL, 1, 'TEACHER', 'P0 种子建账', '2026-04-05 10:20:00.000', '2026-04-08 04:35:53.701'),
   (4, 2, NULL, 'OUTBOUND', 2, 2, 'PRJ-INV-002', '产线静电防护整改', 5, 'MEMBER', '现场防护领用', '2026-04-07 08:30:00.000', '2026-04-08 04:35:53.701'),
   (5, 2, 1, 'REQUEST_OUTBOUND', 1, 1, 'PRJ-INV-002', '产线静电防护整改', 4, 'GROUP_LEADER', '种子数据：申领审批自动出库', '2026-04-07 09:10:00.000', '2026-04-08 04:35:53.701');
 
@@ -1146,8 +1141,8 @@ INSERT INTO `member_stage_evaluation` (`id`, `member_profile_id`, `stage_code`, 
 INSERT INTO `sys_notification` (`id`, `user_id`, `title`, `content`, `category_code`, `level_code`, `business_type`, `business_id`, `route_path`, `route_query`, `created_at`, `updated_at`, `created_by`) VALUES
   (1, 5, '成果认定完成', '“基于视觉检测的产线缺陷识别方法” 已完成认定，请前往成果列表查看。', 'SYSTEM', 'INFO', 'ACHIEVEMENT_RECOGNITION', '1', '/achievements', '{"focus":"1"}', '2026-04-08 04:35:53.701', '2026-04-08 04:35:53.701', 3),
   (2, 5, '晋升资格提醒', '当前季度考核结果已满足成员晋升申请基础条件，可前往资格看板查看。', 'QUALIFICATION', 'WARNING', 'PROMOTION_REQUEST', '3', '/promotion/eligibility', '{"focus":"3"}', '2026-04-08 04:35:53.701', '2026-04-08 04:35:53.701', 4),
-  (3, 4, '库存预警提示', '防静电手套库存已低于阈值，请尽快处理补货或申领控制。', 'SYSTEM', 'WARNING', 'CONSUMABLE_REQUEST', '2', '/inventory/ledger', '{"focus":"2"}', '2026-04-08 04:35:53.701', '2026-04-08 04:35:53.701', 2),
+  (3, 4, '库存预警提示', '防静电手套库存已低于阈值，请尽快处理补货或申领控制。', 'SYSTEM', 'WARNING', 'CONSUMABLE_REQUEST', '2', '/inventory/ledger', '{"focus":"2"}', '2026-04-08 04:35:53.701', '2026-04-08 04:35:53.701', 1),
   (4, 3, '经费申请待跟进', 'PLC 工位维修费用已审批通过，当前待支付，请在经费申请页跟进。', 'APPROVAL', 'INFO', 'FUND_REQUEST', 'FUND-20260407-001', '/funds/applications', '{"focus":"FUND-20260407-001"}', '2026-04-08 04:35:53.701', '2026-04-08 04:35:53.701', 5),
-  (5, 6, '个人中心已开放', '请完善个人资料并修改初始密码，后续可从个人中心查看我的申请与消息。', 'SYSTEM', 'INFO', NULL, NULL, '/profile', NULL, '2026-04-08 04:35:53.701', '2026-04-08 04:35:53.701', 2);
+  (5, 6, '个人中心已开放', '请完善个人资料并修改初始密码，后续可从个人中心查看我的申请与消息。', 'SYSTEM', 'INFO', NULL, NULL, '/profile', NULL, '2026-04-08 04:35:53.701', '2026-04-08 04:35:53.701', 1);
 
 SET FOREIGN_KEY_CHECKS = 1;

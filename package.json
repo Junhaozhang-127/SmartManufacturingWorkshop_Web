@@ -23,16 +23,18 @@
   },
   "lint-staged": {
     "*.{ts,tsx,js,mjs,cjs,vue}": [
-      "eslint --fix"
+      "eslint --fix --no-warn-ignored"
     ],
     "*.{json,md,yml,yaml,css,scss}": [
       "prettier --write"
     ]
   },
   "devDependencies": {
+    "@smw/shared": "workspace:*",
     "@prisma/client": "^6.16.3",
     "@eslint/js": "^9.26.0",
     "@types/node": "^24.5.2",
+    "bcryptjs": "^3.0.2",
     "concurrently": "^9.2.0",
     "eslint": "^9.26.0",
     "eslint-config-prettier": "^10.1.2",

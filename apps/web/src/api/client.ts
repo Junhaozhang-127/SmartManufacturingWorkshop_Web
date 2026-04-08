@@ -6,11 +6,45 @@ export const http = axios.create({
   timeout: 10_000,
 });
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return Object.prototype.toString.call(value) === '[object Object]';
+}
+
+function sanitizeParams(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => sanitizeParams(item))
+      .filter((item) => item !== undefined);
+  }
+
+  if (isPlainObject(value)) {
+    return Object.fromEntries(
+      Object.entries(value)
+        .map(([key, item]) => [key, sanitizeParams(item)] as const)
+        .filter(([, item]) => item !== undefined),
+    );
+  }
+
+  if (value == null) {
+    return undefined;
+  }
+
+  if (typeof value === 'string' && value.trim() === '') {
+    return undefined;
+  }
+
+  return value;
+}
+
 http.interceptors.request.use((config) => {
   const token = getStoredAccessToken();
 
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+  }
+
+  if (config.params) {
+    config.params = sanitizeParams(config.params);
   }
 
   return config;
@@ -19,7 +53,10 @@ http.interceptors.request.use((config) => {
 http.interceptors.response.use(
   (response) => response.data,
   (error) => {
-    const message = error.response?.data?.message ?? error.message ?? '请求失败';
+    const responseMessage = error.response?.data?.message;
+    const message = Array.isArray(responseMessage)
+      ? responseMessage.join('；')
+      : responseMessage ?? error.message ?? '请求失败';
 
     if (error.response?.status === 401) {
       clearPersistedAuthState();

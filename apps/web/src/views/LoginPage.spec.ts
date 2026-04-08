@@ -121,7 +121,7 @@ describe('LoginPage', () => {
       username: 'teacher01',
       password: '123456',
     });
-    expect(messageSuccess).toHaveBeenCalledWith('Login successful');
+    expect(messageSuccess).toHaveBeenCalledWith('登录成功');
     expect(routerPush).toHaveBeenCalledWith('/');
   });
 

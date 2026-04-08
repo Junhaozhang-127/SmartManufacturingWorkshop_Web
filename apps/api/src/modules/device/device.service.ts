@@ -16,49 +16,8 @@ import {
 import type { AssignDeviceRepairDto } from './dto/assign-device-repair.dto';
 import type { ConfirmDeviceRepairDto } from './dto/confirm-device-repair.dto';
 import type { CreateDeviceRepairDto } from './dto/create-device-repair.dto';
-import type { DeviceQueryDto } from './dto/device-query.dto';
 import type { DeviceRepairQueryDto } from './dto/device-repair-query.dto';
 import type { ResolveDeviceRepairDto } from './dto/resolve-device-repair.dto';
-
-type DeviceListRecord = Prisma.AssetDeviceGetPayload<{
-  include: {
-    orgUnit: true;
-    responsibleUser: true;
-    latestRepair: true;
-    repairOrders: {
-      where: {
-        isDeleted: false;
-        statusCode: {
-          in: ['IN_APPROVAL', 'PROCESSING', 'RESOLVED'];
-        };
-      };
-      select: {
-        id: true;
-      };
-    };
-  };
-}>;
-
-type DeviceDetailRecord = Prisma.AssetDeviceGetPayload<{
-  include: {
-    orgUnit: true;
-    responsibleUser: true;
-    latestRepair: true;
-    repairOrders: {
-      where: {
-        isDeleted: false;
-      };
-      include: {
-        applicant: true;
-        handler: true;
-        device: true;
-      };
-      orderBy: {
-        reportedAt: 'desc';
-      };
-    };
-  };
-}>;
 
 type RepairRecord = Prisma.AssetDeviceRepairGetPayload<{
   include: {
@@ -72,6 +31,12 @@ type RepairRecord = Prisma.AssetDeviceRepairGetPayload<{
     };
   };
 }>;
+
+type VisibleDeviceRecord = {
+  orgUnitId: bigint | null;
+  responsibleUserId: bigint | null;
+  repairOrders?: Array<{ applicantUserId: bigint; handlerUserId: bigint | null }>;
+};
 
 type StatusLog = {
   actionType: string;
@@ -95,103 +60,6 @@ export class DeviceService {
     private readonly prisma: PrismaService,
     private readonly approvalService: ApprovalService,
   ) {}
-
-  async listDevices(query: DeviceQueryDto, dataScopeContext: DataScopeContext) {
-    const pagination = normalizePagination(query);
-    const clauses: Prisma.AssetDeviceWhereInput[] = [{ isDeleted: false }, this.buildDeviceScopeWhere(dataScopeContext)];
-
-    if (query.statusCode) {
-      clauses.push({ statusCode: query.statusCode });
-    }
-    if (query.responsibleUserId) {
-      clauses.push({ responsibleUserId: this.toBigInt(query.responsibleUserId) });
-    }
-    if (pagination.keyword) {
-      clauses.push({
-        OR: [
-          { deviceCode: { contains: pagination.keyword } },
-          { deviceName: { contains: pagination.keyword } },
-          { categoryName: { contains: pagination.keyword } },
-          { locationLabel: { contains: pagination.keyword } },
-        ],
-      });
-    }
-
-    const where = { AND: clauses } satisfies Prisma.AssetDeviceWhereInput;
-    const [items, total] = await this.prisma.$transaction([
-      this.prisma.assetDevice.findMany({
-        where,
-        include: {
-          orgUnit: true,
-          responsibleUser: true,
-          latestRepair: true,
-          repairOrders: {
-            where: {
-              isDeleted: false,
-              statusCode: {
-                in: ACTIVE_REPAIR_STATUSES,
-              },
-            },
-            select: { id: true },
-          },
-        },
-        orderBy: [{ statusCode: 'asc' }, { updatedAt: 'desc' }],
-        skip: (pagination.page - 1) * pagination.pageSize,
-        take: pagination.pageSize,
-      }),
-      this.prisma.assetDevice.count({ where }),
-    ]);
-
-    return {
-      items: items.map((item) => this.mapDevice(item)),
-      meta: { page: pagination.page, pageSize: pagination.pageSize, total },
-    };
-  }
-
-  async getDeviceDetail(id: string, dataScopeContext: DataScopeContext) {
-    const record = await this.prisma.assetDevice.findUnique({
-      where: { id: this.toBigInt(id) },
-      include: {
-        orgUnit: true,
-        responsibleUser: true,
-        latestRepair: true,
-        repairOrders: {
-          where: { isDeleted: false },
-          include: {
-            applicant: true,
-            handler: true,
-            device: true,
-          },
-          orderBy: {
-            reportedAt: 'desc',
-          },
-        },
-      },
-    });
-
-    if (!record || record.isDeleted) {
-      throw new NotFoundException('设备不存在');
-    }
-
-    this.ensureDeviceVisible(record, dataScopeContext);
-
-    return {
-      ...this.mapDevice(record),
-      specification: record.specification,
-      manufacturer: record.manufacturer,
-      serialNo: record.serialNo,
-      assetTag: record.assetTag,
-      purchaseAmount: this.toNumber(record.purchaseAmount),
-      remarks: record.remarks,
-      extensions: {
-        repairHistoryReserved: true,
-        restoreRequestReserved: true,
-        scrapRequestReserved: true,
-      },
-      statusLogs: this.readStatusLogs(record.statusLogs),
-      repairHistory: record.repairOrders.map((item) => this.mapRepair(item)),
-    };
-  }
 
   async listRepairs(query: DeviceRepairQueryDto, dataScopeContext: DataScopeContext) {
     const pagination = normalizePagination(query);
@@ -279,7 +147,17 @@ export class DeviceService {
   async createRepair(currentUser: CurrentUserProfile, payload: CreateDeviceRepairDto, dataScopeContext: DataScopeContext) {
     const device = await this.prisma.assetDevice.findUnique({
       where: { id: this.toBigInt(payload.deviceId) },
-      include: { orgUnit: true, responsibleUser: true },
+      include: {
+        orgUnit: true,
+        responsibleUser: true,
+        repairOrders: {
+          where: { isDeleted: false },
+          select: {
+            applicantUserId: true,
+            handlerUserId: true,
+          },
+        },
+      },
     });
 
     if (!device || device.isDeleted) {
@@ -303,7 +181,7 @@ export class DeviceService {
 
     const handlerUserId = payload.handlerUserId ? this.toBigInt(payload.handlerUserId) : null;
     if (handlerUserId) {
-      await this.ensureUserActive(handlerUserId, '处理人不存在或已停用');
+      await this.ensureUserActive(handlerUserId, '澶勭悊浜轰笉瀛樺湪鎴栧凡鍋滅敤');
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -338,7 +216,7 @@ export class DeviceService {
       const approval = await this.approvalService.startBusinessApproval(tx, {
         businessType: ApprovalBusinessType.REPAIR_ORDER,
         businessId: String(repair.id),
-        title: `设备报修 - ${device.deviceName}`,
+        title: `璁惧鎶ヤ慨 - ${device.deviceName}`,
         applicantUserId: this.toBigInt(currentUser.id),
         applicantRoleCode: currentUser.activeRole.roleCode,
         formData: {
@@ -608,31 +486,7 @@ export class DeviceService {
     return record;
   }
 
-  private mapDevice(item: DeviceListRecord | DeviceDetailRecord) {
-    return {
-      id: String(item.id),
-      deviceCode: item.deviceCode,
-      deviceName: item.deviceName,
-      categoryName: item.categoryName,
-      model: item.model,
-      statusCode: item.statusCode,
-      orgUnitId: item.orgUnitId ? String(item.orgUnitId) : null,
-      orgUnitName: item.orgUnit?.unitName ?? null,
-      responsibleUserId: item.responsibleUserId ? String(item.responsibleUserId) : null,
-      responsibleUserName: item.responsibleUser?.displayName ?? null,
-      locationLabel: item.locationLabel,
-      purchaseDate: this.toDateString(item.purchaseDate),
-      warrantyUntil: this.toDateString(item.warrantyUntil),
-      latestRepairStatus: item.latestRepair?.statusCode ?? null,
-      latestRepairReportedAt: item.latestRepair?.reportedAt?.toISOString() ?? null,
-      latestRepairId: item.latestRepairId ? String(item.latestRepairId) : null,
-      abnormalRepairCount: item.repairOrders.length,
-      createdAt: item.createdAt.toISOString(),
-      updatedAt: item.updatedAt.toISOString(),
-    };
-  }
-
-  private mapRepair(item: RepairRecord | DeviceDetailRecord['repairOrders'][number]) {
+  private mapRepair(item: RepairRecord) {
     return {
       id: String(item.id),
       repairNo: item.repairNo,
@@ -755,14 +609,7 @@ export class DeviceService {
     }
   }
 
-  private ensureDeviceVisible(
-    record: {
-      orgUnitId: bigint | null;
-      responsibleUserId: bigint | null;
-      repairOrders?: Array<{ applicantUserId: bigint; handlerUserId: bigint | null }>;
-    },
-    dataScopeContext: DataScopeContext,
-  ) {
+  private ensureDeviceVisible(record: VisibleDeviceRecord, dataScopeContext: DataScopeContext) {
     if (dataScopeContext.scope === DataScope.ALL) {
       return;
     }
@@ -851,9 +698,5 @@ export class DeviceService {
 
   private toNumber(value?: Prisma.Decimal | null) {
     return value ? Number(value.toString()) : null;
-  }
-
-  private toDateString(value?: Date | null) {
-    return value ? value.toISOString().slice(0, 10) : null;
   }
 }

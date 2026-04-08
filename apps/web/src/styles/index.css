@@ -444,24 +444,35 @@ body {
   width: min(22rem, 100%);
 }
 
-.org-tree-node {
+.org-tree-card {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
   width: 100%;
   padding: 0.65rem 0.25rem;
 }
 
-.org-tree-node p {
+.org-tree-card__content {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.org-tree-card__content strong {
+  display: block;
+}
+
+.org-tree-card p {
   margin: 0.25rem 0 0;
   color: #64748b;
   font-size: 0.9rem;
 }
 
-.org-tree-node__meta {
+.org-tree-card__meta {
   display: flex;
+  flex: 0 0 auto;
   flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 0.5rem;
 }
 
@@ -615,8 +626,12 @@ body {
   }
 
   .member-summary-card,
-  .org-tree-node {
+  .org-tree-card {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .org-tree-card__meta {
+    justify-content: flex-start;
   }
 }

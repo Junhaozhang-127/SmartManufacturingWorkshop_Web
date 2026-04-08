@@ -66,45 +66,19 @@ export interface DeviceRepairSummaryItem {
   confirmedAt: string | null;
 }
 
-export interface DeviceItem {
+export type DeviceRepairListResult = PageResult<DeviceRepairSummaryItem>;
+
+export interface DeviceRepairRelatedDevice {
   id: string;
   deviceCode: string;
   deviceName: string;
   categoryName: string;
   model: string | null;
   statusCode: DeviceStatus | string;
-  orgUnitId: string | null;
-  orgUnitName: string | null;
   responsibleUserId: string | null;
   responsibleUserName: string | null;
   locationLabel: string | null;
-  purchaseDate: string | null;
-  warrantyUntil: string | null;
-  latestRepairStatus: DeviceRepairStatus | string | null;
-  latestRepairReportedAt: string | null;
   latestRepairId: string | null;
-  abnormalRepairCount: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export type DeviceListResult = PageResult<DeviceItem>;
-export type DeviceRepairListResult = PageResult<DeviceRepairSummaryItem>;
-
-export interface DeviceDetail extends DeviceItem {
-  specification: string | null;
-  manufacturer: string | null;
-  serialNo: string | null;
-  assetTag: string | null;
-  purchaseAmount: number | null;
-  remarks: string | null;
-  extensions: {
-    repairHistoryReserved: boolean;
-    restoreRequestReserved: boolean;
-    scrapRequestReserved: boolean;
-  };
-  statusLogs: DeviceStatusLogItem[];
-  repairHistory: DeviceRepairSummaryItem[];
 }
 
 export interface DeviceRepairDetail extends DeviceRepairSummaryItem {
@@ -119,19 +93,7 @@ export interface DeviceRepairDetail extends DeviceRepairSummaryItem {
   canCurrentUserConfirm: boolean;
   availableActions: DeviceRepairAction[];
   statusLogs: DeviceStatusLogItem[];
-  device: Pick<
-    DeviceDetail,
-    | 'id'
-    | 'deviceCode'
-    | 'deviceName'
-    | 'categoryName'
-    | 'model'
-    | 'statusCode'
-    | 'responsibleUserId'
-    | 'responsibleUserName'
-    | 'locationLabel'
-    | 'latestRepairId'
-  >;
+  device: DeviceRepairRelatedDevice;
 }
 
 export interface DeviceDashboardSummary {

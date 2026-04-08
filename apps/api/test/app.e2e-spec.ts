@@ -103,19 +103,8 @@ describe('App e2e', () => {
       userRoles: [{ role: { roleCode: 'TEACHER', roleName: '老师', dataScope: 'ALL', sortNo: 10 } }],
       member: null,
     },
-    leader01: {
-      id: 2n,
-      username: 'leader01',
-      passwordHash,
-      displayName: '李主任',
-      statusCode: 'ACTIVE',
-      forcePasswordChange: true,
-      isDeleted: false,
-      userRoles: [{ role: { roleCode: 'LAB_LEADER', roleName: '实验室负责人', dataScope: 'ALL', sortNo: 20 } }],
-      member: null,
-    },
     hybrid01: {
-      id: 3n,
+      id: 2n,
       username: 'hybrid01',
       passwordHash,
       displayName: '钱双角色',
@@ -141,7 +130,7 @@ describe('App e2e', () => {
       },
     },
     minister01: {
-      id: 4n,
+      id: 3n,
       username: 'minister01',
       passwordHash,
       displayName: '周部长',
@@ -164,7 +153,7 @@ describe('App e2e', () => {
       },
     },
     member01: {
-      id: 5n,
+      id: 4n,
       username: 'member01',
       passwordHash,
       displayName: '张成员',
@@ -191,7 +180,7 @@ describe('App e2e', () => {
   const members: MockMember[] = [
     {
       id: 100n,
-      userId: 4n,
+      userId: 3n,
       orgUnitId: 20n,
       positionCode: 'MINISTER',
       memberStatus: 'ACTIVE',
@@ -208,7 +197,7 @@ describe('App e2e', () => {
     },
     {
       id: 101n,
-      userId: 3n,
+      userId: 2n,
       orgUnitId: 30n,
       positionCode: 'GROUP_LEADER',
       memberStatus: 'ACTIVE',
@@ -225,7 +214,7 @@ describe('App e2e', () => {
     },
     {
       id: 102n,
-      userId: 5n,
+      userId: 4n,
       orgUnitId: 30n,
       positionCode: 'MEMBER',
       memberStatus: 'ACTIVE',
@@ -383,13 +372,17 @@ describe('App e2e', () => {
   });
 
   it('blocks first-login users from protected business endpoints before password change', async () => {
-    const loginResponse = await loginAs('leader01');
+    users.member01.forcePasswordChange = true;
+
+    const loginResponse = await loginAs('member01');
     const response = await request(app.getHttpServer())
       .get('/api/members')
       .set('Authorization', `Bearer ${loginResponse.body.data.token}`);
 
     expect(response.status).toBe(403);
     expect(response.body.message).toContain('首次登录需先修改密码');
+
+    users.member01.forcePasswordChange = false;
   });
 
   it('returns self-scoped member data for member role', async () => {

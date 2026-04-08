@@ -86,7 +86,11 @@ describe('MemberService', () => {
     };
 
     const prisma = {
+      orgUnit: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
       memberProfile: {
+        findMany: jest.fn().mockResolvedValue([]),
         findFirst: jest.fn().mockResolvedValue(profile),
       },
       memberRegularization: {
@@ -122,5 +126,61 @@ describe('MemberService', () => {
         applicationReason: '日期校验',
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('builds department-scoped org tree from the current department root', async () => {
+    const service = createService();
+    const prisma = (service as unknown as { prisma: {
+      orgUnit: { findMany: jest.Mock };
+      memberProfile: { findMany: jest.Mock };
+    } }).prisma;
+
+    prisma.orgUnit.findMany.mockResolvedValue([
+      {
+        id: 10n,
+        parentId: null,
+        unitCode: 'LAB',
+        unitName: '实验室',
+        unitType: 'LAB',
+        leader: { displayName: '老师' },
+      },
+      {
+        id: 20n,
+        parentId: 10n,
+        unitCode: 'RD',
+        unitName: '研发部',
+        unitType: 'DEPARTMENT',
+        leader: { displayName: '部长' },
+      },
+      {
+        id: 30n,
+        parentId: 20n,
+        unitCode: 'FE',
+        unitName: '前端组',
+        unitType: 'GROUP',
+        leader: { displayName: '组长' },
+      },
+    ]);
+    prisma.memberProfile.findMany.mockResolvedValue([
+      { orgUnitId: 20n, memberStatus: 'ACTIVE' },
+      { orgUnitId: 30n, memberStatus: 'REGULARIZATION_PENDING' },
+    ]);
+
+    const result = await service.getOrgOverview({
+      scope: DataScope.DEPT_PROJECT,
+      userId: '4',
+      orgUnitId: '20',
+      departmentId: '20',
+      departmentAndDescendantIds: ['20', '30'],
+      groupId: null,
+      selfUserIds: ['4'],
+      participatingUserIds: ['4'],
+    });
+
+    expect(result.tree).toHaveLength(1);
+    expect(result.tree[0].unitName).toBe('研发部');
+    expect(result.tree[0].children).toHaveLength(1);
+    expect(result.tree[0].children[0].unitName).toBe('前端组');
+    expect(result.summary.orgUnitCount).toBe(2);
   });
 });

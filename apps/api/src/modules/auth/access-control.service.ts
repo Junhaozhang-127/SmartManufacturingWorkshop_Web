@@ -225,7 +225,7 @@ export class AccessControlService {
   private buildDashboardSummary(roleCode: RoleCode): DashboardSummaryMock {
     const dashboardEntry = {
       code: MenuCode.DASHBOARD,
-      label: '系统驾驶舱',
+      label: '系统总览',
       path: '/',
     };
     const approvalEntry = {
@@ -242,6 +242,11 @@ export class AccessControlService {
       code: MenuCode.NOTIFICATIONS,
       label: '通知公告',
       path: '/notifications',
+    };
+    const orgOverviewEntry = {
+      code: MenuCode.ORG_OVERVIEW,
+      label: '组织架构',
+      path: '/org/overview',
     };
     const fundOverviewEntry = {
       code: MenuCode.FUND_OVERVIEW,
@@ -261,39 +266,18 @@ export class AccessControlService {
           shortcutEntries: [
             dashboardEntry,
             profileEntry,
+            orgOverviewEntry,
             notificationEntry,
             approvalEntry,
             promotionApplicationEntry,
             fundOverviewEntry,
           ],
         };
-      case RoleCode.LAB_LEADER:
-        return {
-          todoCount: 9,
-          shortcutEntries: [
-            dashboardEntry,
-            profileEntry,
-            notificationEntry,
-            approvalEntry,
-            fundOverviewEntry,
-            {
-              code: MenuCode.FUND_APPLICATION,
-              label: '费用申请与报销',
-              path: '/funds/applications',
-            },
-            {
-              code: MenuCode.SYSTEM_CONFIG,
-              label: '系统配置',
-              path: '/system/configuration',
-            },
-            {
-              code: MenuCode.HEALTH,
-              label: '系统健康检查',
-              path: '/system/health',
-            },
-          ],
-        };
       case RoleCode.MINISTER:
+        return {
+          todoCount: 5,
+          shortcutEntries: [dashboardEntry, profileEntry, orgOverviewEntry, notificationEntry, approvalEntry],
+        };
       case RoleCode.GROUP_LEADER:
         return {
           todoCount: 5,

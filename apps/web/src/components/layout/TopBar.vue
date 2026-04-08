@@ -2,7 +2,7 @@
 import { fetchNotifications } from '@web/api/system';
 import { useAuthStore } from '@web/stores/auth';
 import { ElMessage } from 'element-plus';
-import { onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 
 const authStore = useAuthStore();
@@ -10,6 +10,8 @@ const router = useRouter();
 const switchingRole = ref(false);
 const selectedRoleCode = ref(authStore.activeRoleCode);
 const unreadCount = ref(0);
+
+const visibleRoleOptions = computed(() => authStore.roleOptions);
 
 watch(
   () => authStore.activeRoleCode,
@@ -72,7 +74,7 @@ onMounted(() => {
 <template>
   <header class="topbar">
     <div>
-      <p class="topbar__eyebrow">Lab Management Foundation</p>
+      <p class="topbar__eyebrow">智能制造工坊</p>
       <h1 class="topbar__title">实验室管理系统</h1>
     </div>
     <div class="topbar__actions">
@@ -83,7 +85,7 @@ onMounted(() => {
         placeholder="切换角色"
       >
         <el-option
-          v-for="role in authStore.roleOptions"
+          v-for="role in visibleRoleOptions"
           :key="role.roleCode"
           :label="`${role.roleName} / ${role.dataScope}`"
           :value="role.roleCode"
