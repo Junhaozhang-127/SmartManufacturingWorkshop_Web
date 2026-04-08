@@ -144,16 +144,4 @@ export class MemberController {
   ) {
     return this.memberService.withdrawRegularization(currentUser, id, dataScopeContext, payload);
   }
-
-  @Get('member-transfers/reserved')
-  @RequirePermissions(PermissionCodes.memberListView)
-  getReservedTransferFeature() {
-    return this.memberService.getReservedTransferFeature();
-  }
-
-  @Get('member-exits/reserved')
-  @RequirePermissions(PermissionCodes.memberListView)
-  getReservedExitFeature() {
-    return this.memberService.getReservedExitFeature();
-  }
 }

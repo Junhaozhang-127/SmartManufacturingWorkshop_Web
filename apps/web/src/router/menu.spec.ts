@@ -17,36 +17,35 @@ describe('filterMenuByAccess', () => {
     expect(result.map((item) => item.key)).toEqual(['1', '3']);
   });
 
-  it('includes approval center and demo entry when approval permissions are present', () => {
+  it('filters menu items against the updated access model', () => {
     const result = filterMenuByAccess(
       adminMenu,
       [
         PermissionCodes.systemDashboardView,
+        PermissionCodes.profileView,
         PermissionCodes.memberListView,
         PermissionCodes.evaluationView,
         PermissionCodes.promotionView,
+        PermissionCodes.fundView,
         PermissionCodes.competitionView,
         PermissionCodes.achievementView,
         PermissionCodes.approvalCenterView,
-        PermissionCodes.approvalCreate,
       ],
-      RoleCode.MEMBER,
+      RoleCode.TEACHER,
     );
 
     expect(result.map((item) => item.key)).toEqual([
       'dashboard',
+      'profile',
       'member-archive',
       'member-regularization',
       'evaluation-score',
       'promotion-eligibility',
       'promotion-application',
-      'member-transfer',
-      'member-exit',
+      'fund-overview',
       'competition-library',
       'achievement-list',
       'approval-center',
-      'approval-demo',
-      'examples',
     ]);
   });
 });

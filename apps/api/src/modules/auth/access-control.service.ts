@@ -100,7 +100,7 @@ export class AccessControlService {
     });
 
     if (!user || user.isDeleted || user.statusCode !== 'ACTIVE') {
-      throw new UnauthorizedException('当前用户状态不可用');
+      throw new UnauthorizedException('褰撳墠鐢ㄦ埛鐘舵€佷笉鍙敤');
     }
 
     return this.buildCurrentUserProfile(user, payload.activeRoleCode);
@@ -114,7 +114,7 @@ export class AccessControlService {
     const resolvedActiveRole = roleOptions.find((role) => role.roleCode === activeRoleCode) ?? roleOptions[0];
 
     if (!resolvedActiveRole) {
-      throw new ForbiddenException('当前用户未分配角色');
+      throw new ForbiddenException('褰撳墠鐢ㄦ埛鏈垎閰嶈鑹?');
     }
 
     const orgProfile = this.buildOrgProfile(user);
@@ -143,7 +143,7 @@ export class AccessControlService {
     const missingPermission = permissions.find((permission) => !currentUser.permissions.includes(permission));
 
     if (missingPermission) {
-      throw new ForbiddenException(`缺少权限: ${missingPermission}`);
+      throw new ForbiddenException(`缂哄皯鏉冮檺: ${missingPermission}`);
     }
   }
 
@@ -223,66 +223,86 @@ export class AccessControlService {
   }
 
   private buildDashboardSummary(roleCode: RoleCode): DashboardSummaryMock {
+    const dashboardEntry = {
+      code: MenuCode.DASHBOARD,
+      label: '绯荤粺椹鹃┒鑸?',
+      path: '/',
+    };
     const approvalEntry = {
       code: MenuCode.APPROVAL_CENTER,
-      label: '统一审批中心',
+      label: '缁熶竴瀹℃壒涓績',
       path: '/workflow/approval-center',
     };
     const profileEntry = {
       code: MenuCode.PROFILE,
-      label: '个人中心',
+      label: '涓汉涓績',
       path: '/profile',
     };
     const notificationEntry = {
       code: MenuCode.NOTIFICATIONS,
-      label: '通知消息',
+      label: '閫氱煡娑堟伅',
       path: '/notifications',
     };
-    const demoEntry = {
-      code: MenuCode.APPROVAL_DEMO,
-      label: '测试审批单',
-      path: '/workflow/demo-request',
+    const fundOverviewEntry = {
+      code: MenuCode.FUND_OVERVIEW,
+      label: '缁忚垂鎬昏',
+      path: '/funds/overview',
+    };
+    const promotionApplicationEntry = {
+      code: MenuCode.PROMOTION_APPLICATION,
+      label: '鏅嬪崌鐢宠涓庤瘎瀹?',
+      path: '/promotion/applications',
     };
 
     switch (roleCode) {
       case RoleCode.TEACHER:
+        return {
+          todoCount: 4,
+          shortcutEntries: [
+            dashboardEntry,
+            profileEntry,
+            notificationEntry,
+            approvalEntry,
+            promotionApplicationEntry,
+            fundOverviewEntry,
+          ],
+        };
       case RoleCode.LAB_LEADER:
         return {
           todoCount: 9,
           shortcutEntries: [
-            { code: MenuCode.DASHBOARD, label: '系统驾驶舱', path: '/' },
+            dashboardEntry,
             profileEntry,
             notificationEntry,
             approvalEntry,
-            demoEntry,
-            { code: MenuCode.SYSTEM_CONFIG, label: '系统配置', path: '/system/configuration' },
-            { code: MenuCode.MEMBER_EXAMPLES, label: '成员示例列表', path: '/system/examples' },
-            { code: MenuCode.HEALTH, label: '系统健康检查', path: '/system/health' },
+            fundOverviewEntry,
+            {
+              code: MenuCode.FUND_APPLICATION,
+              label: '璐圭敤鐢宠涓庢姤閿€',
+              path: '/funds/applications',
+            },
+            {
+              code: MenuCode.SYSTEM_CONFIG,
+              label: '绯荤粺閰嶇疆',
+              path: '/system/configuration',
+            },
+            {
+              code: MenuCode.HEALTH,
+              label: '绯荤粺鍋ュ悍妫€鏌?',
+              path: '/system/health',
+            },
           ],
         };
       case RoleCode.MINISTER:
       case RoleCode.GROUP_LEADER:
         return {
           todoCount: 5,
-          shortcutEntries: [
-            { code: MenuCode.DASHBOARD, label: '角色驾驶舱', path: '/' },
-            profileEntry,
-            notificationEntry,
-            approvalEntry,
-            demoEntry,
-            { code: MenuCode.MEMBER_EXAMPLES, label: '成员示例列表', path: '/system/examples' },
-          ],
+          shortcutEntries: [dashboardEntry, profileEntry, notificationEntry, approvalEntry],
         };
       default:
         return {
           todoCount: 2,
-          shortcutEntries: [
-            { code: MenuCode.DASHBOARD, label: '个人驾驶舱', path: '/' },
-            profileEntry,
-            notificationEntry,
-            approvalEntry,
-            demoEntry,
-          ],
+          shortcutEntries: [dashboardEntry, profileEntry, notificationEntry, approvalEntry],
         };
     }
   }

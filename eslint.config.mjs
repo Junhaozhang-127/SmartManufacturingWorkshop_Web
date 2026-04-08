@@ -8,6 +8,7 @@ import prettier from 'eslint-config-prettier';
 
 const tsFiles = ['**/*.{ts,tsx,mts,cts}'];
 const vueFiles = ['**/*.vue'];
+const jsFiles = ['**/*.{js,mjs,cjs}'];
 
 export default tseslint.config(
   {
@@ -27,8 +28,24 @@ export default tseslint.config(
     ],
   },
   js.configs.recommended,
-  ...tseslint.configs.recommendedTypeChecked,
+  ...tseslint.configs.recommendedTypeChecked.map((config) => ({
+    ...config,
+    files: config.files ?? tsFiles,
+  })),
   ...pluginVue.configs['flat/recommended'],
+  {
+    files: jsFiles,
+    ...tseslint.configs.disableTypeChecked,
+    languageOptions: {
+      ...tseslint.configs.disableTypeChecked.languageOptions,
+      globals: {
+        ...globals.node,
+      },
+    },
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off',
+    },
+  },
   {
     files: tsFiles,
     languageOptions: {

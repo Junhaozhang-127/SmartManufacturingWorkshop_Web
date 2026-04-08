@@ -6,8 +6,8 @@ describe('resolveAuthNavigation', () => {
   it('redirects unauthenticated users to login', () => {
     const result = resolveAuthNavigation(
       {
-        path: '/system/examples',
-        fullPath: '/system/examples',
+        path: '/notifications',
+        fullPath: '/notifications',
         meta: { requiresAuth: true },
       },
       {
@@ -21,7 +21,7 @@ describe('resolveAuthNavigation', () => {
     expect(result).toEqual({
       path: '/login',
       query: {
-        redirect: '/system/examples',
+        redirect: '/notifications',
       },
     });
   });
@@ -29,8 +29,8 @@ describe('resolveAuthNavigation', () => {
   it('redirects forced-password users to change-password', () => {
     const result = resolveAuthNavigation(
       {
-        path: '/system/examples',
-        fullPath: '/system/examples',
+        path: '/notifications',
+        fullPath: '/notifications',
         meta: { requiresAuth: true },
       },
       {
@@ -44,7 +44,7 @@ describe('resolveAuthNavigation', () => {
     expect(result).toEqual({
       path: '/change-password',
       query: {
-        redirect: '/system/examples',
+        redirect: '/notifications',
       },
     });
   });

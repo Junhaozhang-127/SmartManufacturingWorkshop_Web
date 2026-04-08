@@ -385,7 +385,7 @@ describe('App e2e', () => {
   it('blocks first-login users from protected business endpoints before password change', async () => {
     const loginResponse = await loginAs('leader01');
     const response = await request(app.getHttpServer())
-      .get('/api/examples/members')
+      .get('/api/members')
       .set('Authorization', `Bearer ${loginResponse.body.data.token}`);
 
     expect(response.status).toBe(403);
@@ -395,7 +395,7 @@ describe('App e2e', () => {
   it('returns self-scoped member data for member role', async () => {
     const loginResponse = await loginAs('member01');
     const response = await request(app.getHttpServer())
-      .get('/api/examples/members')
+      .get('/api/members')
       .set('Authorization', `Bearer ${loginResponse.body.data.token}`);
 
     expect(response.status).toBe(200);
@@ -407,7 +407,7 @@ describe('App e2e', () => {
     const ministerToken = loginResponse.body.data.token as string;
 
     const ministerListResponse = await request(app.getHttpServer())
-      .get('/api/examples/members')
+      .get('/api/members')
       .set('Authorization', `Bearer ${ministerToken}`);
 
     expect(ministerListResponse.status).toBe(200);
@@ -423,7 +423,7 @@ describe('App e2e', () => {
 
     const groupToken = switchRoleResponse.body.data.token as string;
     const groupListResponse = await request(app.getHttpServer())
-      .get('/api/examples/members')
+      .get('/api/members')
       .set('Authorization', `Bearer ${groupToken}`);
 
     expect(groupListResponse.status).toBe(200);

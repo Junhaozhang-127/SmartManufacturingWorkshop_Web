@@ -28,21 +28,21 @@ export class FinanceController {
   }
 
   @Get('accounts')
-  @RequirePermissions(PermissionCodes.fundView)
+  @RequirePermissions(PermissionCodes.fundCreate)
   @RequireDataScope()
   listAccounts(@DataScopeContextParam() dataScopeContext: DataScopeContext) {
     return this.financeService.listAccounts(dataScopeContext);
   }
 
   @Get('applications')
-  @RequirePermissions(PermissionCodes.fundView)
+  @RequirePermissions(PermissionCodes.fundCreate)
   @RequireDataScope()
   listApplications(@Query() query: FundApplicationQueryDto, @DataScopeContextParam() dataScopeContext: DataScopeContext) {
     return this.financeService.listApplications(query, dataScopeContext);
   }
 
   @Get('applications/:id')
-  @RequirePermissions(PermissionCodes.fundView)
+  @RequirePermissions(PermissionCodes.fundCreate)
   @RequireDataScope()
   getApplicationDetail(@Param('id') id: string, @DataScopeContextParam() dataScopeContext: DataScopeContext) {
     return this.financeService.getApplicationDetail(id, dataScopeContext);
@@ -72,7 +72,7 @@ export class FinanceController {
   }
 
   @Get('projects/:projectId')
-  @RequirePermissions(PermissionCodes.fundView)
+  @RequirePermissions(PermissionCodes.fundCreate)
   @RequireDataScope()
   getProjectDetail(@Param('projectId') projectId: string, @DataScopeContextParam() dataScopeContext: DataScopeContext) {
     return this.financeService.getProjectDetail(projectId, dataScopeContext);

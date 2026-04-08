@@ -1,12 +1,16 @@
 <script setup lang="ts">
+import { PermissionCodes } from '@smw/shared';
 import { fetchFundOverview } from '@web/api/finance';
+import { useAuthStore } from '@web/stores/auth';
 import { ElMessage } from 'element-plus';
 import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 const router = useRouter();
+const authStore = useAuthStore();
 const loading = ref(false);
 const summary = ref<Awaited<ReturnType<typeof fetchFundOverview>>['data'] | null>(null);
+const canManageFunds = authStore.permissions.includes(PermissionCodes.fundCreate);
 
 async function load() {
   loading.value = true;
@@ -25,11 +29,12 @@ function openApprovalCenter() {
 }
 
 function openApplications() {
+  if (!canManageFunds) return;
   void router.push({ name: 'funds.applications' });
 }
 
 function openProject(projectId: string | null) {
-  if (!projectId) return;
+  if (!canManageFunds || !projectId) return;
   void router.push({ name: 'projects.detail', params: { projectId } });
 }
 
@@ -43,7 +48,7 @@ onMounted(() => {
     <div class="hero-card">
       <p class="hero-card__eyebrow">FIN-01 Overview</p>
       <h2>经费总览</h2>
-      <p>聚合预算总额、预占、已用、已支付和待审批入口。P0 保持经费账户与申请单闭环，审批统一复用审批中心。</p>
+      <p>展示预算、预占、已用、可用余额，以及最近申请和待审批数量。</p>
     </div>
 
     <div v-if="summary" class="metrics-grid">
@@ -69,9 +74,9 @@ onMounted(() => {
       <div class="panel-card__header">
         <div>
           <p class="panel-card__eyebrow">Budget Cards</p>
-          <h2>预算卡片</h2>
+          <h2>账户卡片</h2>
         </div>
-        <el-button type="primary" @click="openApplications">进入申请页</el-button>
+        <el-button v-if="canManageFunds" type="primary" @click="openApplications">进入申请页</el-button>
       </div>
       <el-row :gutter="16">
         <el-col v-for="item in summary?.accountCards || []" :key="item.id" :xs="24" :sm="12" :lg="8">
@@ -84,7 +89,9 @@ onMounted(() => {
             <p>预算 {{ item.totalBudget.toFixed(2) }} / 可用 {{ item.availableAmount.toFixed(2) }}</p>
             <p>预占 {{ item.reservedAmount.toFixed(2) }} / 已用 {{ item.usedAmount.toFixed(2) }}</p>
             <div class="sub-card__actions">
-              <el-button v-if="item.projectId" link type="primary" @click="openProject(item.projectId)">项目详情</el-button>
+              <el-button v-if="canManageFunds && item.projectId" link type="primary" @click="openProject(item.projectId)">
+                项目详情
+              </el-button>
             </div>
           </div>
         </el-col>

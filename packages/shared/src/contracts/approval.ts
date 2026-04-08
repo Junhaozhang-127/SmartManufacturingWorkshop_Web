@@ -86,13 +86,3 @@ export interface ApprovalDashboardSummary {
   pendingItems: ApprovalListItem[];
   processedItems: ApprovalListItem[];
 }
-
-export interface DemoApprovalFormItem {
-  id: string;
-  title: string;
-  reason: string;
-  statusCode: string;
-  approvalInstanceId: string | null;
-  createdAt: string;
-  updatedAt: string;
-}

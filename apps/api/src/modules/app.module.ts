@@ -7,7 +7,6 @@ import { AuthModule } from './auth/auth.module';
 import { CompetitionAchievementModule } from './competition-achievement/competition-achievement.module';
 import { DeviceModule } from './device/device.module';
 import { EvaluationPromotionModule } from './evaluation-promotion/evaluation-promotion.module';
-import { ExampleModule } from './example/example.module';
 import { FileModule } from './file/file.module';
 import { FinanceModule } from './finance/finance.module';
 import { HealthModule } from './health/health.module';
@@ -27,7 +26,6 @@ import { SystemModule } from './system/system.module';
     FileModule,
     FinanceModule,
     AuthModule,
-    ExampleModule,
     MemberModule,
     InventoryModule,
     CompetitionAchievementModule,

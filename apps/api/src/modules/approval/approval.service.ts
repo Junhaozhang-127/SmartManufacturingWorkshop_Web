@@ -39,7 +39,6 @@ import {
 import type { ApprovalCenterQueryDto } from './dto/approval-center-query.dto';
 import type { ApprovalCommentDto } from './dto/approval-comment.dto';
 import type { ApprovalTransferDto } from './dto/approval-transfer.dto';
-import type { CreateDemoApprovalDto } from './dto/create-demo-approval.dto';
 
 type ApprovalInstanceRecord = Prisma.WfApprovalInstanceGetPayload<{
   include: {
@@ -107,40 +106,6 @@ type ApprovalActionRecord = Prisma.WfApprovalInstanceGetPayload<{
 export class ApprovalService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async createDemoApproval(currentUser: CurrentUserProfile, payload: CreateDemoApprovalDto) {
-    return this.prisma.$transaction(async (tx) => {
-      const form = await tx.demoApprovalForm.create({
-        data: {
-          title: payload.title.trim(),
-          reason: payload.reason.trim(),
-          statusCode: 'IN_APPROVAL',
-          applicantUserId: this.toBigInt(currentUser.id),
-        },
-      });
-
-      const instance = await this.startBusinessApproval(tx, {
-        businessType: ApprovalBusinessType.DEMO_REQUEST,
-        businessId: String(form.id),
-        title: payload.title.trim(),
-        applicantUserId: this.toBigInt(currentUser.id),
-        applicantRoleCode: currentUser.activeRole.roleCode,
-        formData: {
-          title: payload.title.trim(),
-          reason: payload.reason.trim(),
-        },
-      });
-
-      const updated = await tx.demoApprovalForm.update({
-        where: { id: form.id },
-        data: {
-          approvalInstanceId: instance.id,
-        },
-      });
-
-      return this.mapDemoForm(updated);
-    });
-  }
-
   async startBusinessApproval(
     tx: Prisma.TransactionClient,
     payload: {
@@ -153,19 +118,6 @@ export class ApprovalService {
     },
   ) {
     return this.startApproval(tx, payload);
-  }
-
-  async listMyDemoApprovals(currentUser: CurrentUserProfile) {
-    const items = await this.prisma.demoApprovalForm.findMany({
-      where: {
-        applicantUserId: this.toBigInt(currentUser.id),
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
-
-    return items.map((item) => this.mapDemoForm(item));
   }
 
   async getApprovalList(currentUser: CurrentUserProfile, query: ApprovalCenterQueryDto): Promise<ApprovalListResult> {
@@ -1158,25 +1110,6 @@ export class ApprovalService {
     };
   }
 
-  private mapDemoForm(item: {
-    id: bigint;
-    title: string;
-    reason: string;
-    statusCode: string;
-    approvalInstanceId: bigint | null;
-    createdAt: Date;
-    updatedAt: Date;
-  }) {
-    return {
-      id: String(item.id),
-      title: item.title,
-      reason: item.reason,
-      statusCode: item.statusCode,
-      approvalInstanceId: item.approvalInstanceId ? String(item.approvalInstanceId) : null,
-      createdAt: item.createdAt.toISOString(),
-      updatedAt: item.updatedAt.toISOString(),
-    };
-  }
 
   private async appendLog(
     tx: Prisma.TransactionClient,

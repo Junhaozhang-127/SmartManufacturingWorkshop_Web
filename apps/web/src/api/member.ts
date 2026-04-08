@@ -105,11 +105,3 @@ export async function rejectRegularization(id: string, comment: string) {
 export async function withdrawRegularization(id: string, comment: string) {
   return http.post<never, { data: ApprovalDetail }>(`/member-regularizations/${id}/withdraw`, { comment });
 }
-
-export async function fetchReservedTransferFeature() {
-  return http.get<never, { data: { feature: string; status: string; message: string } }>('/member-transfers/reserved');
-}
-
-export async function fetchReservedExitFeature() {
-  return http.get<never, { data: { feature: string; status: string; message: string } }>('/member-exits/reserved');
-}

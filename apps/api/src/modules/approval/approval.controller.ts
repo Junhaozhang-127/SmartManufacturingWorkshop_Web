@@ -8,7 +8,6 @@ import { ApprovalService } from './approval.service';
 import { ApprovalCenterQueryDto } from './dto/approval-center-query.dto';
 import { ApprovalCommentDto } from './dto/approval-comment.dto';
 import { ApprovalTransferDto } from './dto/approval-transfer.dto';
-import { CreateDemoApprovalDto } from './dto/create-demo-approval.dto';
 
 @Controller()
 @UseGuards(AuthGuard, PermissionGuard)
@@ -87,17 +86,5 @@ export class ApprovalController {
   @RequirePermissions(PermissionCodes.systemDashboardView)
   summary(@CurrentUser() currentUser: CurrentUserProfile) {
     return this.approvalService.getDashboardSummary(currentUser);
-  }
-
-  @Post('approval-demo-forms')
-  @RequirePermissions(PermissionCodes.approvalCreate)
-  createDemo(@CurrentUser() currentUser: CurrentUserProfile, @Body() payload: CreateDemoApprovalDto) {
-    return this.approvalService.createDemoApproval(currentUser, payload);
-  }
-
-  @Get('approval-demo-forms/mine')
-  @RequirePermissions(PermissionCodes.approvalCreate)
-  myDemoForms(@CurrentUser() currentUser: CurrentUserProfile) {
-    return this.approvalService.listMyDemoApprovals(currentUser);
   }
 }

@@ -3,7 +3,6 @@ import type {
   ApprovalDashboardSummary,
   ApprovalDetail,
   ApprovalListResult,
-  DemoApprovalFormItem,
 } from '@smw/shared';
 
 import { http } from './client';
@@ -51,12 +50,4 @@ export async function withdrawApproval(id: string, comment: string) {
 
 export async function fetchApprovalDashboardSummary() {
   return http.get<never, { data: ApprovalDashboardSummary }>('/dashboard/approval-summary');
-}
-
-export async function createDemoApproval(title: string, reason: string) {
-  return http.post<never, { data: DemoApprovalFormItem }>('/approval-demo-forms', { title, reason });
-}
-
-export async function fetchMyDemoApprovals() {
-  return http.get<never, { data: DemoApprovalFormItem[] }>('/approval-demo-forms/mine');
 }
