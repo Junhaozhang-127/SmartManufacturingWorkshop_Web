@@ -4,7 +4,7 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import { type AuthLoginRequest, type AuthRegisterRequest, type ChangePasswordRequest, RoleCode } from '@smw/shared';
+import { type AuthLoginRequest, type AuthRegisterRequest, type ChangePasswordRequest, MemberStatus, RoleCode } from '@smw/shared';
 import bcrypt from 'bcryptjs';
 
 import { AccessControlService } from './access-control.service';
@@ -78,6 +78,37 @@ export class AuthService {
 
     const passwordHash = await bcrypt.hash(payload.password, 10);
 
+    const defaultOrgUnit =
+      (await this.prisma.orgUnit.findFirst({
+        where: {
+          isDeleted: false,
+          statusCode: 'ACTIVE',
+          unitCode: 'FE_GROUP',
+        },
+        select: { id: true },
+      })) ??
+      (await this.prisma.orgUnit.findFirst({
+        where: {
+          isDeleted: false,
+          statusCode: 'ACTIVE',
+          unitType: 'GROUP',
+        },
+        orderBy: { id: 'asc' },
+        select: { id: true },
+      })) ??
+      (await this.prisma.orgUnit.findFirst({
+        where: {
+          isDeleted: false,
+          statusCode: 'ACTIVE',
+        },
+        orderBy: { id: 'asc' },
+        select: { id: true },
+      }));
+
+    if (!defaultOrgUnit) {
+      throw new BadRequestException('Default org unit is not configured');
+    }
+
     await this.prisma.$transaction(async (tx) => {
       const user = await tx.sysUser.create({
         data: {
@@ -95,6 +126,16 @@ export class AuthService {
         data: {
           userId: user.id,
           roleId: internRole.id,
+        },
+      });
+
+      await tx.memberProfile.create({
+        data: {
+          userId: user.id,
+          orgUnitId: defaultOrgUnit.id,
+          positionCode: 'INTERN',
+          joinDate: new Date(),
+          memberStatus: MemberStatus.INTERN,
         },
       });
     });

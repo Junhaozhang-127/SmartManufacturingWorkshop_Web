@@ -36,6 +36,10 @@ export function resolveAuthNavigation(
   }
 
   if (!auth.isAuthenticated) {
+    if (to.path === '/') {
+      return { path: '/portal' };
+    }
+
     return {
       path: '/login',
       query: {

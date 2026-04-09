@@ -1,5 +1,5 @@
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
-import { type CurrentUserProfile, DataScope, RoleCode } from '@smw/shared';
+import { type CurrentUserProfile, DataScope, MemberStatus, RoleCode } from '@smw/shared';
 import bcrypt from 'bcryptjs';
 
 import type { PrismaService } from '../prisma/prisma.service';
@@ -128,6 +128,83 @@ describe('AuthService', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  it('registers user and creates member profile for archive list', async () => {
+    jest.spyOn(bcrypt, 'hash').mockImplementation(() => Promise.resolve('hashed-password'));
+
+    const tx = {
+      sysUser: {
+        create: jest.fn().mockResolvedValue({ id: 100n }),
+      },
+      sysUserRole: {
+        create: jest.fn().mockResolvedValue(undefined),
+      },
+      memberProfile: {
+        create: jest.fn().mockResolvedValue(undefined),
+      },
+    };
+
+    const prisma = {
+      sysUser: {
+        findUnique: jest.fn().mockResolvedValue(null),
+      },
+      sysRole: {
+        findUnique: jest.fn().mockResolvedValue({ id: 10n }),
+      },
+      orgUnit: {
+        findFirst: jest
+          .fn()
+          .mockResolvedValueOnce(null)
+          .mockResolvedValueOnce({ id: 20n }),
+      },
+      $transaction: jest.fn(async (handler: (client: typeof tx) => Promise<void>) => handler(tx)),
+    };
+
+    const service = new AuthService(
+      prisma as unknown as PrismaService,
+      {} as unknown as AccessControlService,
+      {} as unknown as AccessTokenService,
+    );
+
+    await expect(
+      service.register({
+        username: 'new-user',
+        displayName: 'New User',
+        password: '123456',
+      }),
+    ).resolves.toEqual({ success: true });
+
+    expect(tx.sysUser.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          username: 'new-user',
+          displayName: 'New User',
+          passwordHash: 'hashed-password',
+        }),
+      }),
+    );
+
+    expect(tx.sysUserRole.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          userId: 100n,
+          roleId: 10n,
+        }),
+      }),
+    );
+
+    expect(tx.memberProfile.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          userId: 100n,
+          orgUnitId: 20n,
+          positionCode: 'INTERN',
+          memberStatus: MemberStatus.INTERN,
+          joinDate: expect.any(Date),
+        }),
+      }),
+    );
   });
 
   it('logs in successfully and updates last login time', async () => {

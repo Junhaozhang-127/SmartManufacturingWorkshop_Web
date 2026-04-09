@@ -49,6 +49,16 @@ const routes: RouteRecordRaw[] = [
     },
   },
   {
+    path: '/portal',
+    name: 'portal.home',
+    component: () => import('@web/views/HomePortalPage.vue'),
+    meta: {
+      title: '门户首页',
+      requiresAuth: false,
+      allowFirstLoginBypass: true,
+    },
+  },
+  {
     path: '/',
     component: () => import('@web/layouts/AdminLayout.vue'),
     meta: {
