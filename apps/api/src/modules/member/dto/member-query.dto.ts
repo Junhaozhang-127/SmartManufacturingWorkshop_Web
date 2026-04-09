@@ -1,5 +1,5 @@
 import { Transform } from 'class-transformer';
-import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsBoolean, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 
 export class MemberQueryDto {
   @Transform(({ value }) => {
@@ -35,4 +35,9 @@ export class MemberQueryDto {
   @IsOptional()
   @IsString()
   statusCode?: string;
+
+  @Transform(({ value }) => value === true || value === 'true' || value === '1')
+  @IsOptional()
+  @IsBoolean()
+  viewAll?: boolean;
 }

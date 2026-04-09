@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import type { MemberListItem } from '@smw/shared';
-import { fetchMemberList } from '@web/api/member';
+import type { MemberListItem, MemberListResult } from '@smw/shared';
+import { http } from '@web/api/client';
 import { ElMessage } from 'element-plus';
 import { onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
@@ -40,7 +40,14 @@ function resolveTagType(statusCode: string) {
 async function load() {
   loading.value = true;
   try {
-    const response = await fetchMemberList(query);
+    const response = await http.get<never, { data: MemberListResult }>('/members', {
+      params: {
+        ...query,
+        viewAll: true,
+        memberStatus: query.statusCode || undefined,
+        statusCode: undefined,
+      },
+    });
     rows.value = response.data.items;
     total.value = response.data.meta.total;
   } catch (error) {
@@ -62,7 +69,7 @@ onMounted(load);
     <div class="hero-card">
       <p class="hero-card__eyebrow">成员档案</p>
       <h2>成员档案列表</h2>
-      <p>支持搜索、筛选、分页和状态标签，并按角色自动收敛到全局、部门、组或本人范围。</p>
+      <p>支持搜索、筛选、分页和状态标签，所有身份默认展示全部成员档案列表。</p>
     </div>
 
     <div class="panel-card">
@@ -76,7 +83,6 @@ onMounted(load);
 
       <el-table v-loading="loading" :data="rows" border stripe>
         <el-table-column prop="displayName" label="姓名" min-width="120" />
-        <el-table-column prop="username" label="账号" min-width="120" />
         <el-table-column label="状态" width="140">
           <template #default="{ row }">
             <el-tag :type="resolveTagType(row.statusCode)">{{ row.statusCode }}</el-tag>
@@ -84,14 +90,6 @@ onMounted(load);
         </el-table-column>
         <el-table-column prop="orgUnitName" label="组织" min-width="150" />
         <el-table-column prop="positionCode" label="岗位" min-width="120" />
-        <el-table-column prop="mentorName" label="带教" min-width="120" />
-        <el-table-column label="技能标签" min-width="180">
-          <template #default="{ row }">
-            <el-tag v-for="tag in row.skillTags" :key="tag" class="tag-spacing" effect="plain">
-              {{ tag }}
-            </el-tag>
-          </template>
-        </el-table-column>
         <el-table-column label="操作" width="120" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click="openDetail(row)">详情</el-button>

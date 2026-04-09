@@ -1,5 +1,5 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
-import { type CurrentUserProfile, type DataScopeContext, PermissionCodes } from '@smw/shared';
+import { Body, Controller, ForbiddenException, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { type CurrentUserProfile, DataScope, type DataScopeContext, PermissionCodes, RoleCode } from '@smw/shared';
 
 import { ApprovalCommentDto } from '../approval/dto/approval-comment.dto';
 import {
@@ -24,6 +24,12 @@ import { MemberService } from './member.service';
 export class MemberController {
   constructor(private readonly memberService: MemberService) {}
 
+  private assertArchiveWritable(currentUser: CurrentUserProfile) {
+    if (![RoleCode.MINISTER, RoleCode.TEACHER].includes(currentUser.activeRole.roleCode)) {
+      throw new ForbiddenException('仅部长和老师允许修改成员档案');
+    }
+  }
+
   @Get('org-units/tree')
   @RequirePermissions(PermissionCodes.orgTreeView)
   @RequireDataScope()
@@ -34,8 +40,14 @@ export class MemberController {
   @Get('members')
   @RequirePermissions(PermissionCodes.memberListView)
   @RequireDataScope()
-  listMembers(@Query() query: MemberQueryDto, @DataScopeContextParam() dataScopeContext: DataScopeContext) {
-    return this.memberService.listMembers(query, dataScopeContext);
+  listMembers(
+    @Query() query: MemberQueryDto,
+    @Query('viewAll') viewAll: string | undefined,
+    @DataScopeContextParam() dataScopeContext: DataScopeContext,
+  ) {
+    const shouldViewAll = query.viewAll || viewAll === 'true' || viewAll === '1';
+    const effectiveContext = shouldViewAll ? { ...dataScopeContext, scope: DataScope.ALL } : dataScopeContext;
+    return this.memberService.listMembers(query, effectiveContext);
   }
 
   @Get('members/:id')
@@ -44,9 +56,12 @@ export class MemberController {
   getMemberDetail(
     @CurrentUser() currentUser: CurrentUserProfile,
     @Param('id') id: string,
+    @Query('viewAll') viewAll: string | undefined,
     @DataScopeContextParam() dataScopeContext: DataScopeContext,
   ) {
-    return this.memberService.getMemberDetail(currentUser, id, dataScopeContext);
+    const effectiveContext =
+      viewAll === 'true' || viewAll === '1' ? { ...dataScopeContext, scope: DataScope.ALL } : dataScopeContext;
+    return this.memberService.getMemberDetail(currentUser, id, effectiveContext);
   }
 
   @Patch('members/:id')
@@ -58,7 +73,8 @@ export class MemberController {
     @DataScopeContextParam() dataScopeContext: DataScopeContext,
     @Body() payload: UpdateMemberDto,
   ) {
-    return this.memberService.updateMember(currentUser, id, dataScopeContext, payload);
+    this.assertArchiveWritable(currentUser);
+    return this.memberService.updateMember(currentUser, id, { ...dataScopeContext, scope: DataScope.ALL }, payload);
   }
 
   @Post('members/:id/mentor-binding')
@@ -70,7 +86,8 @@ export class MemberController {
     @DataScopeContextParam() dataScopeContext: DataScopeContext,
     @Body() payload: BindMentorDto,
   ) {
-    return this.memberService.bindMentor(currentUser, id, dataScopeContext, payload);
+    this.assertArchiveWritable(currentUser);
+    return this.memberService.bindMentor(currentUser, id, { ...dataScopeContext, scope: DataScope.ALL }, payload);
   }
 
   @Post('members/:id/stage-evaluations')

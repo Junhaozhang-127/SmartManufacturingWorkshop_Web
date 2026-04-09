@@ -100,6 +100,7 @@ export const adminMenu: AppMenuItem[] = [
     path: '/workflow/approval-center',
     icon: 'Finished',
     permissions: [PermissionCodes.approvalCenterView],
+    roles: [RoleCodeEnum.TEACHER, RoleCodeEnum.MINISTER, RoleCodeEnum.GROUP_LEADER],
   },
   {
     key: 'notifications',

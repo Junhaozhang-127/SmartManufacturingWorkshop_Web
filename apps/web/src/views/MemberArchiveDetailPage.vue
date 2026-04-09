@@ -1,21 +1,23 @@
 <script setup lang="ts">
-import { PermissionCodes } from '@smw/shared';
-import { bindMentor, createStageEvaluation, fetchMemberDetail, updateMember } from '@web/api/member';
-import { useAuthz } from '@web/composables/useAuthz';
+import type { MemberDetail } from '@smw/shared';
+import { PermissionCodes, RoleCode } from '@smw/shared';
+import { http } from '@web/api/client';
+import { bindMentor, createStageEvaluation, updateMember } from '@web/api/member';
+import { useAuthStore } from '@web/stores/auth';
 import { ElMessage } from 'element-plus';
 import { computed, onMounted, reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 const route = useRoute();
 const router = useRouter();
-const { hasPermission } = useAuthz();
+const authStore = useAuthStore();
 
 const loading = ref(false);
 const editVisible = ref(false);
 const mentorVisible = ref(false);
 const evaluationVisible = ref(false);
 const submitting = ref(false);
-const detail = ref<Awaited<ReturnType<typeof fetchMemberDetail>>['data'] | null>(null);
+const detail = ref<MemberDetail | null>(null);
 
 const editForm = reactive({
   positionCode: '',
@@ -36,14 +38,19 @@ const evaluationForm = reactive({
   nextAction: '',
 });
 
-const canEdit = computed(() => hasPermission(PermissionCodes.memberUpdate));
-const canEvaluate = computed(() => hasPermission(PermissionCodes.memberApprove));
+const canMutate = computed(() =>
+  [RoleCode.MINISTER, RoleCode.TEACHER].includes(authStore.activeRoleCode ?? RoleCode.INTERN),
+);
+const canEdit = computed(() => canMutate.value && authStore.permissions.includes(PermissionCodes.memberUpdate));
+const canEvaluate = computed(() => authStore.permissions.includes(PermissionCodes.memberApprove));
 const canViewFull = computed(() => detail.value?.canViewFull ?? false);
 
 async function load() {
   loading.value = true;
   try {
-    const response = await fetchMemberDetail(String(route.params.id));
+    const response = await http.get<never, { data: MemberDetail }>(`/members/${String(route.params.id)}`, {
+      params: { viewAll: true },
+    });
     detail.value = response.data;
     editForm.positionCode = response.data.positionCode;
     editForm.mobile = response.data.mobile ?? '';
@@ -58,6 +65,7 @@ async function load() {
 }
 
 async function submitEdit() {
+  if (!canEdit.value) return;
   if (!detail.value) return;
   submitting.value = true;
   try {
@@ -81,6 +89,7 @@ async function submitEdit() {
 }
 
 async function submitMentorBinding() {
+  if (!canEdit.value) return;
   if (!detail.value) return;
   submitting.value = true;
   try {
@@ -96,6 +105,7 @@ async function submitMentorBinding() {
 }
 
 async function submitEvaluation() {
+  if (!canEvaluate.value) return;
   if (!detail.value) return;
   submitting.value = true;
   try {
@@ -279,40 +289,40 @@ onMounted(() => {
     <el-dialog v-model="editVisible" title="编辑成员档案" width="32rem">
       <el-form label-position="top">
         <el-form-item label="岗位">
-          <el-input v-model="editForm.positionCode" />
+          <el-input v-model="editForm.positionCode" :disabled="!canEdit" />
         </el-form-item>
         <el-form-item label="手机号">
-          <el-input v-model="editForm.mobile" />
+          <el-input v-model="editForm.mobile" :disabled="!canEdit" />
         </el-form-item>
         <el-form-item label="邮箱">
-          <el-input v-model="editForm.email" />
+          <el-input v-model="editForm.email" :disabled="!canEdit" />
         </el-form-item>
         <el-form-item label="技能标签">
-          <el-input v-model="editForm.skillTagsText" placeholder="使用逗号分隔" />
+          <el-input v-model="editForm.skillTagsText" placeholder="使用逗号分隔" :disabled="!canEdit" />
         </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="editVisible = false">取消</el-button>
-        <el-button type="primary" :loading="submitting" @click="submitEdit">保存</el-button>
+        <el-button v-if="canEdit" type="primary" :loading="submitting" @click="submitEdit">保存</el-button>
       </template>
     </el-dialog>
 
     <el-dialog v-model="mentorVisible" title="导师绑定" width="28rem">
       <el-form label-position="top">
         <el-form-item label="导师用户 ID">
-          <el-input v-model="mentorForm.mentorUserId" placeholder="请输入导师用户 ID" />
+          <el-input v-model="mentorForm.mentorUserId" placeholder="请输入导师用户 ID" :disabled="!canEdit" />
         </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="mentorVisible = false">取消</el-button>
-        <el-button type="primary" :loading="submitting" @click="submitMentorBinding">保存</el-button>
+        <el-button v-if="canEdit" type="primary" :loading="submitting" @click="submitMentorBinding">保存</el-button>
       </template>
     </el-dialog>
 
     <el-dialog v-model="evaluationVisible" title="新增阶段评价" width="34rem">
       <el-form label-position="top">
         <el-form-item label="阶段">
-          <el-select v-model="evaluationForm.stageCode" style="width: 100%">
+          <el-select v-model="evaluationForm.stageCode" style="width: 100%" :disabled="!canEvaluate">
             <el-option label="入组" value="ONBOARDING" />
             <el-option label="首月" value="FIRST_MONTH" />
             <el-option label="中期" value="MID_TERM" />
@@ -320,25 +330,25 @@ onMounted(() => {
           </el-select>
         </el-form-item>
         <el-form-item label="评价摘要">
-          <el-input v-model="evaluationForm.summary" type="textarea" :rows="4" />
+          <el-input v-model="evaluationForm.summary" type="textarea" :rows="4" :disabled="!canEvaluate" />
         </el-form-item>
         <el-form-item label="评分">
-          <el-input-number v-model="evaluationForm.score" :min="0" :max="100" />
+          <el-input-number v-model="evaluationForm.score" :min="0" :max="100" :disabled="!canEvaluate" />
         </el-form-item>
         <el-form-item label="结果">
-          <el-select v-model="evaluationForm.resultCode" style="width: 100%">
+          <el-select v-model="evaluationForm.resultCode" style="width: 100%" :disabled="!canEvaluate">
             <el-option label="通过" value="PASS" />
             <el-option label="观察" value="OBSERVE" />
             <el-option label="待改进" value="IMPROVE" />
           </el-select>
         </el-form-item>
         <el-form-item label="下一步建议">
-          <el-input v-model="evaluationForm.nextAction" type="textarea" :rows="3" />
+          <el-input v-model="evaluationForm.nextAction" type="textarea" :rows="3" :disabled="!canEvaluate" />
         </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="evaluationVisible = false">取消</el-button>
-        <el-button type="primary" :loading="submitting" @click="submitEvaluation">保存</el-button>
+        <el-button v-if="canEvaluate" type="primary" :loading="submitting" @click="submitEvaluation">保存</el-button>
       </template>
     </el-dialog>
   </section>

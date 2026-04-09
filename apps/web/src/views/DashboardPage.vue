@@ -40,28 +40,38 @@ onMounted(() => {
 </script>
 
 <template>
-  <section v-loading="loading" class="page-grid">
-    <div class="hero-card">
+  <section v-loading="loading" class="page-grid dashboard-page">
+    <div class="hero-card dashboard-hero">
       <p class="hero-card__eyebrow">首页总览</p>
       <h2>{{ dashboard?.roleName || '角色化首页' }}</h2>
-      <p>首页统一展示待办、申请、通知和快捷入口，帮助你快速进入当前最需要处理的工作。</p>
+      <p class="dashboard-hero-desc">首页统一展示待办、申请、通知，帮助你快速进入当前最需要处理的工作。</p>
     </div>
 
-    <div class="stat-grid dashboard-stat-grid">
-      <article
-        v-for="card in dashboard?.metricCards || []"
-        :key="card.code"
-        class="stat-card stat-card--action"
-        @click="navigate(card.path)"
-      >
-        <span>{{ card.title }}</span>
-        <strong>{{ card.value }}{{ card.unit || '' }}</strong>
-        <p>{{ card.description }}</p>
-      </article>
-    </div>
+    <div class="dashboard-approval-grid dashboard-top-grid">
+      <div class="panel-card dashboard-notification-panel">
+        <div class="panel-card__header">
+          <div>
+            <p class="panel-card__eyebrow">通知消息</p>
+            <h2>最新通知</h2>
+          </div>
+          <el-button link type="primary" @click="navigate('/notifications')">消息中心</el-button>
+        </div>
+        <div v-if="dashboard?.notifications.length" class="dashboard-list">
+          <button
+            v-for="item in dashboard.notifications"
+            :key="item.id"
+            class="dashboard-list__item"
+            type="button"
+            @click="openNotification(item.id, item.routePath, item.routeQuery)"
+          >
+            <strong>{{ item.title }}</strong>
+            <span>{{ item.read ? '已读' : '未读' }} / {{ item.categoryCode }}</span>
+          </button>
+        </div>
+        <el-empty v-else description="当前没有通知消息" />
+      </div>
 
-    <div class="dashboard-approval-grid">
-      <div class="panel-card">
+      <div class="panel-card dashboard-todo-summary">
         <div class="panel-card__header">
           <div>
             <p class="panel-card__eyebrow">待办汇总</p>
@@ -76,27 +86,19 @@ onMounted(() => {
           <el-descriptions-item label="资格提醒">{{ dashboard.todoSummary.qualificationReminderCount }}</el-descriptions-item>
         </el-descriptions>
       </div>
+    </div>
 
-      <div class="panel-card">
-        <div class="panel-card__header">
-          <div>
-            <p class="panel-card__eyebrow">快捷入口</p>
-            <h2>常用功能</h2>
-          </div>
-        </div>
-        <div class="shortcut-grid">
-          <button
-            v-for="entry in dashboard?.shortcutGroups?.[0]?.entries || []"
-            :key="entry.code"
-            class="shortcut-card"
-            type="button"
-            @click="navigate(entry.path)"
-          >
-            <strong>{{ entry.label }}</strong>
-            <span>{{ entry.path }}</span>
-          </button>
-        </div>
-      </div>
+    <div class="stat-grid dashboard-stat-grid dashboard-metrics">
+      <article
+        v-for="card in dashboard?.metricCards || []"
+        :key="card.code"
+        class="stat-card stat-card--action"
+        @click="navigate(card.path)"
+      >
+        <span>{{ card.title }}</span>
+        <strong>{{ card.value }}{{ card.unit || '' }}</strong>
+        <p>{{ card.description }}</p>
+      </article>
     </div>
 
     <div class="dashboard-approval-grid">
@@ -146,33 +148,49 @@ onMounted(() => {
         <el-empty v-else description="当前没有申请记录" />
       </div>
     </div>
-
-    <div class="panel-card">
-      <div class="panel-card__header">
-        <div>
-          <p class="panel-card__eyebrow">通知消息</p>
-          <h2>最新通知</h2>
-        </div>
-        <el-button link type="primary" @click="navigate('/notifications')">消息中心</el-button>
-      </div>
-      <div v-if="dashboard?.notifications.length" class="dashboard-list">
-        <button
-          v-for="item in dashboard.notifications"
-          :key="item.id"
-          class="dashboard-list__item"
-          type="button"
-          @click="openNotification(item.id, item.routePath, item.routeQuery)"
-        >
-          <strong>{{ item.title }}</strong>
-          <span>{{ item.read ? '已读' : '未读' }} / {{ item.categoryCode }}</span>
-        </button>
-      </div>
-      <el-empty v-else description="当前没有通知消息" />
-    </div>
   </section>
 </template>
 
 <style scoped>
+.dashboard-page {
+  gap: 0.75rem;
+}
+
+.dashboard-hero {
+  padding: 1rem 1.25rem;
+}
+
+.dashboard-hero-desc {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.dashboard-metrics {
+  gap: 0.75rem;
+}
+
+.dashboard-metrics .stat-card {
+  padding: 1rem;
+}
+
+.dashboard-top-grid {
+  align-items: stretch;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+
+.dashboard-top-grid > .panel-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboard-top-grid :deep(.el-descriptions),
+.dashboard-top-grid .dashboard-list {
+  flex: 1;
+  min-height: 0;
+}
+
 .stat-card--action {
   cursor: pointer;
 }
