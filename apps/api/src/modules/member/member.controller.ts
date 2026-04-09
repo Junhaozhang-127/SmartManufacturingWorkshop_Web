@@ -56,11 +56,13 @@ export class MemberController {
   getMemberDetail(
     @CurrentUser() currentUser: CurrentUserProfile,
     @Param('id') id: string,
-    @Query('viewAll') viewAll: string | undefined,
+    @Query('viewAll') viewAll: string | boolean | undefined,
     @DataScopeContextParam() dataScopeContext: DataScopeContext,
   ) {
     const effectiveContext =
-      viewAll === 'true' || viewAll === '1' ? { ...dataScopeContext, scope: DataScope.ALL } : dataScopeContext;
+      viewAll === true || viewAll === 'true' || viewAll === '1'
+        ? { ...dataScopeContext, scope: DataScope.ALL }
+        : dataScopeContext;
     return this.memberService.getMemberDetail(currentUser, id, effectiveContext);
   }
 

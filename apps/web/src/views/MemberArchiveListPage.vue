@@ -74,7 +74,7 @@ onMounted(load);
 
     <div class="panel-card">
       <div class="toolbar-row member-toolbar">
-        <el-input v-model="query.keyword" placeholder="搜索姓名、账号、组织、岗位" clearable @keyup.enter="load" />
+        <el-input v-model="query.keyword" placeholder="搜索姓名、组织、岗位" clearable @keyup.enter="load" />
         <el-select v-model="query.statusCode" style="width: 12rem">
           <el-option v-for="option in statusOptions" :key="option.value" :label="option.label" :value="option.value" />
         </el-select>
