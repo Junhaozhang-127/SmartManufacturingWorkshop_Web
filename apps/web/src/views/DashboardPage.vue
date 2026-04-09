@@ -44,7 +44,30 @@ onMounted(() => {
     <div class="hero-card">
       <p class="hero-card__eyebrow">首页总览</p>
       <h2>{{ dashboard?.roleName || '角色化首页' }}</h2>
-      <p>首页统一展示待办、申请、通知和快捷入口，帮助你快速进入当前最需要处理的工作。</p>
+      <p>首页统一展示待办、申请与通知，帮助你快速进入当前最需要处理的工作。</p>
+    </div>
+
+    <div class="panel-card dashboard-notifications">
+      <div class="panel-card__header">
+        <div>
+          <p class="panel-card__eyebrow">通知消息</p>
+          <h2>最新通知</h2>
+        </div>
+        <el-button link type="primary" @click="navigate('/notifications')">消息中心</el-button>
+      </div>
+      <div v-if="dashboard?.notifications.length" class="dashboard-list">
+        <button
+          v-for="item in dashboard.notifications"
+          :key="item.id"
+          class="dashboard-list__item"
+          type="button"
+          @click="openNotification(item.id, item.routePath, item.routeQuery)"
+        >
+          <strong>{{ item.title }}</strong>
+          <span>{{ item.read ? '已读' : '未读' }} / {{ item.categoryCode }}</span>
+        </button>
+      </div>
+      <el-empty v-else description="当前没有通知消息" />
     </div>
 
     <div class="stat-grid dashboard-stat-grid">
@@ -75,27 +98,6 @@ onMounted(() => {
           <el-descriptions-item label="我的申请">{{ dashboard.todoSummary.myApplicationCount }}</el-descriptions-item>
           <el-descriptions-item label="资格提醒">{{ dashboard.todoSummary.qualificationReminderCount }}</el-descriptions-item>
         </el-descriptions>
-      </div>
-
-      <div class="panel-card">
-        <div class="panel-card__header">
-          <div>
-            <p class="panel-card__eyebrow">快捷入口</p>
-            <h2>常用功能</h2>
-          </div>
-        </div>
-        <div class="shortcut-grid">
-          <button
-            v-for="entry in dashboard?.shortcutGroups?.[0]?.entries || []"
-            :key="entry.code"
-            class="shortcut-card"
-            type="button"
-            @click="navigate(entry.path)"
-          >
-            <strong>{{ entry.label }}</strong>
-            <span>{{ entry.path }}</span>
-          </button>
-        </div>
       </div>
     </div>
 
@@ -147,32 +149,28 @@ onMounted(() => {
       </div>
     </div>
 
-    <div class="panel-card">
-      <div class="panel-card__header">
-        <div>
-          <p class="panel-card__eyebrow">通知消息</p>
-          <h2>最新通知</h2>
-        </div>
-        <el-button link type="primary" @click="navigate('/notifications')">消息中心</el-button>
-      </div>
-      <div v-if="dashboard?.notifications.length" class="dashboard-list">
-        <button
-          v-for="item in dashboard.notifications"
-          :key="item.id"
-          class="dashboard-list__item"
-          type="button"
-          @click="openNotification(item.id, item.routePath, item.routeQuery)"
-        >
-          <strong>{{ item.title }}</strong>
-          <span>{{ item.read ? '已读' : '未读' }} / {{ item.categoryCode }}</span>
-        </button>
-      </div>
-      <el-empty v-else description="当前没有通知消息" />
-    </div>
   </section>
 </template>
 
 <style scoped>
+.page-grid {
+  gap: 16px;
+}
+
+.hero-card {
+  padding: 16px 20px;
+}
+
+.hero-card h2 {
+  margin: 6px 0 0;
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.hero-card p {
+  margin: 10px 0 0;
+}
+
 .stat-card--action {
   cursor: pointer;
 }
