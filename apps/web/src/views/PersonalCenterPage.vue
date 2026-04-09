@@ -31,23 +31,6 @@ const avatarHeaderUrl = computed(() => localAvatarUrl.value || profile.value?.av
 const avatarEditorPreviewUrl = computed(() => tempAvatarUrl.value || localAvatarUrl.value || profile.value?.avatarUrl || '');
 const studentNoDisplay = computed(() => profile.value?.studentNo || '-');
 
-function normalizeAvatarUrl(url: string) {
-  if (!url) return '';
-  if (url.startsWith('blob:') || url.startsWith('data:')) return url;
-  if (url.startsWith('/')) return url;
-  if (!url.startsWith('http://') && !url.startsWith('https://')) return url;
-
-  try {
-    const parsed = new URL(url);
-    return `${parsed.pathname}${parsed.search}`;
-  } catch {
-    return url;
-  }
-}
-
-const avatarSrc = computed(() => normalizeAvatarUrl(avatarHeaderUrl.value));
-const avatarPreviewSrc = computed(() => normalizeAvatarUrl(avatarEditorPreviewUrl.value));
-
 const avatarText = computed(() => {
   const name = profile.value?.displayName || authStore.displayName || authStore.username || '';
   return name.trim().slice(0, 1) || 'U';
@@ -208,7 +191,7 @@ onMounted(() => {
     <div class="panel-card personal-center-card">
       <div class="panel-card__header personal-center-card__header">
         <div class="personal-center-card__user">
-          <el-avatar :size="48" class="personal-center-card__avatar" :src="avatarSrc">{{ avatarText }}</el-avatar>
+          <el-avatar :size="48" class="personal-center-card__avatar" :src="avatarHeaderUrl">{{ avatarText }}</el-avatar>
           <div>
             <p class="panel-card__eyebrow">个人中心</p>
             <h2 class="personal-center-card__title">{{ profile?.displayName || authStore.displayName || '-' }}</h2>
@@ -355,7 +338,7 @@ onMounted(() => {
     >
       <el-form ref="profileFormRef" :model="profileForm" label-position="top">
         <div class="profile-editor__avatar">
-          <el-avatar :size="72" :src="avatarPreviewSrc">{{ avatarText }}</el-avatar>
+          <el-avatar :size="72" :src="avatarEditorPreviewUrl">{{ avatarText }}</el-avatar>
           <el-upload
             accept="image/*"
             :auto-upload="false"
