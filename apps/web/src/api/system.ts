@@ -15,6 +15,39 @@ export async function fetchPersonalCenter() {
   return http.get<never, { data: PersonalCenterData }>('/profile/me');
 }
 
+export async function updatePersonalCenter(payload: {
+  displayName: string;
+  studentNo?: string;
+  mobile?: string;
+  email?: string;
+  avatarStorageKey?: string;
+  avatarFileName?: string;
+}) {
+  return http.patch<never, { data: PersonalCenterData }>('/profile/me', payload);
+}
+
+export async function uploadProfileAvatar(file: File) {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  return http.post<
+    never,
+    {
+      data: {
+        storageKey: string;
+        fileName: string;
+        downloadUrl: string;
+        mimeType: string | null;
+        size: number | null;
+      };
+    }
+  >('/files/upload', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+}
+
 export async function fetchNotifications(params: {
   page: number;
   pageSize: number;

@@ -1,10 +1,11 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { CurrentUserProfile, PermissionCodes } from '@smw/shared';
 
 import { CurrentUser, RequirePermissions } from '../auth/auth.decorators';
 import { AuthGuard } from '../auth/auth.guard';
 import { PermissionGuard } from '../auth/permission.guard';
 import { NotificationQueryDto } from './dto/notification-query.dto';
+import { UpdatePersonalCenterDto } from './dto/update-personal-center.dto';
 import { UpsertApprovalTemplateDto } from './dto/upsert-approval-template.dto';
 import { UpsertConfigItemDto } from './dto/upsert-config-item.dto';
 import { UpsertDictionaryDto } from './dto/upsert-dictionary.dto';
@@ -26,6 +27,12 @@ export class SystemController {
   @RequirePermissions(PermissionCodes.profileView)
   getPersonalCenter(@CurrentUser() currentUser: CurrentUserProfile) {
     return this.systemService.getPersonalCenter(currentUser);
+  }
+
+  @Patch('profile/me')
+  @RequirePermissions(PermissionCodes.profileView)
+  updatePersonalCenter(@CurrentUser() currentUser: CurrentUserProfile, @Body() payload: UpdatePersonalCenterDto) {
+    return this.systemService.updatePersonalCenter(currentUser, payload);
   }
 
   @Get('notifications')

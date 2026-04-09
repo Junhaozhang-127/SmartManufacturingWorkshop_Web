@@ -52,8 +52,10 @@ export interface PersonalCenterData {
   userId: string;
   username: string;
   displayName: string;
+  studentNo?: string | null;
   mobile: string | null;
   email: string | null;
+  avatarUrl?: string | null;
   statusCode: string;
   lastLoginAt: string | null;
   passwordChangedAt: string | null;

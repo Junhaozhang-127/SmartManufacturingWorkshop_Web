@@ -17,6 +17,7 @@ import {
 
 import { PrismaService } from '../prisma/prisma.service';
 import type { NotificationQueryDto } from './dto/notification-query.dto';
+import type { UpdatePersonalCenterDto } from './dto/update-personal-center.dto';
 import type { UpsertApprovalTemplateDto } from './dto/upsert-approval-template.dto';
 import type { UpsertConfigItemDto } from './dto/upsert-config-item.dto';
 import type { UpsertDictionaryDto } from './dto/upsert-dictionary.dto';
@@ -74,8 +75,10 @@ export class SystemService {
       userId: String(user.id),
       username: user.username,
       displayName: user.displayName,
+      studentNo: user.studentNo ?? null,
       mobile: user.mobile,
       email: user.email,
+      avatarUrl: this.buildFileDownloadUrl(user.avatarStorageKey, user.avatarFileName),
       statusCode: user.statusCode,
       lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
       passwordChangedAt: user.passwordChangedAt?.toISOString() ?? null,
@@ -92,6 +95,31 @@ export class SystemService {
       myApplications,
       recentNotifications,
     };
+  }
+
+  async updatePersonalCenter(currentUser: CurrentUserProfile, payload: UpdatePersonalCenterDto) {
+    const displayName = payload.displayName.trim();
+
+    const mobile = payload.mobile?.trim() || null;
+    const email = payload.email?.trim() || null;
+    const studentNo = payload.studentNo?.trim() || null;
+
+    const avatarStorageKey = payload.avatarStorageKey?.trim() || null;
+    const avatarFileName = payload.avatarFileName?.trim() || null;
+
+    await this.prisma.sysUser.update({
+      where: { id: this.toBigInt(currentUser.id) },
+      data: {
+        displayName,
+        mobile,
+        email,
+        studentNo,
+        avatarStorageKey,
+        avatarFileName,
+      },
+    });
+
+    return this.getPersonalCenter(currentUser);
   }
 
   async listNotifications(
@@ -829,6 +857,20 @@ export class SystemService {
 
     return user;
   }
+
+  private buildFileDownloadUrl(storageKey: string | null | undefined, fileName: string | null | undefined) {
+    if (!storageKey) return null;
+    const baseUrl = process.env.APP_BASE_URL ?? `http://localhost:${process.env.APP_PORT ?? '3000'}`;
+    const apiPrefix = process.env.API_PREFIX ?? 'api';
+    const query = new URLSearchParams({ key: storageKey });
+
+    if (fileName) {
+      query.set('name', fileName);
+    }
+
+    return `${baseUrl.replace(/\/$/, '')}/${apiPrefix}/files/download?${query.toString()}`;
+  }
+
 
   private mapApprovalInstance(instance: ApprovalInstanceRecord) {
     return {
