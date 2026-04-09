@@ -6,6 +6,7 @@ import { AuthGuard } from './auth.guard';
 import { AuthService } from './auth.service';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
+import { RegisterDto } from './dto/register.dto';
 import { SwitchRoleDto } from './dto/switch-role.dto';
 import { PermissionGuard } from './permission.guard';
 
@@ -16,6 +17,11 @@ export class AuthController {
   @Post('login')
   login(@Body() payload: LoginDto) {
     return this.authService.login(payload);
+  }
+
+  @Post('register')
+  register(@Body() payload: RegisterDto) {
+    return this.authService.register(payload);
   }
 
   @Get('me')

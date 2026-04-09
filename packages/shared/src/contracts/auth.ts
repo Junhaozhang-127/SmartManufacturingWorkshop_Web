@@ -64,6 +64,16 @@ export interface AuthLoginResponse {
   user: CurrentUserProfile;
 }
 
+export interface AuthRegisterRequest {
+  username: string;
+  password: string;
+  displayName: string;
+}
+
+export interface AuthRegisterResponse {
+  success: boolean;
+}
+
 export interface SwitchRoleRequest {
   roleCode: RoleCode;
 }

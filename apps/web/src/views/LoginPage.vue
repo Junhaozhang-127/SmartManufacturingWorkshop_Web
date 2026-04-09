@@ -71,7 +71,10 @@ function useAccount(username: string) {
     <section class="login-card">
       <div class="login-card__header">
         <h2>登录入口</h2>
-        <p>默认密码为 `123456`。首次登录的账号会自动跳转到修改密码页面。</p>
+        <p>
+          默认密码为 `123456`。首次登录的账号会自动跳转到修改密码页面。
+          <router-link to="/register">注册账号</router-link>
+        </p>
       </div>
 
       <el-form label-position="top" @submit.prevent="submit">

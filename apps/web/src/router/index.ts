@@ -28,6 +28,16 @@ const routes: RouteRecordRaw[] = [
     },
   },
   {
+    path: '/register',
+    name: 'auth.register',
+    component: () => import('@web/views/RegisterPage.vue'),
+    meta: {
+      title: '注册',
+      requiresAuth: false,
+      allowFirstLoginBypass: true,
+    },
+  },
+  {
     path: '/change-password',
     name: 'auth.change-password',
     component: () => import('@web/views/ChangePasswordPage.vue'),

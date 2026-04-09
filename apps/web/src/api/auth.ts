@@ -1,6 +1,8 @@
 import type {
   AuthLoginRequest,
   AuthLoginResponse,
+  AuthRegisterRequest,
+  AuthRegisterResponse,
   ChangePasswordRequest,
   CurrentUserProfile,
   SwitchRoleRequest,
@@ -10,6 +12,10 @@ import { http } from './client';
 
 export async function login(payload: AuthLoginRequest) {
   return http.post<never, { data: AuthLoginResponse }>('/auth/login', payload);
+}
+
+export async function register(payload: AuthRegisterRequest) {
+  return http.post<never, { data: AuthRegisterResponse }>('/auth/register', payload);
 }
 
 export async function fetchCurrentUser() {

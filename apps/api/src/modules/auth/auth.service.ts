@@ -4,7 +4,7 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import { type AuthLoginRequest, type ChangePasswordRequest, RoleCode } from '@smw/shared';
+import { type AuthLoginRequest, type AuthRegisterRequest, type ChangePasswordRequest, RoleCode } from '@smw/shared';
 import bcrypt from 'bcryptjs';
 
 import { AccessControlService } from './access-control.service';
@@ -50,6 +50,56 @@ export class AuthService {
       }),
       user: await this.accessControlService.buildCurrentUserProfile(user, activeRoleCode),
     };
+  }
+
+  async register(payload: AuthRegisterRequest) {
+    const username = payload.username.trim();
+    const displayName = payload.displayName.trim();
+
+    if (!username || !displayName || !payload.password) {
+      throw new BadRequestException('Invalid register payload');
+    }
+
+    const existingUser = await this.prisma.sysUser.findUnique({
+      where: { username },
+    });
+
+    if (existingUser) {
+      throw new BadRequestException('Username already exists');
+    }
+
+    const internRole = await this.prisma.sysRole.findUnique({
+      where: { roleCode: RoleCode.INTERN },
+    });
+
+    if (!internRole) {
+      throw new BadRequestException('Intern role is not configured');
+    }
+
+    const passwordHash = await bcrypt.hash(payload.password, 10);
+
+    await this.prisma.$transaction(async (tx) => {
+      const user = await tx.sysUser.create({
+        data: {
+          username,
+          displayName,
+          passwordHash,
+          statusCode: 'ACTIVE',
+          forcePasswordChange: false,
+          passwordChangedAt: new Date(),
+          isDeleted: false,
+        },
+      });
+
+      await tx.sysUserRole.create({
+        data: {
+          userId: user.id,
+          roleId: internRole.id,
+        },
+      });
+    });
+
+    return { success: true };
   }
 
   async getCurrentUser(userId: string, activeRoleCode: RoleCode) {
