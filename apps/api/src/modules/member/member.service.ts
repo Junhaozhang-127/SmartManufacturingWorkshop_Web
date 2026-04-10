@@ -107,6 +107,279 @@ export class MemberService {
     private readonly evaluationPromotionService: EvaluationPromotionService,
   ) {}
 
+  async listOrgMemberOptions(dataScopeContext: DataScopeContext) {
+    const scopeWhere = buildMemberProfileWhere(dataScopeContext);
+    const members = await this.prisma.memberProfile.findMany({
+      where: {
+        isDeleted: false,
+        ...(scopeWhere ?? {}),
+      },
+      include: {
+        user: {
+          include: {
+            userRoles: {
+              include: {
+                role: true,
+              },
+              orderBy: {
+                role: {
+                  sortNo: 'asc',
+                },
+              },
+            },
+          },
+        },
+        orgUnit: true,
+      },
+      orderBy: [{ user: { displayName: 'asc' } }],
+      take: 500,
+    });
+
+    return members.map((item) => ({
+      memberProfileId: String(item.id),
+      userId: String(item.userId),
+      displayName: item.user.displayName,
+      username: item.user.username,
+      memberStatus: item.memberStatus,
+      orgUnitId: String(item.orgUnitId),
+      orgUnitName: item.orgUnit.unitName,
+      roleCodes: item.user.userRoles.map((relation) => relation.role.roleCode),
+    }));
+  }
+
+  private buildUnitCode(prefix: string) {
+    const suffix = String(Date.now()).slice(-8);
+    return `${prefix}_${suffix}`.slice(0, 32);
+  }
+
+  private async ensureUserActiveWithRole(userId: string, expectedRoleCode: RoleCode, message: string) {
+    const user = await this.prisma.sysUser.findUnique({
+      where: { id: this.toBigInt(userId) },
+      include: {
+        userRoles: {
+          include: { role: true },
+        },
+      },
+    });
+    if (!user || user.isDeleted || user.statusCode !== 'ACTIVE') {
+      throw new BadRequestException(message);
+    }
+    const roleCodes = user.userRoles.map((relation) => relation.role.roleCode as RoleCode);
+    if (!roleCodes.includes(expectedRoleCode)) {
+      throw new BadRequestException(message);
+    }
+    return user;
+  }
+
+  private ensureOrgUnitOperable(currentUser: CurrentUserProfile, orgUnitId: string, dataScopeContext: DataScopeContext) {
+    if (currentUser.activeRole.roleCode === RoleCode.TEACHER) {
+      return;
+    }
+
+    if (currentUser.activeRole.roleCode === RoleCode.MINISTER) {
+      if (!dataScopeContext.departmentId) {
+        throw new ForbiddenException('当前部长未绑定部门，无法进行组织管理');
+      }
+      if (!dataScopeContext.departmentAndDescendantIds.includes(orgUnitId)) {
+        throw new ForbiddenException('仅可管理本部门及下属小组');
+      }
+      return;
+    }
+
+    throw new ForbiddenException('无权限进行组织管理');
+  }
+
+  async createDepartment(currentUser: CurrentUserProfile, payload: { unitCode?: string; unitName: string; leaderUserId?: string; memberProfileIds?: string[] }) {
+    if (currentUser.activeRole.roleCode !== RoleCode.TEACHER) {
+      throw new ForbiddenException('仅老师可新增部门');
+    }
+
+    const unitName = payload.unitName.trim();
+    if (!unitName) throw new BadRequestException('部门名称不能为空');
+
+    const unitCode = (payload.unitCode?.trim() || this.buildUnitCode('DEPT')).slice(0, 32);
+
+    const lab = await this.prisma.orgUnit.findFirst({
+      where: { isDeleted: false, statusCode: 'ACTIVE', unitType: 'LAB' },
+      orderBy: { id: 'asc' },
+      select: { id: true },
+    });
+
+    const leaderUserId = payload.leaderUserId?.trim() || null;
+    if (leaderUserId) {
+      await this.ensureUserActiveWithRole(leaderUserId, RoleCode.MINISTER, '请选择有效的部长作为部门负责人');
+    }
+
+    const created = await this.prisma.orgUnit.create({
+      data: {
+        parentId: lab?.id ?? null,
+        unitCode,
+        unitName,
+        unitType: 'DEPARTMENT',
+        leaderUserId: leaderUserId ? this.toBigInt(leaderUserId) : null,
+        statusCode: 'ACTIVE',
+        createdBy: this.toBigInt(currentUser.id),
+        isDeleted: false,
+      },
+      select: { id: true },
+    });
+
+    if (payload.memberProfileIds?.length) {
+      await this.prisma.memberProfile.updateMany({
+        where: {
+          id: { in: payload.memberProfileIds.map((id) => this.toBigInt(id)) },
+          isDeleted: false,
+        },
+        data: {
+          orgUnitId: created.id,
+        },
+      });
+    }
+
+    return { id: String(created.id) };
+  }
+
+  async createGroup(currentUser: CurrentUserProfile, payload: { unitCode?: string; unitName: string; leaderUserId?: string; memberProfileIds?: string[] }) {
+    if (currentUser.activeRole.roleCode !== RoleCode.MINISTER) {
+      throw new ForbiddenException('仅部长可新增小组');
+    }
+
+    const unitName = payload.unitName.trim();
+    if (!unitName) throw new BadRequestException('小组名称不能为空');
+
+    const departmentId = currentUser.orgProfile.departmentId;
+    if (!departmentId) {
+      throw new BadRequestException('当前部长未绑定部门，无法新增小组');
+    }
+
+    const department = await this.prisma.orgUnit.findFirst({
+      where: { id: this.toBigInt(departmentId), isDeleted: false, statusCode: 'ACTIVE', unitType: 'DEPARTMENT' },
+      select: { id: true },
+    });
+    if (!department) {
+      throw new BadRequestException('当前部门不存在或不可用');
+    }
+
+    const unitCode = (payload.unitCode?.trim() || this.buildUnitCode('GROUP')).slice(0, 32);
+    const leaderUserId = payload.leaderUserId?.trim() || null;
+    if (leaderUserId) {
+      await this.ensureUserActiveWithRole(leaderUserId, RoleCode.GROUP_LEADER, '请选择有效的组长作为小组负责人');
+    }
+
+    const created = await this.prisma.orgUnit.create({
+      data: {
+        parentId: department.id,
+        unitCode,
+        unitName,
+        unitType: 'GROUP',
+        leaderUserId: leaderUserId ? this.toBigInt(leaderUserId) : null,
+        statusCode: 'ACTIVE',
+        createdBy: this.toBigInt(currentUser.id),
+        isDeleted: false,
+      },
+      select: { id: true },
+    });
+
+    if (payload.memberProfileIds?.length) {
+      const scopeWhere = buildMemberProfileWhere(currentUser.dataScopeContext);
+      const scoped = await this.prisma.memberProfile.count({
+        where: {
+          id: { in: payload.memberProfileIds.map((id) => this.toBigInt(id)) },
+          isDeleted: false,
+          ...(scopeWhere ?? {}),
+        },
+      });
+      if (scoped !== payload.memberProfileIds.length) {
+        throw new ForbiddenException('仅可分配本部门范围内成员');
+      }
+
+      await this.prisma.memberProfile.updateMany({
+        where: {
+          id: { in: payload.memberProfileIds.map((id) => this.toBigInt(id)) },
+          isDeleted: false,
+        },
+        data: {
+          orgUnitId: created.id,
+        },
+      });
+    }
+
+    return { id: String(created.id) };
+  }
+
+  async updateOrgLeader(
+    currentUser: CurrentUserProfile,
+    orgUnitId: string,
+    leaderUserId: string | null,
+    dataScopeContext: DataScopeContext,
+  ) {
+    this.ensureOrgUnitOperable(currentUser, orgUnitId, dataScopeContext);
+
+    const unit = await this.prisma.orgUnit.findFirst({
+      where: { id: this.toBigInt(orgUnitId), isDeleted: false, statusCode: 'ACTIVE' },
+      select: { id: true, unitType: true },
+    });
+    if (!unit) throw new NotFoundException('组织节点不存在');
+
+    if (leaderUserId) {
+      const expected =
+        unit.unitType === 'DEPARTMENT'
+          ? RoleCode.MINISTER
+          : unit.unitType === 'GROUP'
+            ? RoleCode.GROUP_LEADER
+            : RoleCode.TEACHER;
+      await this.ensureUserActiveWithRole(leaderUserId, expected, '负责人角色不匹配或用户不可用');
+    }
+
+    await this.prisma.orgUnit.update({
+      where: { id: unit.id },
+      data: {
+        leaderUserId: leaderUserId ? this.toBigInt(leaderUserId) : null,
+      },
+    });
+
+    return null;
+  }
+
+  async assignMembersToOrgUnit(
+    currentUser: CurrentUserProfile,
+    orgUnitId: string,
+    memberProfileIds: string[],
+    dataScopeContext: DataScopeContext,
+  ) {
+    this.ensureOrgUnitOperable(currentUser, orgUnitId, dataScopeContext);
+
+    const unit = await this.prisma.orgUnit.findFirst({
+      where: { id: this.toBigInt(orgUnitId), isDeleted: false, statusCode: 'ACTIVE' },
+      select: { id: true },
+    });
+    if (!unit) throw new NotFoundException('组织节点不存在');
+
+    if (!memberProfileIds.length) {
+      return { updatedCount: 0 };
+    }
+
+    const scopeWhere = buildMemberProfileWhere(dataScopeContext);
+    const scopedCount = await this.prisma.memberProfile.count({
+      where: {
+        id: { in: memberProfileIds.map((id) => this.toBigInt(id)) },
+        isDeleted: false,
+        ...(scopeWhere ?? {}),
+      },
+    });
+
+    if (scopedCount !== memberProfileIds.length) {
+      throw new ForbiddenException('包含不可管理的成员，无法分配');
+    }
+
+    const result = await this.prisma.memberProfile.updateMany({
+      where: { id: { in: memberProfileIds.map((id) => this.toBigInt(id)) }, isDeleted: false },
+      data: { orgUnitId: unit.id },
+    });
+
+    return { updatedCount: result.count };
+  }
+
   async getOrgOverview(dataScopeContext: DataScopeContext) {
     const units = await this.prisma.orgUnit.findMany({
       where: {
@@ -176,6 +449,7 @@ export class MemberService {
         unitCode: unit.unitCode,
         unitName: unit.unitName,
         unitType: unit.unitType,
+        leaderUserId: unit.leaderUserId ? String(unit.leaderUserId) : null,
         leaderName: unit.leader?.displayName ?? null,
         memberCount: counters.get(String(unit.id))?.memberCount ?? 0,
         activeMemberCount: counters.get(String(unit.id))?.activeMemberCount ?? 0,

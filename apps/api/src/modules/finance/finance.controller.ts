@@ -1,5 +1,5 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
-import { type CurrentUserProfile, type DataScopeContext, PermissionCodes } from '@smw/shared';
+import { Body, Controller, ForbiddenException, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { type CurrentUserProfile, type DataScopeContext, PermissionCodes, RoleCode } from '@smw/shared';
 
 import {
   CurrentUser,
@@ -13,6 +13,8 @@ import { PermissionGuard } from '../auth/permission.guard';
 import { CreateFundApplicationDto } from './dto/create-fund-application.dto';
 import { FundApplicationQueryDto } from './dto/fund-application-query.dto';
 import { MarkFundPaymentDto } from './dto/mark-fund-payment.dto';
+import { TeacherFundAccountQueryDto } from './dto/teacher-fund-account-query.dto';
+import { UpsertTeacherFundAccountDto } from './dto/upsert-teacher-fund-account.dto';
 import { FinanceService } from './finance.service';
 
 @Controller('funds')
@@ -32,6 +34,42 @@ export class FinanceController {
   @RequireDataScope()
   listAccounts(@DataScopeContextParam() dataScopeContext: DataScopeContext) {
     return this.financeService.listAccounts(dataScopeContext);
+  }
+
+  @Get('teacher/accounts')
+  @RequirePermissions(PermissionCodes.fundView)
+  @RequireDataScope()
+  listTeacherAccounts(
+    @CurrentUser() currentUser: CurrentUserProfile,
+    @Query() query: TeacherFundAccountQueryDto,
+  ) {
+    if (currentUser.activeRole.roleCode !== RoleCode.TEACHER) {
+      throw new ForbiddenException('仅老师可管理项目台账');
+    }
+    return this.financeService.listTeacherAccounts(currentUser, {
+      page: query.page ?? 1,
+      pageSize: query.pageSize ?? 10,
+      keyword: query.keyword,
+      statusCode: query.statusCode,
+    });
+  }
+
+  @Post('teacher/accounts')
+  @RequirePermissions(PermissionCodes.fundView)
+  @RequireDataScope()
+  createTeacherAccount(@CurrentUser() currentUser: CurrentUserProfile, @Body() payload: UpsertTeacherFundAccountDto) {
+    return this.financeService.createTeacherAccount(currentUser, payload);
+  }
+
+  @Patch('teacher/accounts/:id')
+  @RequirePermissions(PermissionCodes.fundView)
+  @RequireDataScope()
+  updateTeacherAccount(
+    @CurrentUser() currentUser: CurrentUserProfile,
+    @Param('id') id: string,
+    @Body() payload: UpsertTeacherFundAccountDto,
+  ) {
+    return this.financeService.updateTeacherAccount(currentUser, id, payload);
   }
 
   @Get('applications')

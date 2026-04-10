@@ -61,6 +61,144 @@ export class DeviceService {
     private readonly approvalService: ApprovalService,
   ) {}
 
+  async listDevices(
+    query: { page: number; pageSize: number; keyword?: string; statusCode?: string },
+    dataScopeContext: DataScopeContext,
+  ) {
+    const pagination = normalizePagination(query);
+    const clauses: Prisma.AssetDeviceWhereInput[] = [{ isDeleted: false }, this.buildDeviceScopeWhere(dataScopeContext)];
+
+    if (query.statusCode) {
+      clauses.push({ statusCode: query.statusCode });
+    }
+
+    if (pagination.keyword) {
+      clauses.push({
+        OR: [
+          { deviceCode: { contains: pagination.keyword } },
+          { deviceName: { contains: pagination.keyword } },
+          { categoryName: { contains: pagination.keyword } },
+          { model: { contains: pagination.keyword } },
+        ],
+      });
+    }
+
+    const where = { AND: clauses } satisfies Prisma.AssetDeviceWhereInput;
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.assetDevice.findMany({
+        where,
+        include: {
+          orgUnit: true,
+          responsibleUser: true,
+          latestRepair: {
+            select: {
+              id: true,
+              repairNo: true,
+              statusCode: true,
+            },
+          },
+        },
+        orderBy: [{ updatedAt: 'desc' }],
+        skip: (pagination.page - 1) * pagination.pageSize,
+        take: pagination.pageSize,
+      }),
+      this.prisma.assetDevice.count({ where }),
+    ]);
+
+    return {
+      items: items.map((item) => ({
+        id: String(item.id),
+        deviceCode: item.deviceCode,
+        deviceName: item.deviceName,
+        categoryName: item.categoryName,
+        model: item.model,
+        statusCode: item.statusCode,
+        orgUnitId: item.orgUnitId ? String(item.orgUnitId) : null,
+        orgUnitName: item.orgUnit?.unitName ?? null,
+        responsibleUserId: item.responsibleUserId ? String(item.responsibleUserId) : null,
+        responsibleUserName: item.responsibleUser?.displayName ?? null,
+        locationLabel: item.locationLabel,
+        latestRepairId: item.latestRepairId ? String(item.latestRepairId) : null,
+        latestRepairNo: item.latestRepair?.repairNo ?? null,
+        latestRepairStatus: item.latestRepair?.statusCode ?? null,
+        updatedAt: item.updatedAt.toISOString(),
+      })),
+      meta: { page: pagination.page, pageSize: pagination.pageSize, total },
+    };
+  }
+
+  async getDeviceDetail(id: string, dataScopeContext: DataScopeContext) {
+    const record = await this.prisma.assetDevice.findUnique({
+      where: { id: this.toBigInt(id) },
+      include: {
+        orgUnit: true,
+        responsibleUser: true,
+        latestRepair: {
+          select: {
+            id: true,
+            repairNo: true,
+            statusCode: true,
+            latestResult: true,
+            reportedAt: true,
+          },
+        },
+        repairOrders: {
+          where: { isDeleted: false },
+          select: { applicantUserId: true, handlerUserId: true },
+        },
+      },
+    });
+
+    if (!record || record.isDeleted) {
+      throw new NotFoundException('设备不存在');
+    }
+
+    this.ensureDeviceVisible(
+      {
+        orgUnitId: record.orgUnitId,
+        responsibleUserId: record.responsibleUserId,
+        repairOrders: record.repairOrders,
+      },
+      dataScopeContext,
+    );
+
+    return {
+      id: String(record.id),
+      deviceCode: record.deviceCode,
+      deviceName: record.deviceName,
+      categoryName: record.categoryName,
+      model: record.model,
+      specification: record.specification,
+      manufacturer: record.manufacturer,
+      serialNo: record.serialNo,
+      assetTag: record.assetTag,
+      statusCode: record.statusCode,
+      orgUnitId: record.orgUnitId ? String(record.orgUnitId) : null,
+      orgUnitName: record.orgUnit?.unitName ?? null,
+      responsibleUserId: record.responsibleUserId ? String(record.responsibleUserId) : null,
+      responsibleUserName: record.responsibleUser?.displayName ?? null,
+      locationLabel: record.locationLabel,
+      purchaseDate: record.purchaseDate?.toISOString().slice(0, 10) ?? null,
+      warrantyUntil: record.warrantyUntil?.toISOString().slice(0, 10) ?? null,
+      purchaseAmount: this.toNumber(record.purchaseAmount),
+      remarks: record.remarks,
+      latestRepairId: record.latestRepairId ? String(record.latestRepairId) : null,
+      statusChangedAt: record.statusChangedAt?.toISOString() ?? null,
+      statusLogs: this.readStatusLogs(record.statusLogs),
+      createdAt: record.createdAt.toISOString(),
+      updatedAt: record.updatedAt.toISOString(),
+      latestRepair: record.latestRepair
+        ? {
+            id: String(record.latestRepair.id),
+            repairNo: record.latestRepair.repairNo,
+            statusCode: record.latestRepair.statusCode,
+            latestResult: record.latestRepair.latestResult,
+            reportedAt: record.latestRepair.reportedAt.toISOString(),
+          }
+        : null,
+    };
+  }
+
   async listRepairs(query: DeviceRepairQueryDto, dataScopeContext: DataScopeContext) {
     const pagination = normalizePagination(query);
     const clauses: Prisma.AssetDeviceRepairWhereInput[] = [{ isDeleted: false }, this.buildRepairScopeWhere(dataScopeContext)];

@@ -87,6 +87,8 @@ export async function fetchPortalAdminCarousel(params: {
         themeCode: 'blue' | 'gold' | 'teal';
         sortNo: number | null;
         statusCode: 'ACTIVE' | 'INACTIVE';
+        sourceType: 'MANUAL' | 'KNOWLEDGE';
+        sourceCreationId: string | null;
         createdAt: string;
         updatedAt: string;
       }>;
@@ -152,6 +154,8 @@ export async function fetchPortalAdminContents(params: {
         linkUrl: string | null;
         sortNo: number | null;
         statusCode: 'ACTIVE' | 'INACTIVE';
+        sourceType: 'MANUAL' | 'KNOWLEDGE';
+        sourceCreationId: string | null;
         publishedAt: string | null;
         createdAt: string;
         updatedAt: string;

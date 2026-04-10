@@ -314,15 +314,21 @@ const routes: RouteRecordRaw[] = [
         },
       },
       {
+        path: 'workflow/approval-center/creation-review',
+        name: 'workflow.approval-center.creation-review',
+        component: () => import('@web/views/CreationReviewPage.vue'),
+        meta: {
+          title: '创作审核',
+          breadcrumb: ['审批中心', '创作审核'],
+          permissions: [PermissionCodes.approvalCenterView],
+          roles: [RoleCode.TEACHER, RoleCode.MINISTER],
+          activeMenu: '/workflow/approval-center',
+        },
+      },
+      {
         path: 'system/health',
         name: 'system.health',
-        component: () => import('@web/views/HealthCheckPage.vue'),
-        meta: {
-          title: '系统健康',
-          breadcrumb: ['工作台', '系统健康'],
-          permissions: [PermissionCodes.systemHealthView],
-          activeMenu: '/system/health',
-        },
+        redirect: '/',
       },
       {
         path: 'system/configuration',
@@ -330,7 +336,7 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@web/views/SystemConfigPage.vue'),
         meta: {
           title: '数据字典与配置管理',
-          breadcrumb: ['工作台', '数据字典与配置管理'],
+          breadcrumb: ['系统配置', '数据字典与配置管理'],
           permissions: [PermissionCodes.systemConfigView],
           activeMenu: '/system/configuration',
         },
@@ -378,12 +384,41 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'creation/review',
         name: 'creation.review',
-        component: () => import('@web/views/CreationReviewPage.vue'),
+        redirect: '/workflow/approval-center/creation-review',
+      },
+      {
+        path: 'devices/ledger',
+        name: 'devices.ledger',
+        component: () => import('@web/views/DeviceLedgerPage.vue'),
         meta: {
-          title: '创作审核',
-          breadcrumb: ['内容中心', '创作审核'],
-          roles: [RoleCode.TEACHER, RoleCode.MINISTER],
-          activeMenu: '/creation/review',
+          title: '设备台账',
+          breadcrumb: ['设备与资源', '设备台账'],
+          permissions: [PermissionCodes.deviceRepairView],
+          activeMenu: '/devices/ledger',
+        },
+      },
+      {
+        path: 'teacher/projects/entry',
+        name: 'teacher.projects.entry',
+        component: () => import('@web/views/TeacherProjectLedgerPage.vue'),
+        meta: {
+          title: '项目录入',
+          breadcrumb: ['老师面板', '项目录入'],
+          permissions: [PermissionCodes.fundView],
+          roles: [RoleCode.TEACHER],
+          activeMenu: '/teacher/projects/entry',
+        },
+      },
+      {
+        path: 'teacher/projects/assign',
+        name: 'teacher.projects.assign',
+        component: () => import('@web/views/TeacherProjectLedgerPage.vue'),
+        meta: {
+          title: '项目分配',
+          breadcrumb: ['老师面板', '项目分配'],
+          permissions: [PermissionCodes.fundView],
+          roles: [RoleCode.TEACHER],
+          activeMenu: '/teacher/projects/assign',
         },
       },
       {

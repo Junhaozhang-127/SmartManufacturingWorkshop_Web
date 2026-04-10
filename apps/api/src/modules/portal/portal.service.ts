@@ -73,6 +73,7 @@ export class PortalService {
           status_code: string;
           created_at: Date;
           updated_at: Date;
+          creation_id: bigint | number | null;
         }>
       >(Prisma.sql`
         SELECT
@@ -86,8 +87,15 @@ export class PortalService {
           sort_no,
           status_code,
           created_at,
-          updated_at
+          updated_at,
+          cc.creation_id
         FROM portal_carousel_item
+        LEFT JOIN (
+          SELECT portal_carousel_id, MIN(id) AS creation_id
+          FROM creation_content
+          WHERE is_deleted = 0 AND portal_carousel_id IS NOT NULL
+          GROUP BY portal_carousel_id
+        ) cc ON cc.portal_carousel_id = portal_carousel_item.id
         ${whereSql}
         ORDER BY sort_no ASC, id DESC
         LIMIT ${query.pageSize} OFFSET ${offset}
@@ -108,6 +116,8 @@ export class PortalService {
         themeCode: item.theme_code as 'blue' | 'gold' | 'teal',
         sortNo: item.sort_no,
         statusCode: item.status_code as 'ACTIVE' | 'INACTIVE',
+        sourceType: item.creation_id ? 'KNOWLEDGE' : 'MANUAL',
+        sourceCreationId: item.creation_id ? this.toId(item.creation_id) : null,
         createdAt: this.toIso(item.created_at),
         updatedAt: this.toIso(item.updated_at),
       })),
@@ -215,6 +225,7 @@ export class PortalService {
           published_at: Date | null;
           created_at: Date;
           updated_at: Date;
+          creation_id: bigint | number | null;
         }>
       >(Prisma.sql`
         SELECT
@@ -230,8 +241,15 @@ export class PortalService {
           status_code,
           published_at,
           created_at,
-          updated_at
+          updated_at,
+          cc.creation_id
         FROM portal_content
+        LEFT JOIN (
+          SELECT portal_content_id, MIN(id) AS creation_id
+          FROM creation_content
+          WHERE is_deleted = 0 AND portal_content_id IS NOT NULL
+          GROUP BY portal_content_id
+        ) cc ON cc.portal_content_id = portal_content.id
         ${whereSql}
         ORDER BY published_at DESC, sort_no ASC, id DESC
         LIMIT ${query.pageSize} OFFSET ${offset}
@@ -253,6 +271,8 @@ export class PortalService {
         linkUrl: item.link_url,
         sortNo: item.sort_no,
         statusCode: item.status_code,
+        sourceType: item.creation_id ? 'KNOWLEDGE' : 'MANUAL',
+        sourceCreationId: item.creation_id ? this.toId(item.creation_id) : null,
         publishedAt: this.toIso(item.published_at),
         createdAt: this.toIso(item.created_at),
         updatedAt: this.toIso(item.updated_at),

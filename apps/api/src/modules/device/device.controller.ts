@@ -14,6 +14,7 @@ import { DeviceService } from './device.service';
 import { AssignDeviceRepairDto } from './dto/assign-device-repair.dto';
 import { ConfirmDeviceRepairDto } from './dto/confirm-device-repair.dto';
 import { CreateDeviceRepairDto } from './dto/create-device-repair.dto';
+import { DeviceLedgerQueryDto } from './dto/device-ledger-query.dto';
 import { DeviceRepairQueryDto } from './dto/device-repair-query.dto';
 import { ResolveDeviceRepairDto } from './dto/resolve-device-repair.dto';
 
@@ -21,6 +22,28 @@ import { ResolveDeviceRepairDto } from './dto/resolve-device-repair.dto';
 @UseGuards(AuthGuard, PermissionGuard, DataScopeGuard)
 export class DeviceController {
   constructor(private readonly deviceService: DeviceService) {}
+
+  @Get('devices')
+  @RequirePermissions(PermissionCodes.deviceRepairView)
+  @RequireDataScope()
+  listDevices(@Query() query: DeviceLedgerQueryDto, @DataScopeContextParam() dataScopeContext: DataScopeContext) {
+    return this.deviceService.listDevices(
+      {
+        page: query.page ?? 1,
+        pageSize: query.pageSize ?? 10,
+        keyword: query.keyword,
+        statusCode: query.statusCode,
+      },
+      dataScopeContext,
+    );
+  }
+
+  @Get('devices/:id')
+  @RequirePermissions(PermissionCodes.deviceRepairView)
+  @RequireDataScope()
+  getDeviceDetail(@Param('id') id: string, @DataScopeContextParam() dataScopeContext: DataScopeContext) {
+    return this.deviceService.getDeviceDetail(id, dataScopeContext);
+  }
 
   @Get('device-repairs')
   @RequirePermissions(PermissionCodes.deviceRepairView)

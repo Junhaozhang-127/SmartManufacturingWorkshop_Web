@@ -1,9 +1,13 @@
 <script setup lang="ts">
-import { fetchNotifications, markAllNotificationsAsRead, markNotificationAsRead } from '@web/api/system';
+import { RoleCode } from '@smw/shared';
+import { fetchOrgOverview } from '@web/api/member';
+import { fetchNotifications, markAllNotificationsAsRead, markNotificationAsRead, publishNotification } from '@web/api/system';
+import { useAuthStore } from '@web/stores/auth';
 import { ElMessage } from 'element-plus';
-import { onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
+const authStore = useAuthStore();
 const router = useRouter();
 const loading = ref(false);
 const rows = ref<Awaited<ReturnType<typeof fetchNotifications>>['data']['items']>([]);
@@ -15,6 +19,35 @@ const query = reactive({
   pageSize: 10,
   readStatus: '' as '' | 'READ' | 'UNREAD',
 });
+
+const canPublish = computed(() => [RoleCode.TEACHER, RoleCode.MINISTER].includes(authStore.activeRoleCode ?? RoleCode.MEMBER));
+const departmentOptions = ref<Array<{ id: string; label: string }>>([]);
+
+async function loadDepartmentOptions() {
+  if (authStore.activeRoleCode !== RoleCode.TEACHER) {
+    departmentOptions.value = [];
+    return;
+  }
+
+  try {
+    const response = await fetchOrgOverview();
+    const list: Array<{ id: string; label: string }> = [];
+    const walk = (nodes: any[]) => {
+      for (const node of nodes) {
+        if (node.unitType === 'DEPARTMENT') {
+          list.push({ id: node.id, label: node.unitName });
+        }
+        if (Array.isArray(node.children) && node.children.length) {
+          walk(node.children);
+        }
+      }
+    };
+    walk(response.data.tree as any[]);
+    departmentOptions.value = list;
+  } catch {
+    departmentOptions.value = [];
+  }
+}
 
 async function load() {
   loading.value = true;
@@ -52,8 +85,62 @@ async function readAll() {
   }
 }
 
+const publishVisible = ref(false);
+const publishSaving = ref(false);
+const publishForm = reactive({
+  title: '',
+  content: '',
+  scope: 'DEPARTMENT' as 'GLOBAL' | 'DEPARTMENT',
+  departmentId: '',
+  levelCode: 'INFO' as 'INFO' | 'WARN' | 'ERROR',
+  categoryCode: 'GENERAL',
+});
+
+function openPublish() {
+  publishForm.title = '';
+  publishForm.content = '';
+  publishForm.levelCode = 'INFO';
+  publishForm.categoryCode = 'GENERAL';
+  publishForm.scope = authStore.activeRoleCode === RoleCode.TEACHER ? 'GLOBAL' : 'DEPARTMENT';
+  publishForm.departmentId = authStore.activeRoleCode === RoleCode.TEACHER ? '' : (authStore.orgProfile?.departmentId || '');
+  publishVisible.value = true;
+}
+
+async function submitPublish() {
+  if (!publishForm.title.trim() || !publishForm.content.trim()) {
+    ElMessage.error('请填写通知标题与内容');
+    return;
+  }
+
+  if (authStore.activeRoleCode === RoleCode.TEACHER && publishForm.scope === 'DEPARTMENT' && !publishForm.departmentId) {
+    ElMessage.error('请选择部门');
+    return;
+  }
+
+  publishSaving.value = true;
+  try {
+    const response = await publishNotification({
+      title: publishForm.title.trim(),
+      content: publishForm.content.trim(),
+      categoryCode: publishForm.categoryCode,
+      levelCode: publishForm.levelCode,
+      scope: authStore.activeRoleCode === RoleCode.MINISTER ? 'DEPARTMENT' : publishForm.scope,
+      departmentId: authStore.activeRoleCode === RoleCode.MINISTER ? (authStore.orgProfile?.departmentId || undefined) : (publishForm.departmentId || undefined),
+      routePath: '/notifications',
+    });
+
+    ElMessage.success(`已发布通知（${response.data.createdCount} 人）`);
+    publishVisible.value = false;
+    await load();
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '发布失败');
+  } finally {
+    publishSaving.value = false;
+  }
+}
+
 onMounted(() => {
-  void load();
+  void Promise.all([loadDepartmentOptions(), load()]);
 });
 </script>
 
@@ -73,6 +160,7 @@ onMounted(() => {
           <el-option label="已读" value="READ" />
         </el-select>
         <el-button type="primary" @click="load">查询</el-button>
+        <el-button v-if="canPublish" type="success" @click="openPublish">发布通知</el-button>
         <el-button :disabled="!unreadCount" @click="readAll">全部标记已读</el-button>
         <el-tag type="warning">未读 {{ unreadCount }}</el-tag>
       </div>
@@ -118,5 +206,43 @@ onMounted(() => {
         />
       </div>
     </div>
+
+    <el-dialog v-model="publishVisible" title="发布通知" width="640px" destroy-on-close>
+      <el-form label-width="110px">
+        <el-form-item label="标题">
+          <el-input v-model="publishForm.title" maxlength="128" show-word-limit />
+        </el-form-item>
+        <el-form-item label="内容">
+          <el-input v-model="publishForm.content" type="textarea" :rows="6" maxlength="1000" show-word-limit />
+        </el-form-item>
+        <el-form-item label="级别">
+          <el-select v-model="publishForm.levelCode" style="width: 10rem">
+            <el-option label="INFO" value="INFO" />
+            <el-option label="WARN" value="WARN" />
+            <el-option label="ERROR" value="ERROR" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="范围">
+          <template v-if="authStore.activeRoleCode === RoleCode.MINISTER">
+            <el-tag type="info">本部门</el-tag>
+          </template>
+          <template v-else>
+            <el-radio-group v-model="publishForm.scope">
+              <el-radio-button label="GLOBAL">全局</el-radio-button>
+              <el-radio-button label="DEPARTMENT">部门</el-radio-button>
+            </el-radio-group>
+          </template>
+        </el-form-item>
+        <el-form-item v-if="authStore.activeRoleCode === RoleCode.TEACHER && publishForm.scope === 'DEPARTMENT'" label="目标部门">
+          <el-select v-model="publishForm.departmentId" filterable clearable style="width: 100%">
+            <el-option v-for="item in departmentOptions" :key="item.id" :label="item.label" :value="item.id" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button :disabled="publishSaving" @click="publishVisible = false">取消</el-button>
+        <el-button type="primary" :loading="publishSaving" @click="submitPublish">发布</el-button>
+      </template>
+    </el-dialog>
   </section>
 </template>

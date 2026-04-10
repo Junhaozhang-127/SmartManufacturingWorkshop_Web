@@ -14,6 +14,50 @@ export async function fetchOrgOverview() {
   return http.get<never, { data: OrgOverviewResult }>('/org-units/tree');
 }
 
+export async function fetchOrgMemberOptions() {
+  return http.get<
+    never,
+    {
+      data: Array<{
+        memberProfileId: string;
+        userId: string;
+        displayName: string;
+        username: string;
+        memberStatus: string;
+        orgUnitId: string;
+        orgUnitName: string;
+        roleCodes: string[];
+      }>;
+    }
+  >('/org-units/member-options');
+}
+
+export async function createDepartment(payload: {
+  unitCode?: string;
+  unitName: string;
+  leaderUserId?: string;
+  memberProfileIds?: string[];
+}) {
+  return http.post<never, { data: { id: string } }>('/org-units/departments', payload);
+}
+
+export async function createGroup(payload: {
+  unitCode?: string;
+  unitName: string;
+  leaderUserId?: string;
+  memberProfileIds?: string[];
+}) {
+  return http.post<never, { data: { id: string } }>('/org-units/groups', payload);
+}
+
+export async function updateOrgLeader(orgUnitId: string, payload: { leaderUserId?: string }) {
+  return http.patch<never, { data: null }>(`/org-units/${orgUnitId}/leader`, payload);
+}
+
+export async function assignOrgMembers(orgUnitId: string, payload: { memberProfileIds: string[] }) {
+  return http.put<never, { data: { updatedCount: number } }>(`/org-units/${orgUnitId}/members`, payload);
+}
+
 export async function fetchMemberList(params: {
   page: number;
   pageSize: number;

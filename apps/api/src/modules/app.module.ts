@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 
 import { ApprovalModule } from './approval/approval.module';
+import { AttachmentsModule } from './attachments/attachments.module';
 import { AuthModule } from './auth/auth.module';
 import { CompetitionAchievementModule } from './competition-achievement/competition-achievement.module';
 import { CreationModule } from './creation/creation.module';
@@ -26,6 +27,7 @@ import { SystemModule } from './system/system.module';
     PrismaModule,
     HealthModule,
     FileModule,
+    AttachmentsModule,
     FinanceModule,
     AuthModule,
     MemberModule,

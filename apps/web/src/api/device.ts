@@ -2,6 +2,90 @@ import type { DeviceDashboardSummary, DeviceRepairDetail, DeviceRepairListResult
 
 import { http } from './client';
 
+export interface DeviceLedgerListItem {
+  id: string;
+  deviceCode: string;
+  deviceName: string;
+  categoryName: string;
+  model: string | null;
+  statusCode: string;
+  orgUnitId: string | null;
+  orgUnitName: string | null;
+  responsibleUserId: string | null;
+  responsibleUserName: string | null;
+  locationLabel: string | null;
+  latestRepairId: string | null;
+  latestRepairNo: string | null;
+  latestRepairStatus: string | null;
+  updatedAt: string;
+}
+
+export interface DeviceLedgerListResult {
+  items: DeviceLedgerListItem[];
+  meta: { page: number; pageSize: number; total: number };
+}
+
+export interface DeviceLedgerDetail {
+  id: string;
+  deviceCode: string;
+  deviceName: string;
+  categoryName: string;
+  model: string | null;
+  specification: string | null;
+  manufacturer: string | null;
+  serialNo: string | null;
+  assetTag: string | null;
+  statusCode: string;
+  orgUnitId: string | null;
+  orgUnitName: string | null;
+  responsibleUserId: string | null;
+  responsibleUserName: string | null;
+  locationLabel: string | null;
+  purchaseDate: string | null;
+  warrantyUntil: string | null;
+  purchaseAmount: number | null;
+  remarks: string | null;
+  latestRepairId: string | null;
+  statusChangedAt: string | null;
+  statusLogs: Array<{
+    actionType: string;
+    fromStatus: string | null;
+    toStatus: string | null;
+    operatorUserId: string | null;
+    operatorName: string | null;
+    comment: string | null;
+    createdAt: string;
+  }>;
+  createdAt: string;
+  updatedAt: string;
+  latestRepair: {
+    id: string;
+    repairNo: string;
+    statusCode: string;
+    latestResult: string | null;
+    reportedAt: string;
+  } | null;
+}
+
+export async function fetchDeviceLedgerList(params: {
+  page: number;
+  pageSize: number;
+  keyword?: string;
+  statusCode?: string;
+}) {
+  return http.get<never, { data: DeviceLedgerListResult }>('/devices', {
+    params: {
+      ...params,
+      keyword: params.keyword || undefined,
+      statusCode: params.statusCode || undefined,
+    },
+  });
+}
+
+export async function fetchDeviceLedgerDetail(id: string) {
+  return http.get<never, { data: DeviceLedgerDetail }>(`/devices/${id}`);
+}
+
 export async function fetchDeviceRepairList(params: {
   page: number;
   pageSize: number;

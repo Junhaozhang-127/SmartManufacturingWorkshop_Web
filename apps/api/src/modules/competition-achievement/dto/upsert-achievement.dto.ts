@@ -155,4 +155,8 @@ export class UpsertAchievementDto {
 
   @IsBoolean()
   submitForApproval = false;
+
+  @IsOptional()
+  @IsArray()
+  attachmentFileIds?: string[];
 }

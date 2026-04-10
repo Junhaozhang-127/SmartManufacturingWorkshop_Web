@@ -2,6 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import { type CurrentUserProfile,DataScope } from '@smw/shared';
 
 import type { ApprovalService } from '../approval/approval.service';
+import type { AttachmentsService } from '../attachments/attachments.service';
 import type { PrismaService } from '../prisma/prisma.service';
 import { AchievementRecognitionService } from './achievement-recognition.service';
 import { CompetitionAchievementService } from './competition-achievement.service';
@@ -69,10 +70,15 @@ describe('CompetitionAchievementService', () => {
       startBusinessApproval: jest.fn(),
     };
 
+    const attachmentsService = {
+      bindAttachmentsAsSystem: jest.fn(),
+    };
+
     return new CompetitionAchievementService(
       prisma as unknown as PrismaService,
       approvalService as unknown as ApprovalService,
       new AchievementRecognitionService(),
+      attachmentsService as unknown as AttachmentsService,
     );
   }
 

@@ -1,5 +1,7 @@
+import { randomUUID } from 'node:crypto';
+
 import { buildMemberProfileWhere } from '@api/modules/auth/data-scope-prisma';
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import {
   AchievementStatus,
@@ -35,6 +37,27 @@ type NotificationRecord = Prisma.SysNotificationGetPayload<Record<string, never>
 @Injectable()
 export class SystemService {
   constructor(private readonly prisma: PrismaService) {}
+
+  private async collectOrgDescendantIds(rootOrgUnitId: string) {
+    const units = await this.prisma.orgUnit.findMany({
+      where: { isDeleted: false, statusCode: 'ACTIVE' },
+      select: { id: true, parentId: true },
+    });
+
+    const targetIds = new Set<string>([rootOrgUnitId]);
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const unit of units) {
+        if (unit.parentId && targetIds.has(String(unit.parentId)) && !targetIds.has(String(unit.id))) {
+          targetIds.add(String(unit.id));
+          changed = true;
+        }
+      }
+    }
+
+    return [...targetIds];
+  }
 
   async getHomeDashboard(currentUser: CurrentUserProfile): Promise<HomeDashboardData> {
     const [pendingApprovals, myApplications, notifications, metricCards, todoSummary] = await Promise.all([
@@ -163,6 +186,94 @@ export class SystemService {
         unreadCount,
       },
     };
+  }
+
+  async publishNotification(
+    currentUser: CurrentUserProfile,
+    payload: {
+      title: string;
+      content: string;
+      categoryCode?: string;
+      levelCode?: string;
+      scope?: string;
+      departmentId?: string;
+      routePath?: string;
+    },
+  ) {
+    if (![RoleCode.TEACHER, RoleCode.MINISTER].includes(currentUser.activeRole.roleCode)) {
+      throw new ForbiddenException('仅老师、部长可发布通知');
+    }
+
+    const title = payload.title.trim();
+    const content = payload.content.trim();
+    if (!title || !content) {
+      throw new BadRequestException('通知标题与内容不能为空');
+    }
+
+    const categoryCode = payload.categoryCode?.trim() || 'GENERAL';
+    const levelCode = payload.levelCode?.trim() || 'INFO';
+
+    const scope = payload.scope === 'DEPARTMENT' ? 'DEPARTMENT' : 'GLOBAL';
+    const routePath = payload.routePath?.trim() || null;
+
+    let targetUserIds: string[] = [];
+
+    if (scope === 'GLOBAL') {
+      if (currentUser.activeRole.roleCode !== RoleCode.TEACHER) {
+        throw new ForbiddenException('部长仅可发布本部门通知');
+      }
+      const users = await this.prisma.sysUser.findMany({
+        where: { isDeleted: false, statusCode: 'ACTIVE' },
+        select: { id: true },
+      });
+      targetUserIds = users.map((item) => String(item.id));
+    } else {
+      const departmentId =
+        currentUser.activeRole.roleCode === RoleCode.MINISTER
+          ? currentUser.orgProfile.departmentId
+          : payload.departmentId?.trim() || null;
+
+      if (!departmentId) {
+        throw new BadRequestException('请选择部门');
+      }
+
+      const descendantIds = await this.collectOrgDescendantIds(departmentId);
+      const members = await this.prisma.memberProfile.findMany({
+        where: {
+          isDeleted: false,
+          orgUnitId: { in: descendantIds.map((id) => BigInt(id)) },
+          user: { isDeleted: false, statusCode: 'ACTIVE' },
+        },
+        select: { userId: true },
+      });
+      targetUserIds = [...new Set(members.map((item) => String(item.userId)))];
+    }
+
+    if (!targetUserIds.length) {
+      throw new BadRequestException('目标范围内没有可接收通知的成员');
+    }
+
+    const now = new Date();
+    const batchId = randomUUID();
+    const result = await this.prisma.sysNotification.createMany({
+      data: targetUserIds.map((userId) => ({
+        userId: BigInt(userId),
+        title,
+        content,
+        categoryCode,
+        levelCode,
+        businessType: 'ANNOUNCEMENT',
+        businessId: batchId,
+        routePath,
+        routeQuery: Prisma.DbNull,
+        readAt: null,
+        createdAt: now,
+        createdBy: BigInt(currentUser.id),
+        isDeleted: false,
+      })),
+    });
+
+    return { createdCount: result.count, batchId };
   }
 
   async markNotificationAsRead(currentUser: CurrentUserProfile, notificationId: string) {

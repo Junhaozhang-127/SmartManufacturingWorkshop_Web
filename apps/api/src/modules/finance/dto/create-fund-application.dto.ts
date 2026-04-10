@@ -95,4 +95,8 @@ export class CreateFundApplicationDto {
   @ValidateNested({ each: true })
   @Type(() => AttachmentDto)
   attachments?: AttachmentDto[];
+
+  @IsOptional()
+  @IsArray()
+  attachmentFileIds?: string[];
 }

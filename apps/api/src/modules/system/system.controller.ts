@@ -5,6 +5,7 @@ import { CurrentUser, RequirePermissions } from '../auth/auth.decorators';
 import { AuthGuard } from '../auth/auth.guard';
 import { PermissionGuard } from '../auth/permission.guard';
 import { NotificationQueryDto } from './dto/notification-query.dto';
+import { PublishNotificationDto } from './dto/publish-notification.dto';
 import { UpdatePersonalCenterDto } from './dto/update-personal-center.dto';
 import { UpsertApprovalTemplateDto } from './dto/upsert-approval-template.dto';
 import { UpsertConfigItemDto } from './dto/upsert-config-item.dto';
@@ -39,6 +40,12 @@ export class SystemController {
   @RequirePermissions(PermissionCodes.notificationView)
   listNotifications(@CurrentUser() currentUser: CurrentUserProfile, @Query() query: NotificationQueryDto) {
     return this.systemService.listNotifications(currentUser, query);
+  }
+
+  @Post('notifications/publish')
+  @RequirePermissions(PermissionCodes.notificationUpdate)
+  publishNotification(@CurrentUser() currentUser: CurrentUserProfile, @Body() payload: PublishNotificationDto) {
+    return this.systemService.publishNotification(currentUser, payload);
   }
 
   @Post('notifications/read-all')

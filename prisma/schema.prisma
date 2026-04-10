@@ -7,6 +7,46 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model SysFile {
+  id           BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  originalName String   @map("original_name") @db.VarChar(255)
+  storageKey   String   @map("storage_key") @db.VarChar(255)
+  fileExt      String   @map("file_ext") @db.VarChar(32)
+  mimeType     String?  @map("mime_type") @db.VarChar(128)
+  fileSize     BigInt   @map("file_size") @db.UnsignedBigInt
+  fileCategory String   @map("file_category") @db.VarChar(32)
+  uploadedBy   BigInt   @map("uploaded_by") @db.UnsignedBigInt
+  isTemporary  Boolean  @default(true) @map("is_temporary")
+  expiresAt    DateTime? @map("expires_at")
+  boundAt      DateTime? @map("bound_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  uploader SysUser @relation(fields: [uploadedBy], references: [id])
+  links    SysFileLink[]
+
+  @@index([uploadedBy, createdAt])
+  @@index([isTemporary, expiresAt])
+  @@index([storageKey])
+  @@map("sys_file")
+}
+
+model SysFileLink {
+  id           BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  businessType String   @map("business_type") @db.VarChar(64)
+  businessId   String   @map("business_id") @db.VarChar(64)
+  usageType    String   @map("usage_type") @db.VarChar(64)
+  fileId       BigInt   @map("file_id") @db.UnsignedBigInt
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  file SysFile @relation(fields: [fileId], references: [id])
+
+  @@index([businessType, businessId, usageType])
+  @@index([fileId])
+  @@unique([businessType, businessId, usageType, fileId])
+  @@map("sys_file_link")
+}
+
 model SysUser {
   id           BigInt          @id @default(autoincrement()) @db.UnsignedBigInt
   username     String          @unique @db.VarChar(64)
@@ -57,6 +97,7 @@ model SysUser {
   notifications             SysNotification[]
   creationContents          CreationContent[]
   creationReviewedContents  CreationContent[]    @relation("CreationContentReviewer")
+  uploadedFiles             SysFile[]
 
   @@map("sys_user")
 }

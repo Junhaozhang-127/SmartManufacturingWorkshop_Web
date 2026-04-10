@@ -1,4 +1,5 @@
 import { ApprovalService } from '@api/modules/approval/approval.service';
+import { AttachmentsService } from '@api/modules/attachments/attachments.service';
 import { buildMemberProfileWhere } from '@api/modules/auth/data-scope-prisma';
 import { PrismaService } from '@api/modules/prisma/prisma.service';
 import {
@@ -47,6 +48,7 @@ export class CompetitionAchievementService {
     private readonly prisma: PrismaService,
     private readonly approvalService: ApprovalService,
     private readonly recognitionService: AchievementRecognitionService,
+    private readonly attachmentsService: AttachmentsService,
   ) {}
 
   async listCompetitions(query: CompetitionQueryDto) {
@@ -435,6 +437,15 @@ export class CompetitionAchievementService {
 
       await this.replaceAchievementChildren(tx, created.id, payload);
 
+      if (Array.isArray(payload.attachmentFileIds) && payload.attachmentFileIds.length) {
+        await this.attachmentsService.bindAttachmentsAsSystem(tx, currentUser, {
+          businessType: ApprovalBusinessType.ACHIEVEMENT_RECOGNITION,
+          businessId: String(created.id),
+          usageType: 'ACHIEVEMENT_PROOF',
+          fileIds: payload.attachmentFileIds,
+        });
+      }
+
       if (payload.submitForApproval) {
         const approval = await this.approvalService.startBusinessApproval(tx, {
           businessType: ApprovalBusinessType.ACHIEVEMENT_RECOGNITION,
@@ -500,6 +511,15 @@ export class CompetitionAchievementService {
       });
 
       await this.replaceAchievementChildren(tx, record.id, payload);
+
+      if (Array.isArray(payload.attachmentFileIds) && payload.attachmentFileIds.length) {
+        await this.attachmentsService.bindAttachmentsAsSystem(tx, currentUser, {
+          businessType: ApprovalBusinessType.ACHIEVEMENT_RECOGNITION,
+          businessId: String(record.id),
+          usageType: 'ACHIEVEMENT_PROOF',
+          fileIds: payload.attachmentFileIds,
+        });
+      }
 
       if (payload.submitForApproval && !record.approvalInstanceId) {
         const approval = await this.approvalService.startBusinessApproval(tx, {

@@ -8,6 +8,7 @@ import {
 } from '@smw/shared';
 
 import type { ApprovalService } from '../approval/approval.service';
+import type { AttachmentsService } from '../attachments/attachments.service';
 import type { PrismaService } from '../prisma/prisma.service';
 import { FinanceService } from './finance.service';
 
@@ -156,8 +157,16 @@ describe('FinanceService', () => {
       startBusinessApproval: jest.fn().mockResolvedValue({ id: 88n }),
     };
 
+    const attachmentsService = {
+      bindAttachmentsAsSystem: jest.fn(),
+    };
+
     return {
-      service: new FinanceService(prisma as unknown as PrismaService, approvalService as unknown as ApprovalService),
+      service: new FinanceService(
+        prisma as unknown as PrismaService,
+        approvalService as unknown as ApprovalService,
+        attachmentsService as unknown as AttachmentsService,
+      ),
       prisma,
       approvalService,
     };

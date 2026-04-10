@@ -13,10 +13,12 @@ import RichTextViewer from '@web/components/RichTextViewer.vue';
 import { useAuthStore } from '@web/stores/auth';
 import { ElMessage } from 'element-plus';
 import { computed, onMounted, reactive, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
 type ReviewTab = 'PENDING' | 'APPROVED';
 
 const authStore = useAuthStore();
+const router = useRouter();
 const canReview = computed(() => [RoleCode.TEACHER, RoleCode.MINISTER].includes(authStore.activeRoleCode ?? RoleCode.MEMBER));
 
 const activeTab = ref<ReviewTab>('PENDING');
@@ -66,6 +68,14 @@ const homeSectionOptions: Array<{ label: string; value: HomeSection }> = [
   { label: '竞赛风采', value: 'COMPETITION' },
   { label: '成员简介', value: 'MEMBER_INTRO' },
 ];
+
+function goWorkflowApproval() {
+  void router.push({ name: 'workflow.approval-center' });
+}
+
+function goCreationReview() {
+  void router.push({ name: 'workflow.approval-center.creation-review' });
+}
 
 function formatDate(value: string | null) {
   return value ? value.slice(0, 19).replace('T', ' ') : '-';
@@ -230,6 +240,12 @@ onMounted(() => {
       <p class="hero-card__eyebrow">创作审核</p>
       <h2>审核与首页分发</h2>
       <p>仅老师/部长可操作：审核通过/驳回，并对已通过内容设置“进入智库/推荐到首页”。</p>
+      <div class="hero-card__actions">
+        <el-button-group>
+          <el-button @click="goWorkflowApproval">工作流审批</el-button>
+          <el-button type="primary" @click="goCreationReview">创作审核</el-button>
+        </el-button-group>
+      </div>
     </div>
 
     <div v-if="!canReview" class="panel-card">
@@ -395,6 +411,10 @@ onMounted(() => {
 </template>
 
 <style scoped>
+.hero-card__actions {
+  margin-top: 0.75rem;
+}
+
 .muted {
   color: #64748b;
 }

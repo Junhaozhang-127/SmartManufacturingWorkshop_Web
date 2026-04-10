@@ -1,4 +1,5 @@
 import { ApprovalService } from '@api/modules/approval/approval.service';
+import { AttachmentsService } from '@api/modules/attachments/attachments.service';
 import { PrismaService } from '@api/modules/prisma/prisma.service';
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
@@ -11,6 +12,7 @@ import {
   FundApplicationStatus,
   FundPaymentStatus,
   normalizePagination,
+  RoleCode,
 } from '@smw/shared';
 
 import type { CreateFundApplicationDto } from './dto/create-fund-application.dto';
@@ -51,7 +53,159 @@ export class FinanceService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly approvalService: ApprovalService,
+    private readonly attachmentsService: AttachmentsService,
   ) {}
+
+  private assertTeacher(currentUser: CurrentUserProfile) {
+    if (currentUser.activeRole.roleCode !== RoleCode.TEACHER) {
+      throw new ForbiddenException('仅老师可管理项目台账');
+    }
+  }
+
+  async listTeacherAccounts(
+    currentUser: CurrentUserProfile,
+    query: { page: number; pageSize: number; keyword?: string; statusCode?: string },
+  ) {
+    this.assertTeacher(currentUser);
+    const pagination = normalizePagination(query);
+    const clauses: Prisma.FundAccountWhereInput[] = [{ isDeleted: false }];
+
+    if (query.statusCode) {
+      clauses.push({ statusCode: query.statusCode });
+    }
+
+    if (pagination.keyword) {
+      clauses.push({
+        OR: [
+          { accountCode: { contains: pagination.keyword } },
+          { accountName: { contains: pagination.keyword } },
+          { projectId: { contains: pagination.keyword } },
+          { projectName: { contains: pagination.keyword } },
+          { categoryName: { contains: pagination.keyword } },
+        ],
+      });
+    }
+
+    const where = { AND: clauses } satisfies Prisma.FundAccountWhereInput;
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.fundAccount.findMany({
+        where,
+        include: {
+          ownerOrgUnit: true,
+          manager: true,
+        },
+        orderBy: [{ updatedAt: 'desc' }],
+        skip: (pagination.page - 1) * pagination.pageSize,
+        take: pagination.pageSize,
+      }),
+      this.prisma.fundAccount.count({ where }),
+    ]);
+
+    return {
+      items: items.map((item) => ({
+        id: String(item.id),
+        accountCode: item.accountCode,
+        accountName: item.accountName,
+        categoryName: item.categoryName,
+        projectId: item.projectId,
+        projectName: item.projectName,
+        ownerOrgUnitId: item.ownerOrgUnitId ? String(item.ownerOrgUnitId) : null,
+        ownerOrgUnitName: item.ownerOrgUnit?.unitName ?? null,
+        managerUserId: item.managerUserId ? String(item.managerUserId) : null,
+        managerUserName: item.manager?.displayName ?? null,
+        statusCode: item.statusCode,
+        totalBudget: this.toNumber(item.totalBudget) ?? 0,
+        reservedAmount: this.toNumber(item.reservedAmount) ?? 0,
+        usedAmount: this.toNumber(item.usedAmount) ?? 0,
+        paidAmount: this.toNumber(item.paidAmount) ?? 0,
+        remarks: item.remarks,
+        updatedAt: item.updatedAt.toISOString(),
+      })),
+      meta: { page: pagination.page, pageSize: pagination.pageSize, total },
+    };
+  }
+
+  async createTeacherAccount(
+    currentUser: CurrentUserProfile,
+    payload: {
+      accountCode: string;
+      accountName: string;
+      categoryName: string;
+      projectId?: string;
+      projectName?: string;
+      ownerOrgUnitId?: string;
+      managerUserId?: string;
+      totalBudget: number;
+      remarks?: string;
+      statusCode?: string;
+    },
+  ) {
+    this.assertTeacher(currentUser);
+    const created = await this.prisma.fundAccount.create({
+      data: {
+        accountCode: payload.accountCode.trim(),
+        accountName: payload.accountName.trim(),
+        categoryName: payload.categoryName.trim(),
+        projectId: payload.projectId?.trim() || null,
+        projectName: payload.projectName?.trim() || null,
+        ownerOrgUnitId: payload.ownerOrgUnitId ? this.toBigInt(payload.ownerOrgUnitId) : null,
+        managerUserId: payload.managerUserId ? this.toBigInt(payload.managerUserId) : null,
+        totalBudget: this.toDecimal(payload.totalBudget) ?? new Prisma.Decimal(0),
+        reservedAmount: new Prisma.Decimal(0),
+        usedAmount: new Prisma.Decimal(0),
+        paidAmount: new Prisma.Decimal(0),
+        remarks: payload.remarks?.trim() || null,
+        statusCode: payload.statusCode?.trim() || 'ACTIVE',
+        createdBy: this.toBigInt(currentUser.id),
+        isDeleted: false,
+      },
+      select: { id: true },
+    });
+
+    return { id: String(created.id) };
+  }
+
+  async updateTeacherAccount(
+    currentUser: CurrentUserProfile,
+    id: string,
+    payload: {
+      accountCode: string;
+      accountName: string;
+      categoryName: string;
+      projectId?: string;
+      projectName?: string;
+      ownerOrgUnitId?: string;
+      managerUserId?: string;
+      totalBudget: number;
+      remarks?: string;
+      statusCode?: string;
+    },
+  ) {
+    this.assertTeacher(currentUser);
+    const existing = await this.prisma.fundAccount.findFirst({
+      where: { id: this.toBigInt(id), isDeleted: false },
+      select: { id: true },
+    });
+    if (!existing) throw new NotFoundException('项目台账不存在');
+
+    await this.prisma.fundAccount.update({
+      where: { id: this.toBigInt(id) },
+      data: {
+        accountCode: payload.accountCode.trim(),
+        accountName: payload.accountName.trim(),
+        categoryName: payload.categoryName.trim(),
+        projectId: payload.projectId?.trim() || null,
+        projectName: payload.projectName?.trim() || null,
+        ownerOrgUnitId: payload.ownerOrgUnitId ? this.toBigInt(payload.ownerOrgUnitId) : null,
+        managerUserId: payload.managerUserId ? this.toBigInt(payload.managerUserId) : null,
+        totalBudget: this.toDecimal(payload.totalBudget) ?? undefined,
+        remarks: payload.remarks?.trim() || null,
+        statusCode: payload.statusCode?.trim() || undefined,
+      },
+    });
+
+    return null;
+  }
 
   async getOverview(currentUser: CurrentUserProfile, dataScopeContext: DataScopeContext) {
     const accountWhere = { AND: [{ isDeleted: false }, this.buildAccountScopeWhere(dataScopeContext)] } satisfies Prisma.FundAccountWhereInput;
@@ -325,6 +479,15 @@ export class FinanceService {
           createdBy: this.toBigInt(currentUser.id),
         },
       });
+
+      if (Array.isArray(payload.attachmentFileIds) && payload.attachmentFileIds.length) {
+        await this.attachmentsService.bindAttachmentsAsSystem(tx, currentUser, {
+          businessType: ApprovalBusinessType.FUND_REQUEST,
+          businessId: String(application.id),
+          usageType: 'FUND_VOUCHER',
+          fileIds: payload.attachmentFileIds,
+        });
+      }
 
       await tx.fundAccount.update({
         where: { id: account.id },

@@ -38,13 +38,15 @@ describe('filterMenuByAccess', () => {
       RoleCode.TEACHER,
     );
 
-    expect(result).toHaveLength(8);
+    expect(result).toHaveLength(10);
     expect(result.map((item) => item.key)).toEqual([
       'workbench',
+      'system-configuration',
       'org-member',
       'evaluation-promotion',
       'competition-achievement',
       'device-resource',
+      'teacher-panel',
       'content-center',
       'approval-center',
       'profile',

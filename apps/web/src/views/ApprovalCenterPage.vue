@@ -13,9 +13,10 @@ import {
 } from '@web/api/approval';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { computed, onMounted, reactive, ref, watch } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 
 const route = useRoute();
+const router = useRouter();
 const loading = ref(false);
 const detailLoading = ref(false);
 const submitting = ref(false);
@@ -42,6 +43,14 @@ const tabOptions = [
   { label: '已审批', value: ApprovalCenterTabEnum.PROCESSED },
   { label: '退回记录', value: ApprovalCenterTabEnum.RETURNED },
 ];
+
+function goWorkflowApproval() {
+  void router.push({ name: 'workflow.approval-center' });
+}
+
+function goCreationReview() {
+  void router.push({ name: 'workflow.approval-center.creation-review' });
+}
 
 const actionButtons = computed(() => selectedDetail.value?.availableActions ?? []);
 
@@ -184,6 +193,12 @@ watch(
       <p>
         所有业务单据通过统一的 `businessType + businessId` 进入审批中心。当前首版已打通待审批、已审批、退回记录、轨迹查看和意见处理。
       </p>
+      <div class="hero-card__actions">
+        <el-button-group>
+          <el-button type="primary" @click="goWorkflowApproval">工作流审批</el-button>
+          <el-button @click="goCreationReview">创作审核</el-button>
+        </el-button-group>
+      </div>
     </div>
 
     <div class="panel-card">
@@ -367,3 +382,9 @@ watch(
     </el-drawer>
   </section>
 </template>
+
+<style scoped>
+.hero-card__actions {
+  margin-top: 0.75rem;
+}
+</style>

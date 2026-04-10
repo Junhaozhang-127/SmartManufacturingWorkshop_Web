@@ -1,4 +1,4 @@
-import { Body, Controller, ForbiddenException, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, ForbiddenException, Get, Param, Patch, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { type CurrentUserProfile, DataScope, type DataScopeContext, PermissionCodes, RoleCode } from '@smw/shared';
 
 import { ApprovalCommentDto } from '../approval/dto/approval-comment.dto';
@@ -11,12 +11,15 @@ import {
 import { AuthGuard } from '../auth/auth.guard';
 import { DataScopeGuard } from '../auth/data-scope.guard';
 import { PermissionGuard } from '../auth/permission.guard';
+import { AssignOrgMembersDto } from './dto/assign-org-members.dto';
 import { BindMentorDto } from './dto/bind-mentor.dto';
+import { CreateOrgUnitDto } from './dto/create-org-unit.dto';
 import { CreateRegularizationDto } from './dto/create-regularization.dto';
 import { CreateStageEvaluationDto } from './dto/create-stage-evaluation.dto';
 import { MemberQueryDto } from './dto/member-query.dto';
 import { RegularizationQueryDto } from './dto/regularization-query.dto';
 import { UpdateMemberDto } from './dto/update-member.dto';
+import { UpdateOrgLeaderDto } from './dto/update-org-leader.dto';
 import { MemberService } from './member.service';
 
 @Controller()
@@ -35,6 +38,69 @@ export class MemberController {
   @RequireDataScope()
   getOrgTree(@DataScopeContextParam() dataScopeContext: DataScopeContext) {
     return this.memberService.getOrgOverview(dataScopeContext);
+  }
+
+  @Get('org-units/member-options')
+  @RequirePermissions(PermissionCodes.orgTreeView)
+  @RequireDataScope()
+  listOrgMemberOptions(@DataScopeContextParam() dataScopeContext: DataScopeContext) {
+    return this.memberService.listOrgMemberOptions(dataScopeContext);
+  }
+
+  @Post('org-units/departments')
+  @RequirePermissions(PermissionCodes.orgTreeView)
+  @RequireDataScope()
+  createDepartment(
+    @CurrentUser() currentUser: CurrentUserProfile,
+    @Body() payload: CreateOrgUnitDto,
+  ) {
+    if (currentUser.activeRole.roleCode !== RoleCode.TEACHER) {
+      throw new ForbiddenException('仅老师可新增部门');
+    }
+    return this.memberService.createDepartment(currentUser, payload);
+  }
+
+  @Post('org-units/groups')
+  @RequirePermissions(PermissionCodes.orgTreeView)
+  @RequireDataScope()
+  createGroup(
+    @CurrentUser() currentUser: CurrentUserProfile,
+    @Body() payload: CreateOrgUnitDto,
+  ) {
+    if (currentUser.activeRole.roleCode !== RoleCode.MINISTER) {
+      throw new ForbiddenException('仅部长可新增小组');
+    }
+    return this.memberService.createGroup(currentUser, payload);
+  }
+
+  @Patch('org-units/:id/leader')
+  @RequirePermissions(PermissionCodes.orgTreeView)
+  @RequireDataScope()
+  updateLeader(
+    @CurrentUser() currentUser: CurrentUserProfile,
+    @Param('id') id: string,
+    @Body() payload: UpdateOrgLeaderDto,
+    @DataScopeContextParam() dataScopeContext: DataScopeContext,
+  ) {
+    if (![RoleCode.TEACHER, RoleCode.MINISTER].includes(currentUser.activeRole.roleCode)) {
+      throw new ForbiddenException('无权限调整负责人');
+    }
+    return this.memberService.updateOrgLeader(currentUser, id, payload.leaderUserId ?? null, dataScopeContext);
+  }
+
+  @Put('org-units/:id/members')
+  @RequirePermissions(PermissionCodes.orgTreeView)
+  @RequireDataScope()
+  assignMembers(
+    @CurrentUser() currentUser: CurrentUserProfile,
+    @Param('id') id: string,
+    @Body() payload: AssignOrgMembersDto,
+    @DataScopeContextParam() dataScopeContext: DataScopeContext,
+  ) {
+    if (![RoleCode.TEACHER, RoleCode.MINISTER].includes(currentUser.activeRole.roleCode)) {
+      throw new ForbiddenException('无权限分配成员');
+    }
+    return this.memberService.assignMembersToOrgUnit(currentUser, id, payload.memberProfileIds ?? [], dataScopeContext);
   }
 
   @Get('members')

@@ -61,6 +61,18 @@ export async function fetchNotifications(params: {
   });
 }
 
+export async function publishNotification(payload: {
+  title: string;
+  content: string;
+  categoryCode?: string;
+  levelCode?: string;
+  scope?: 'GLOBAL' | 'DEPARTMENT';
+  departmentId?: string;
+  routePath?: string;
+}) {
+  return http.post<never, { data: { createdCount: number } }>('/notifications/publish', payload);
+}
+
 export async function markNotificationAsRead(id: string) {
   return http.post<never, { data: unknown }>(`/notifications/${id}/read`);
 }

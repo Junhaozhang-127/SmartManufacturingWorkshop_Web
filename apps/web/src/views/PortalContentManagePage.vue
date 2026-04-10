@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { RoleCode } from '@smw/shared';
+import { fetchKnowledgeContents,type HomeSection, publishCreationContent } from '@web/api/creation';
 import {
   createPortalAdminCarousel,
   createPortalAdminContent,
@@ -15,10 +16,12 @@ import {
 import { useAuthStore } from '@web/stores/auth';
 import { ElMessage, ElMessageBox, type UploadRequestOptions } from 'element-plus';
 import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
 
 type ManageTab = 'CAROUSEL' | PortalContentType;
 
 const authStore = useAuthStore();
+const router = useRouter();
 const canManage = computed(() => [RoleCode.TEACHER, RoleCode.MINISTER].includes(authStore.activeRoleCode ?? RoleCode.MEMBER));
 
 const activeTab = ref<ManageTab>('CAROUSEL');
@@ -89,6 +92,65 @@ const contentForm = reactive({
 });
 
 const currentContentType = computed(() => (activeTab.value === 'CAROUSEL' ? null : activeTab.value));
+const importHomeSection = computed<HomeSection>(() =>
+  (activeTab.value === 'CAROUSEL' ? 'CAROUSEL' : (activeTab.value as HomeSection)),
+);
+
+const knowledgeVisible = ref(false);
+const knowledgeLoading = ref(false);
+const knowledgeRows = ref<Awaited<ReturnType<typeof fetchKnowledgeContents>>['data']['items']>([]);
+const knowledgeTotal = ref(0);
+const knowledgeQuery = reactive({
+  page: 1,
+  pageSize: 10,
+  keyword: '',
+});
+
+async function loadKnowledge() {
+  knowledgeLoading.value = true;
+  try {
+    const response = await fetchKnowledgeContents({
+      page: knowledgeQuery.page,
+      pageSize: knowledgeQuery.pageSize,
+      keyword: knowledgeQuery.keyword.trim() || undefined,
+    });
+    knowledgeRows.value = response.data.items;
+    knowledgeTotal.value = response.data.meta.total;
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '智库内容加载失败');
+  } finally {
+    knowledgeLoading.value = false;
+  }
+}
+
+function openKnowledgeImport() {
+  knowledgeVisible.value = true;
+  knowledgeQuery.page = 1;
+  void loadKnowledge();
+}
+
+function openKnowledgeDetail(id: string) {
+  void router.push(`/knowledge/contents/${id}`);
+}
+
+async function importFromKnowledge(id: string) {
+  const target = importHomeSection.value;
+  try {
+    await publishCreationContent(id, {
+      recommendToHome: true,
+      homeSection: target,
+    });
+    ElMessage.success('已导入到首页展示位');
+    knowledgeVisible.value = false;
+    if (activeTab.value === 'CAROUSEL') {
+      await loadCarousel();
+    } else {
+      await loadContents();
+    }
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '导入失败（可能已导入或无可更新项）');
+  }
+}
 
 function resetCarouselForm() {
   carouselEditingId.value = null;
@@ -341,34 +403,50 @@ onMounted(async () => {
         <el-tab-pane v-for="tab in tabOptions" :key="tab.key" :label="tab.label" :name="tab.key" />
       </el-tabs>
 
-      <div v-if="activeTab === 'CAROUSEL'">
-        <div class="toolbar-row">
-          <el-input v-model="carouselQuery.keyword" placeholder="搜索标题" clearable @keyup.enter="loadCarousel" />
-          <el-select v-model="carouselQuery.statusCode" style="width: 140px">
-            <el-option v-for="option in statusOptions" :key="option.value" :label="option.label" :value="option.value" />
-          </el-select>
-          <el-button type="primary" @click="loadCarousel">查询</el-button>
-          <el-button type="success" @click="openCarouselCreate">新增轮播</el-button>
-        </div>
+       <div v-if="activeTab === 'CAROUSEL'">
+         <div class="toolbar-row">
+           <el-input v-model="carouselQuery.keyword" placeholder="搜索标题" clearable @keyup.enter="loadCarousel" />
+           <el-select v-model="carouselQuery.statusCode" style="width: 140px">
+             <el-option v-for="option in statusOptions" :key="option.value" :label="option.label" :value="option.value" />
+           </el-select>
+           <el-button type="primary" @click="loadCarousel">查询</el-button>
+           <el-button @click="openKnowledgeImport">从智库选择</el-button>
+           <el-button type="success" @click="openCarouselCreate">新增轮播</el-button>
+         </div>
 
-        <el-table v-loading="carouselLoading" :data="carouselRows" border stripe>
-          <el-table-column prop="title" label="标题" min-width="220" show-overflow-tooltip />
-          <el-table-column prop="statusCode" label="状态" width="110" />
-          <el-table-column prop="sortNo" label="排序" width="90" />
-          <el-table-column label="图片" width="140">
-            <template #default="{ row }">
-              <el-image v-if="row.imageUrl" :src="row.imageUrl" fit="cover" style="width: 120px; height: 54px; border-radius: 8px" />
+         <el-table v-loading="carouselLoading" :data="carouselRows" border stripe>
+           <el-table-column prop="title" label="标题" min-width="220" show-overflow-tooltip />
+           <el-table-column label="来源" width="110">
+             <template #default="{ row }">
+               <el-tag :type="row.sourceType === 'KNOWLEDGE' ? 'success' : 'info'">
+                 {{ row.sourceType === 'KNOWLEDGE' ? '智库' : '手工' }}
+               </el-tag>
+             </template>
+           </el-table-column>
+           <el-table-column prop="statusCode" label="状态" width="110" />
+           <el-table-column prop="sortNo" label="排序" width="90" />
+           <el-table-column label="图片" width="140">
+             <template #default="{ row }">
+               <el-image v-if="row.imageUrl" :src="row.imageUrl" fit="cover" style="width: 120px; height: 54px; border-radius: 8px" />
               <span v-else class="muted">-</span>
             </template>
-          </el-table-column>
-          <el-table-column prop="targetUrl" label="跳转目标" min-width="200" show-overflow-tooltip />
-          <el-table-column label="操作" width="180" fixed="right">
-            <template #default="{ row }">
-              <el-button link type="primary" @click="openCarouselEdit(row)">编辑</el-button>
-              <el-button link type="danger" @click="removeCarousel(row.id)">删除</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
+           </el-table-column>
+           <el-table-column prop="targetUrl" label="跳转目标" min-width="200" show-overflow-tooltip />
+           <el-table-column label="操作" width="180" fixed="right">
+             <template #default="{ row }">
+               <el-button
+                 v-if="row.sourceType === 'KNOWLEDGE' && row.sourceCreationId"
+                 link
+                 type="primary"
+                 @click="openKnowledgeDetail(row.sourceCreationId)"
+               >
+                 查看智库
+               </el-button>
+               <el-button link type="primary" @click="openCarouselEdit(row)">编辑</el-button>
+               <el-button link type="danger" @click="removeCarousel(row.id)">删除</el-button>
+             </template>
+           </el-table-column>
+         </el-table>
 
         <div class="pagination-row">
           <el-pagination
@@ -383,34 +461,50 @@ onMounted(async () => {
         </div>
       </div>
 
-      <div v-else>
-        <div class="toolbar-row">
-          <el-input v-model="contentQuery.keyword" placeholder="搜索标题/摘要" clearable @keyup.enter="loadContents" />
-          <el-select v-model="contentQuery.statusCode" style="width: 140px">
-            <el-option v-for="option in statusOptions" :key="option.value" :label="option.label" :value="option.value" />
-          </el-select>
-          <el-button type="primary" @click="loadContents">查询</el-button>
-          <el-button type="success" @click="openContentCreate">新增</el-button>
-        </div>
+       <div v-else>
+         <div class="toolbar-row">
+           <el-input v-model="contentQuery.keyword" placeholder="搜索标题/摘要" clearable @keyup.enter="loadContents" />
+           <el-select v-model="contentQuery.statusCode" style="width: 140px">
+             <el-option v-for="option in statusOptions" :key="option.value" :label="option.label" :value="option.value" />
+           </el-select>
+           <el-button type="primary" @click="loadContents">查询</el-button>
+           <el-button @click="openKnowledgeImport">从智库选择</el-button>
+           <el-button type="success" @click="openContentCreate">新增</el-button>
+         </div>
 
-        <el-table v-loading="contentLoading" :data="contentRows" border stripe>
-          <el-table-column prop="title" label="标题" min-width="240" show-overflow-tooltip />
-          <el-table-column prop="statusCode" label="状态" width="110" />
-          <el-table-column prop="sortNo" label="排序" width="90" />
-          <el-table-column label="封面" width="120">
-            <template #default="{ row }">
-              <el-image v-if="row.coverUrl" :src="row.coverUrl" fit="cover" style="width: 92px; height: 52px; border-radius: 8px" />
+         <el-table v-loading="contentLoading" :data="contentRows" border stripe>
+           <el-table-column prop="title" label="标题" min-width="240" show-overflow-tooltip />
+           <el-table-column label="来源" width="110">
+             <template #default="{ row }">
+               <el-tag :type="row.sourceType === 'KNOWLEDGE' ? 'success' : 'info'">
+                 {{ row.sourceType === 'KNOWLEDGE' ? '智库' : '手工' }}
+               </el-tag>
+             </template>
+           </el-table-column>
+           <el-table-column prop="statusCode" label="状态" width="110" />
+           <el-table-column prop="sortNo" label="排序" width="90" />
+           <el-table-column label="封面" width="120">
+             <template #default="{ row }">
+               <el-image v-if="row.coverUrl" :src="row.coverUrl" fit="cover" style="width: 92px; height: 52px; border-radius: 8px" />
               <span v-else class="muted">-</span>
             </template>
           </el-table-column>
-          <el-table-column prop="publishedAt" label="发布时间" width="180" />
-          <el-table-column label="操作" width="180" fixed="right">
-            <template #default="{ row }">
-              <el-button link type="primary" @click="openContentEdit(row)">编辑</el-button>
-              <el-button link type="danger" @click="removeContent(row.id)">删除</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
+           <el-table-column prop="publishedAt" label="发布时间" width="180" />
+           <el-table-column label="操作" width="180" fixed="right">
+             <template #default="{ row }">
+               <el-button
+                 v-if="row.sourceType === 'KNOWLEDGE' && row.sourceCreationId"
+                 link
+                 type="primary"
+                 @click="openKnowledgeDetail(row.sourceCreationId)"
+               >
+                 查看智库
+               </el-button>
+               <el-button link type="primary" @click="openContentEdit(row)">编辑</el-button>
+               <el-button link type="danger" @click="removeContent(row.id)">删除</el-button>
+             </template>
+           </el-table-column>
+         </el-table>
 
         <div class="pagination-row">
           <el-pagination
@@ -506,6 +600,38 @@ onMounted(async () => {
         <el-button @click="contentDialogVisible = false">取消</el-button>
         <el-button type="primary" :loading="contentSaving" @click="saveContent">保存</el-button>
       </template>
+    </el-dialog>
+
+    <el-dialog v-model="knowledgeVisible" title="从智库选择内容导入" width="860px" destroy-on-close>
+      <div class="toolbar-row">
+        <el-input v-model="knowledgeQuery.keyword" placeholder="搜索标题/摘要" clearable @keyup.enter="loadKnowledge" />
+        <el-button type="primary" @click="loadKnowledge">查询</el-button>
+        <el-tag type="info">目标展示位：{{ activeTab === 'CAROUSEL' ? '首页轮播' : activeTab }}</el-tag>
+      </div>
+
+      <el-table v-loading="knowledgeLoading" :data="knowledgeRows" border stripe>
+        <el-table-column prop="title" label="标题" min-width="240" show-overflow-tooltip />
+        <el-table-column prop="author.displayName" label="作者" width="160" />
+        <el-table-column prop="reviewedAt" label="审核时间" width="180" />
+        <el-table-column label="操作" width="220" fixed="right">
+          <template #default="{ row }">
+            <el-button link type="primary" @click="openKnowledgeDetail(row.id)">预览</el-button>
+            <el-button link type="success" @click="importFromKnowledge(row.id)">导入</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <div class="pagination-row">
+        <el-pagination
+          v-model:current-page="knowledgeQuery.page"
+          v-model:page-size="knowledgeQuery.pageSize"
+          :page-sizes="[10, 20, 50]"
+          background
+          layout="total, sizes, prev, pager, next"
+          :total="knowledgeTotal"
+          @change="loadKnowledge"
+        />
+      </div>
     </el-dialog>
   </section>
 </template>

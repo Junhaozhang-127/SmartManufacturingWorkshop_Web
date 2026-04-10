@@ -42,6 +42,7 @@ export interface OrgTreeNode {
   unitCode: string;
   unitName: string;
   unitType: string;
+  leaderUserId: string | null;
   leaderName: string | null;
   memberCount: number;
   activeMemberCount: number;

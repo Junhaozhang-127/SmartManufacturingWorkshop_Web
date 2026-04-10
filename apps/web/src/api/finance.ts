@@ -8,12 +8,85 @@ import type {
 
 import { http } from './client';
 
+export interface TeacherFundAccountItem {
+  id: string;
+  accountCode: string;
+  accountName: string;
+  categoryName: string;
+  projectId: string | null;
+  projectName: string | null;
+  ownerOrgUnitId: string | null;
+  ownerOrgUnitName: string | null;
+  managerUserId: string | null;
+  managerUserName: string | null;
+  statusCode: string;
+  totalBudget: number;
+  reservedAmount: number;
+  usedAmount: number;
+  paidAmount: number;
+  remarks: string | null;
+  updatedAt: string;
+}
+
+export interface TeacherFundAccountListResult {
+  items: TeacherFundAccountItem[];
+  meta: { page: number; pageSize: number; total: number };
+}
+
 export async function fetchFundOverview() {
   return http.get<never, { data: FundOverviewSummary }>('/funds/overview');
 }
 
 export async function fetchFundAccounts() {
   return http.get<never, { data: FundAccountItem[] }>('/funds/accounts');
+}
+
+export async function fetchTeacherFundAccounts(params: {
+  page: number;
+  pageSize: number;
+  keyword?: string;
+  statusCode?: string;
+}) {
+  return http.get<never, { data: TeacherFundAccountListResult }>('/funds/teacher/accounts', {
+    params: {
+      ...params,
+      keyword: params.keyword || undefined,
+      statusCode: params.statusCode || undefined,
+    },
+  });
+}
+
+export async function createTeacherFundAccount(payload: {
+  accountCode: string;
+  accountName: string;
+  categoryName: string;
+  projectId?: string;
+  projectName?: string;
+  ownerOrgUnitId?: string;
+  managerUserId?: string;
+  totalBudget: number;
+  remarks?: string;
+  statusCode?: string;
+}) {
+  return http.post<never, { data: { id: string } }>('/funds/teacher/accounts', payload);
+}
+
+export async function updateTeacherFundAccount(
+  id: string,
+  payload: {
+    accountCode: string;
+    accountName: string;
+    categoryName: string;
+    projectId?: string;
+    projectName?: string;
+    ownerOrgUnitId?: string;
+    managerUserId?: string;
+    totalBudget: number;
+    remarks?: string;
+    statusCode?: string;
+  },
+) {
+  return http.patch<never, { data: null }>(`/funds/teacher/accounts/${id}`, payload);
 }
 
 export async function fetchFundApplications(params: {
