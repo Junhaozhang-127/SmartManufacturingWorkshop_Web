@@ -1,16 +1,16 @@
 <script setup lang="ts">
 import { ApprovalBusinessType, FundApplicationStatus, FundPaymentStatus, PermissionCodes } from '@smw/shared';
+import { type AttachmentItem, listBusinessAttachments } from '@web/api/attachments';
 import {
   createFundApplication,
-  downloadFundAttachment,
   fetchFundAccounts,
   fetchFundApplicationDetail,
   fetchFundApplications,
   markFundApplicationPaid,
-  uploadFundAttachment,
 } from '@web/api/finance';
+import AttachmentField from '@web/components/AttachmentField.vue';
 import { useAuthz } from '@web/composables/useAuthz';
-import type { FormInstance, UploadRequestOptions } from 'element-plus';
+import type { FormInstance } from 'element-plus';
 import { ElMessage } from 'element-plus';
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
@@ -30,6 +30,7 @@ const accounts = ref<Awaited<ReturnType<typeof fetchFundAccounts>>['data']>([]);
 const applications = ref<Awaited<ReturnType<typeof fetchFundApplications>>['data']['items']>([]);
 const total = ref(0);
 const detail = ref<Awaited<ReturnType<typeof fetchFundApplicationDetail>>['data'] | null>(null);
+const detailAttachments = ref<AttachmentItem[]>([]);
 
 const query = reactive({
   page: 1,
@@ -54,13 +55,7 @@ const form = reactive({
   projectName: '',
   relatedBusinessType: '',
   relatedBusinessId: '',
-  attachments: [] as Array<{
-    storageKey: string;
-    fileName: string;
-    downloadUrl: string;
-    mimeType?: string | null | undefined;
-    size?: number | null | undefined;
-  }>,
+  attachments: [] as AttachmentItem[],
 });
 
 const selectedAccount = computed(() => accounts.value.find((item) => item.id === form.accountId) ?? null);
@@ -97,8 +92,15 @@ async function openDetail(id: string) {
   try {
     const response = await fetchFundApplicationDetail(id);
     detail.value = response.data;
+    const attachmentResponse = await listBusinessAttachments({
+      businessType: ApprovalBusinessType.FUND_REQUEST,
+      businessId: id,
+      usageType: 'FUND_VOUCHER',
+    });
+    detailAttachments.value = attachmentResponse.data;
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '详情加载失败');
+    detailAttachments.value = [];
   }
 }
 
@@ -152,7 +154,7 @@ async function submit() {
       projectName: form.projectName || undefined,
       relatedBusinessType: form.relatedBusinessType || undefined,
       relatedBusinessId: form.relatedBusinessId || undefined,
-      attachments: form.attachments,
+      attachmentFileIds: form.attachments.map((item) => item.fileId),
     });
     ElMessage.success('费用申请已提交审批');
     dialogVisible.value = false;
@@ -178,39 +180,6 @@ async function confirmPayment() {
     ElMessage.error(error instanceof Error ? error.message : '支付更新失败');
   } finally {
     actionLoading.value = false;
-  }
-}
-
-async function handleUpload(option: UploadRequestOptions) {
-  try {
-    const response = await uploadFundAttachment(option.file as File);
-    form.attachments.push(response.data);
-    ElMessage.success('附件上传成功');
-    option.onSuccess?.(response.data);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : '附件上传失败';
-    ElMessage.error(message);
-    option.onError?.(Object.assign(new Error(message), { status: 500, method: 'POST', url: '/files/upload' }));
-  }
-}
-
-function removeAttachment(index: number) {
-  form.attachments.splice(index, 1);
-}
-
-async function handleAttachmentDownload(item: { storageKey: string; fileName: string }) {
-  try {
-    const blob = await downloadFundAttachment(item.storageKey, item.fileName);
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = item.fileName;
-    document.body.append(link);
-    link.click();
-    link.remove();
-    window.URL.revokeObjectURL(url);
-  } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '附件下载失败');
   }
 }
 
@@ -336,15 +305,7 @@ onMounted(() => {
           <el-input v-model="form.purpose" type="textarea" :rows="4" />
         </el-form-item>
         <el-form-item label="附件凭证">
-          <el-upload :http-request="handleUpload" :show-file-list="false" multiple>
-            <el-button>上传附件</el-button>
-          </el-upload>
-          <div class="attachment-list">
-            <div v-for="(item, index) in form.attachments" :key="item.storageKey" class="attachment-list__item">
-              <el-button link type="primary" @click="handleAttachmentDownload(item)">{{ item.fileName }}</el-button>
-              <el-button link type="danger" @click="removeAttachment(index)">删除</el-button>
-            </div>
-          </div>
+          <AttachmentField v-model="form.attachments" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -409,13 +370,7 @@ onMounted(() => {
               <h2>附件凭证</h2>
             </div>
           </div>
-          <el-empty v-if="!detail.attachments.length" description="暂无附件" />
-          <div v-else class="attachment-list">
-            <div v-for="item in detail.attachments" :key="item.storageKey" class="attachment-list__item">
-              <el-button link type="primary" @click="handleAttachmentDownload(item)">{{ item.fileName }}</el-button>
-              <span>{{ item.size || 0 }} bytes</span>
-            </div>
-          </div>
+          <AttachmentField v-model="detailAttachments" readonly />
         </div>
 
         <div class="panel-card">

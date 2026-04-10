@@ -128,12 +128,13 @@ export async function createFundApplication(payload: {
   relatedBusinessType?: string;
   relatedBusinessId?: string;
   attachments?: Array<{
-      storageKey: string;
-      fileName: string;
-      downloadUrl: string;
-      mimeType?: string | null;
-      size?: number | null;
-    }>;
+    storageKey: string;
+    fileName: string;
+    downloadUrl: string;
+    mimeType?: string | null;
+    size?: number | null;
+  }>;
+  attachmentFileIds?: string[];
 }) {
   return http.post<never, { data: FundApplicationDetail }>('/funds/applications', payload);
 }

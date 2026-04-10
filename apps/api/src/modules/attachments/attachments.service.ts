@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { createReadStream } from 'node:fs';
-import { copyFile, mkdir, rename, unlink } from 'node:fs/promises';
+import { copyFile, mkdir, rename, stat, unlink } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
@@ -26,6 +26,7 @@ type UploadedDiskFile = {
 @Injectable()
 export class AttachmentsService {
   private readonly rootDir = resolve(process.cwd(), 'storage', 'uploads');
+  private readonly tmpDir = resolve(process.cwd(), 'storage', 'tmp');
 
   constructor(
     private readonly prisma: PrismaService,
@@ -44,16 +45,9 @@ export class AttachmentsService {
     return `/${apiPrefix}/attachments/${encodeURIComponent(fileId)}/download${qs ? `?${qs}` : ''}`;
   }
 
-  private buildLegacyKeyDownloadUrl(storageKey: string, fileName?: string | null) {
-    const apiPrefix = process.env.API_PREFIX ?? 'api';
-    const query = new URLSearchParams({ key: storageKey });
-    if (fileName) query.set('name', fileName);
-    return `/${apiPrefix}/files/download?${query.toString()}`;
-  }
-
   async ensureTmpDir() {
     // tmp dir is owned by multer storage config; keep the method for compatibility
-    await mkdir(resolve(process.cwd(), 'storage', 'tmp'), { recursive: true });
+    await mkdir(this.tmpDir, { recursive: true });
   }
 
   async createTempFile(currentUser: CurrentUserProfile, file: UploadedDiskFile) {
@@ -61,52 +55,55 @@ export class AttachmentsService {
       throw new BadRequestException('未接收到上传文件');
     }
 
-    const originalName = safeOriginalName(file.originalname);
-    const ext = normalizeExt(originalName);
-    const category = resolveFileCategory(ext, file.mimetype);
+    try {
+      const originalName = safeOriginalName(file.originalname);
+      const ext = normalizeExt(originalName);
+      const category = resolveFileCategory(ext, file.mimetype);
 
-    assertSizeLimit(file.size, category);
+      assertSizeLimit(file.size, category);
 
-    const dateDir = new Date().toISOString().slice(0, 10).replaceAll('-', '/');
-    const storageKey = `${ATTACHMENT_BUCKET}/${dateDir}/${randomUUID()}${ext ? `.${ext}` : ''}`;
-    const targetPath = resolve(this.rootDir, storageKey);
+      const dateDir = new Date().toISOString().slice(0, 10).replaceAll('-', '/');
+      const storageKey = `${ATTACHMENT_BUCKET}/${dateDir}/${randomUUID()}${ext ? `.${ext}` : ''}`;
+      const targetPath = resolve(this.rootDir, storageKey);
 
-    if (!targetPath.startsWith(this.rootDir)) {
-      throw new BadRequestException('非法文件路径');
+      if (!targetPath.startsWith(this.rootDir)) {
+        throw new BadRequestException('非法文件路径');
+      }
+
+      await mkdir(dirname(targetPath), { recursive: true });
+      await this.safeRename(file.path, targetPath);
+
+      const expiresAt = new Date(Date.now() + DEFAULT_TEMP_TTL_DAYS * 24 * 60 * 60 * 1000);
+
+      const created = await this.prisma.sysFile.create({
+        data: {
+          originalName,
+          storageKey,
+          fileExt: ext || '',
+          mimeType: file.mimetype || null,
+          fileSize: BigInt(file.size),
+          fileCategory: category,
+          uploadedBy: this.toBigInt(currentUser.id),
+          isTemporary: true,
+          expiresAt,
+          boundAt: null,
+        },
+      });
+
+      return {
+        fileId: String(created.id),
+        originalName: created.originalName,
+        fileSize: Number(created.fileSize.toString()),
+        fileCategory: created.fileCategory,
+        downloadUrl: this.buildDownloadUrl(String(created.id), created.originalName),
+        mimeType: created.mimeType,
+        fileExt: created.fileExt,
+        createdAt: created.createdAt.toISOString(),
+      };
+    } catch (error: unknown) {
+      await this.cleanupTmpFile(file.path);
+      throw error;
     }
-
-    await mkdir(dirname(targetPath), { recursive: true });
-    await this.safeRename(file.path, targetPath);
-
-    const expiresAt = new Date(Date.now() + DEFAULT_TEMP_TTL_DAYS * 24 * 60 * 60 * 1000);
-
-    const created = await this.prisma.sysFile.create({
-      data: {
-        originalName,
-        storageKey,
-        fileExt: ext || '',
-        mimeType: file.mimetype || null,
-        fileSize: BigInt(file.size),
-        fileCategory: category,
-        uploadedBy: this.toBigInt(currentUser.id),
-        isTemporary: true,
-        expiresAt,
-        boundAt: null,
-      },
-    });
-
-    return {
-      fileId: String(created.id),
-      originalName: created.originalName,
-      fileSize: Number(created.fileSize.toString()),
-      fileCategory: created.fileCategory,
-      downloadUrl: this.buildDownloadUrl(String(created.id), created.originalName),
-      storageKey: created.storageKey,
-      legacyDownloadUrl: this.buildLegacyKeyDownloadUrl(created.storageKey, created.originalName),
-      mimeType: created.mimeType,
-      fileExt: created.fileExt,
-      createdAt: created.createdAt.toISOString(),
-    };
   }
 
   async listBusinessAttachments(
@@ -317,10 +314,25 @@ export class AttachmentsService {
     if (!filePath.startsWith(this.rootDir)) {
       throw new BadRequestException('非法文件路径');
     }
+    try {
+      await stat(filePath);
+    } catch {
+      throw new NotFoundException('文件不存在');
+    }
     return {
       fileName: file.originalName,
       stream: createReadStream(filePath),
     };
+  }
+
+  private async cleanupTmpFile(filePath: string) {
+    if (!filePath?.trim()) return;
+    if (!filePath.startsWith(this.tmpDir)) return;
+    try {
+      await unlink(filePath);
+    } catch {
+      // ignore
+    }
   }
 
   async bindAttachmentsAsSystem(
