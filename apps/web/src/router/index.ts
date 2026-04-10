@@ -13,6 +13,7 @@ declare module 'vue-router' {
     permissions?: string[];
     allowFirstLoginBypass?: boolean;
     homeVariant?: string;
+    contentType?: string;
   }
 }
 
@@ -56,6 +57,39 @@ const routes: RouteRecordRaw[] = [
       title: '门户首页',
       requiresAuth: false,
       allowFirstLoginBypass: true,
+    },
+  },
+  {
+    path: '/portal/achievements',
+    name: 'portal.achievements',
+    component: () => import('@web/views/PortalShowcasePage.vue'),
+    meta: {
+      title: '优秀成果展示',
+      requiresAuth: false,
+      allowFirstLoginBypass: true,
+      contentType: 'ACHIEVEMENT',
+    },
+  },
+  {
+    path: '/portal/competitions',
+    name: 'portal.competitions',
+    component: () => import('@web/views/PortalShowcasePage.vue'),
+    meta: {
+      title: '竞赛风采',
+      requiresAuth: false,
+      allowFirstLoginBypass: true,
+      contentType: 'COMPETITION',
+    },
+  },
+  {
+    path: '/portal/members',
+    name: 'portal.members',
+    component: () => import('@web/views/PortalShowcasePage.vue'),
+    meta: {
+      title: '成员简介',
+      requiresAuth: false,
+      allowFirstLoginBypass: true,
+      contentType: 'MEMBER_INTRO',
     },
   },
   {
@@ -273,6 +307,15 @@ const routes: RouteRecordRaw[] = [
           title: '数据字典与配置管理',
           breadcrumb: ['系统管理', '数据字典与配置管理'],
           permissions: [PermissionCodes.systemConfigView],
+        },
+      },
+      {
+        path: 'portal/manage',
+        name: 'portal.manage',
+        component: () => import('@web/views/PortalContentManagePage.vue'),
+        meta: {
+          title: '首页内容管理',
+          breadcrumb: ['首页内容管理'],
         },
       },
     ],

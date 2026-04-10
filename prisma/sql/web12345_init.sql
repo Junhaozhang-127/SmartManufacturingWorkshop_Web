@@ -1145,4 +1145,68 @@ INSERT INTO `sys_notification` (`id`, `user_id`, `title`, `content`, `category_c
   (4, 3, '经费申请待跟进', 'PLC 工位维修费用已审批通过，当前待支付，请在经费申请页跟进。', 'APPROVAL', 'INFO', 'FUND_REQUEST', 'FUND-20260407-001', '/funds/applications', '{"focus":"FUND-20260407-001"}', '2026-04-08 04:35:53.701', '2026-04-08 04:35:53.701', 5),
   (5, 6, '个人中心已开放', '请完善个人资料并修改初始密码，后续可从个人中心查看我的申请与消息。', 'SYSTEM', 'INFO', NULL, NULL, '/profile', NULL, '2026-04-08 04:35:53.701', '2026-04-08 04:35:53.701', 1);
 
+-- -----------------------------------------------------------------------------
+-- Portal home content: carousel + unified contents (news/notice/showcase/member intro)
+-- -----------------------------------------------------------------------------
+CREATE TABLE `portal_carousel_item` (
+    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `title` VARCHAR(255) NOT NULL,
+    `summary` VARCHAR(1000) NULL,
+    `image_storage_key` VARCHAR(128) NULL,
+    `image_file_name` VARCHAR(128) NULL,
+    `target_url` VARCHAR(500) NULL,
+    `theme_code` VARCHAR(20) NOT NULL DEFAULT 'blue',
+    `sort_no` INTEGER NULL,
+    `status_code` VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_at` DATETIME(3) NOT NULL,
+    `created_by` BIGINT UNSIGNED NULL,
+    `is_deleted` BOOLEAN NOT NULL DEFAULT false,
+
+    INDEX `portal_carousel_item_status_code_sort_no_idx`(`status_code`, `sort_no`),
+    INDEX `portal_carousel_item_created_by_idx`(`created_by`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+CREATE TABLE `portal_content` (
+    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `content_type` VARCHAR(32) NOT NULL,
+    `title` VARCHAR(255) NOT NULL,
+    `summary` VARCHAR(1000) NULL,
+    `body` LONGTEXT NULL,
+    `cover_storage_key` VARCHAR(128) NULL,
+    `cover_file_name` VARCHAR(128) NULL,
+    `link_url` VARCHAR(500) NULL,
+    `sort_no` INTEGER NULL,
+    `status_code` VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+    `published_at` DATETIME(3) NULL,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_at` DATETIME(3) NOT NULL,
+    `created_by` BIGINT UNSIGNED NULL,
+    `is_deleted` BOOLEAN NOT NULL DEFAULT false,
+
+    INDEX `portal_content_content_type_status_code_published_at_idx`(`content_type`, `status_code`, `published_at`),
+    INDEX `portal_content_created_by_created_at_idx`(`created_by`, `created_at`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- Data: portal_carousel_item
+INSERT INTO `portal_carousel_item` (`id`, `title`, `summary`, `image_storage_key`, `image_file_name`, `target_url`, `theme_code`, `sort_no`, `status_code`, `created_at`, `updated_at`, `created_by`, `is_deleted`) VALUES
+  (1, '门户首页演示：优秀成果', '点击查看优秀成果展示页示例内容', NULL, NULL, '/portal/achievements', 'blue', 10, 'ACTIVE', '2026-04-08 04:35:53.702', '2026-04-08 04:35:53.702', 1, 0),
+  (2, '门户首页演示：竞赛风采', '点击查看竞赛风采页示例内容', NULL, NULL, '/portal/competitions', 'gold', 20, 'ACTIVE', '2026-04-08 04:35:53.702', '2026-04-08 04:35:53.702', 1, 0),
+  (3, '门户首页演示：成员简介', '点击查看成员简介页示例内容', NULL, NULL, '/portal/members', 'teal', 30, 'ACTIVE', '2026-04-08 04:35:53.702', '2026-04-08 04:35:53.702', 1, 0);
+
+-- Data: portal_content
+INSERT INTO `portal_content` (`id`, `content_type`, `title`, `summary`, `body`, `cover_storage_key`, `cover_file_name`, `link_url`, `sort_no`, `status_code`, `published_at`, `created_at`, `updated_at`, `created_by`, `is_deleted`) VALUES
+  (1, 'NEWS', '【资讯】门户首页内容发布已上线', '支持首页轮播、资讯、通知及展示页内容发布', '用于联调演示：这里是一段资讯正文示例。', NULL, NULL, NULL, 10, 'ACTIVE', '2026-04-08 09:00:00.000', '2026-04-08 04:35:53.702', '2026-04-08 04:35:53.702', 1, 0),
+  (2, 'NEWS', '【资讯】智能制造工作坊本周例会纪要', '本周工作进展与下周计划同步', '用于联调演示：这里是一段例会纪要示例。', NULL, NULL, NULL, 20, 'ACTIVE', '2026-04-08 12:00:00.000', '2026-04-08 04:35:53.702', '2026-04-08 04:35:53.702', 1, 0),
+  (3, 'NOTICE', '【通知】门户页面联调窗口期', '请于本周完成联调与自测', '用于联调演示：通知正文示例。', NULL, NULL, NULL, 10, 'ACTIVE', '2026-04-08 08:30:00.000', '2026-04-08 04:35:53.702', '2026-04-08 04:35:53.702', 1, 0),
+  (4, 'NOTICE', '【通知】竞赛材料提交截止提醒', '请按要求提交参赛材料', '用于联调演示：材料提交通知正文示例。', NULL, NULL, NULL, 20, 'ACTIVE', '2026-04-08 11:30:00.000', '2026-04-08 04:35:53.702', '2026-04-08 04:35:53.702', 1, 0),
+  (5, 'ACHIEVEMENT', '【优秀成果】产线缺陷识别方案', '基于视觉检测的缺陷识别与追溯', '用于联调演示：成果展示正文示例。', NULL, NULL, NULL, 10, 'ACTIVE', '2026-04-08 10:00:00.000', '2026-04-08 04:35:53.702', '2026-04-08 04:35:53.702', 1, 0),
+  (6, 'ACHIEVEMENT', '【优秀成果】设备预测性维护看板', '异常预警与维护闭环流程示例', '用于联调演示：成果展示正文示例。', NULL, NULL, NULL, 20, 'ACTIVE', '2026-04-08 10:10:00.000', '2026-04-08 04:35:53.702', '2026-04-08 04:35:53.702', 1, 0),
+  (7, 'COMPETITION', '【竞赛风采】校级创新大赛', '参赛项目展示与获奖情况摘要', '用于联调演示：竞赛风采正文示例。', NULL, NULL, NULL, 10, 'ACTIVE', '2026-04-08 10:20:00.000', '2026-04-08 04:35:53.702', '2026-04-08 04:35:53.702', 1, 0),
+  (8, 'COMPETITION', '【竞赛风采】省级技能竞赛', '团队风采与阶段性成果摘要', '用于联调演示：竞赛风采正文示例。', NULL, NULL, NULL, 20, 'ACTIVE', '2026-04-08 10:30:00.000', '2026-04-08 04:35:53.702', '2026-04-08 04:35:53.702', 1, 0),
+  (9, 'MEMBER_INTRO', '【成员简介】王老师', '指导教师 / 方向：智能制造与工程实践', '用于联调演示：成员简介正文示例。', NULL, NULL, NULL, 10, 'ACTIVE', '2026-04-08 10:40:00.000', '2026-04-08 04:35:53.702', '2026-04-08 04:35:53.702', 1, 0),
+  (10, 'MEMBER_INTRO', '【成员简介】周部长', '部长 / 方向：项目管理与工程协同', '用于联调演示：成员简介正文示例。', NULL, NULL, NULL, 20, 'ACTIVE', '2026-04-08 10:50:00.000', '2026-04-08 04:35:53.702', '2026-04-08 04:35:53.702', 1, 0);
+
 SET FOREIGN_KEY_CHECKS = 1;

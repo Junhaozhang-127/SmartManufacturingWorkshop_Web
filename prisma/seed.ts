@@ -1506,6 +1506,165 @@ async function main() {
       },
     ],
   });
+
+  // ---------------------------------------------------------------------------
+  // Portal home content (carousel + unified contents)
+  // Keep it minimal and idempotent: only insert when tables are empty.
+  // ---------------------------------------------------------------------------
+  const [carouselCount, contentCount] = await Promise.all([
+    prisma.portalCarouselItem.count(),
+    prisma.portalContent.count(),
+  ]);
+
+  if (carouselCount === 0) {
+    await prisma.portalCarouselItem.createMany({
+      data: [
+        {
+          title: '门户首页演示：优秀成果',
+          summary: '点击查看优秀成果展示页示例内容',
+          targetUrl: '/portal/achievements',
+          themeCode: 'blue',
+          sortNo: 10,
+          statusCode: 'ACTIVE',
+          createdBy: teacher.id,
+        },
+        {
+          title: '门户首页演示：竞赛风采',
+          summary: '点击查看竞赛风采页示例内容',
+          targetUrl: '/portal/competitions',
+          themeCode: 'gold',
+          sortNo: 20,
+          statusCode: 'ACTIVE',
+          createdBy: minister.id,
+        },
+        {
+          title: '门户首页演示：成员简介',
+          summary: '点击查看成员简介页示例内容',
+          targetUrl: '/portal/members',
+          themeCode: 'teal',
+          sortNo: 30,
+          statusCode: 'ACTIVE',
+          createdBy: teacher.id,
+        },
+      ],
+    });
+  }
+
+  if (contentCount === 0) {
+    await prisma.portalContent.createMany({
+      data: [
+        // NEWS
+        {
+          contentType: 'NEWS',
+          title: '【资讯】门户首页内容发布已上线',
+          summary: '支持首页轮播、资讯、通知及展示页内容发布',
+          body: '用于联调演示：这里是一段资讯正文示例。',
+          sortNo: 10,
+          statusCode: 'ACTIVE',
+          publishedAt: new Date('2026-04-08T09:00:00.000Z'),
+          createdBy: teacher.id,
+        },
+        {
+          contentType: 'NEWS',
+          title: '【资讯】智能制造工作坊本周例会纪要',
+          summary: '本周工作进展与下周计划同步',
+          body: '用于联调演示：这里是一段例会纪要示例。',
+          sortNo: 20,
+          statusCode: 'ACTIVE',
+          publishedAt: new Date('2026-04-08T12:00:00.000Z'),
+          createdBy: minister.id,
+        },
+
+        // NOTICE
+        {
+          contentType: 'NOTICE',
+          title: '【通知】门户页面联调窗口期',
+          summary: '请于本周完成联调与自测',
+          body: '用于联调演示：通知正文示例。',
+          sortNo: 10,
+          statusCode: 'ACTIVE',
+          publishedAt: new Date('2026-04-08T08:30:00.000Z'),
+          createdBy: minister.id,
+        },
+        {
+          contentType: 'NOTICE',
+          title: '【通知】竞赛材料提交截止提醒',
+          summary: '请按要求提交参赛材料',
+          body: '用于联调演示：材料提交通知正文示例。',
+          sortNo: 20,
+          statusCode: 'ACTIVE',
+          publishedAt: new Date('2026-04-08T11:30:00.000Z'),
+          createdBy: teacher.id,
+        },
+
+        // ACHIEVEMENT
+        {
+          contentType: 'ACHIEVEMENT',
+          title: '【优秀成果】产线缺陷识别方案',
+          summary: '基于视觉检测的缺陷识别与追溯',
+          body: '用于联调演示：成果展示正文示例。',
+          sortNo: 10,
+          statusCode: 'ACTIVE',
+          publishedAt: new Date('2026-04-08T10:00:00.000Z'),
+          createdBy: teacher.id,
+        },
+        {
+          contentType: 'ACHIEVEMENT',
+          title: '【优秀成果】设备预测性维护看板',
+          summary: '异常预警与维护闭环流程示例',
+          body: '用于联调演示：成果展示正文示例。',
+          sortNo: 20,
+          statusCode: 'ACTIVE',
+          publishedAt: new Date('2026-04-08T10:10:00.000Z'),
+          createdBy: minister.id,
+        },
+
+        // COMPETITION
+        {
+          contentType: 'COMPETITION',
+          title: '【竞赛风采】校级创新大赛',
+          summary: '参赛项目展示与获奖情况摘要',
+          body: '用于联调演示：竞赛风采正文示例。',
+          sortNo: 10,
+          statusCode: 'ACTIVE',
+          publishedAt: new Date('2026-04-08T10:20:00.000Z'),
+          createdBy: minister.id,
+        },
+        {
+          contentType: 'COMPETITION',
+          title: '【竞赛风采】省级技能竞赛',
+          summary: '团队风采与阶段性成果摘要',
+          body: '用于联调演示：竞赛风采正文示例。',
+          sortNo: 20,
+          statusCode: 'ACTIVE',
+          publishedAt: new Date('2026-04-08T10:30:00.000Z'),
+          createdBy: teacher.id,
+        },
+
+        // MEMBER_INTRO
+        {
+          contentType: 'MEMBER_INTRO',
+          title: '【成员简介】王老师',
+          summary: '指导教师 / 方向：智能制造与工程实践',
+          body: '用于联调演示：成员简介正文示例。',
+          sortNo: 10,
+          statusCode: 'ACTIVE',
+          publishedAt: new Date('2026-04-08T10:40:00.000Z'),
+          createdBy: teacher.id,
+        },
+        {
+          contentType: 'MEMBER_INTRO',
+          title: '【成员简介】周部长',
+          summary: '部长 / 方向：项目管理与工程协同',
+          body: '用于联调演示：成员简介正文示例。',
+          sortNo: 20,
+          statusCode: 'ACTIVE',
+          publishedAt: new Date('2026-04-08T10:50:00.000Z'),
+          createdBy: minister.id,
+        },
+      ],
+    });
+  }
 }
 
 main()

@@ -109,6 +109,13 @@ export const adminMenu: AppMenuItem[] = [
     icon: 'Bell',
     permissions: [PermissionCodes.notificationView],
   },
+  {
+    key: 'portal-content-manage',
+    label: '首页内容管理',
+    path: '/portal/manage',
+    icon: 'Picture',
+    roles: [RoleCodeEnum.TEACHER, RoleCodeEnum.MINISTER],
+  },
 ];
 
 export function filterMenuByAccess(items: AppMenuItem[], permissions: string[], roleCode: RoleCode | null) {
