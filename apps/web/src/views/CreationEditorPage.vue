@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
   createCreationDraft,
+  deleteCreationDraft,
   fetchCreationDetail,
   submitCreationContent,
   updateCreationContent,
@@ -17,6 +18,7 @@ const route = useRoute();
 const loading = ref(false);
 const saving = ref(false);
 const submitting = ref(false);
+const deleting = ref(false);
 const bodyTextLength = ref(0);
 
 const contentId = ref<string | null>(null);
@@ -39,6 +41,11 @@ const canEdit = computed(() => {
 const canSubmit = computed(() => {
   const status = detail.value?.statusCode;
   return status === 'DRAFT' || status === 'REJECTED';
+});
+
+const canDelete = computed(() => {
+  const status = detail.value?.statusCode;
+  return status === 'DRAFT';
 });
 
 function looksLikeHtml(value: string) {
@@ -191,6 +198,36 @@ async function handleUpload(option: UploadRequestOptions) {
   }
 }
 
+async function removeDraft() {
+  const id = contentId.value;
+  if (!id) return;
+  if (!canDelete.value) {
+    ElMessage.warning('仅草稿可删除');
+    return;
+  }
+
+  try {
+    await ElMessageBox.confirm('确认删除该草稿？删除后不可恢复。', '删除草稿', {
+      type: 'warning',
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
+    });
+  } catch {
+    return;
+  }
+
+  deleting.value = true;
+  try {
+    await deleteCreationDraft(id);
+    ElMessage.success('草稿已删除');
+    await router.push('/creation');
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '删除草稿失败');
+  } finally {
+    deleting.value = false;
+  }
+}
+
 onMounted(() => {
   void ensureDraft();
 });
@@ -237,6 +274,7 @@ onMounted(() => {
       </el-form>
 
       <div class="toolbar-row toolbar-row--right">
+        <el-button v-if="canDelete" type="danger" :loading="deleting" @click="removeDraft">删除草稿</el-button>
         <el-button @click="router.push('/creation')">返回</el-button>
         <el-button type="primary" :loading="saving" :disabled="!canEdit" @click="save">保存草稿</el-button>
         <el-button type="warning" :loading="submitting" :disabled="!canSubmit" @click="submit">提交审核</el-button>

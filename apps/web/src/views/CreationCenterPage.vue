@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { type CreationStatus,fetchMyCreationContents, submitCreationContent } from '@web/api/creation';
+import { type CreationStatus, deleteCreationDraft, fetchMyCreationContents, submitCreationContent } from '@web/api/creation';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { computed, onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
@@ -83,6 +83,29 @@ async function submit(id: string) {
   }
 }
 
+async function removeDraft(id: string) {
+  try {
+    await ElMessageBox.confirm('确认删除该草稿？删除后不可恢复。', '删除草稿', {
+      type: 'warning',
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
+    });
+  } catch {
+    return;
+  }
+
+  try {
+    await deleteCreationDraft(id);
+    ElMessage.success('草稿已删除');
+    if (rows.value.length <= 1 && query.page > 1) {
+      query.page -= 1;
+    }
+    await load();
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '删除草稿失败');
+  }
+}
+
 onMounted(() => {
   void load();
 });
@@ -129,6 +152,7 @@ onMounted(() => {
         <el-table-column prop="reviewComment" label="驳回原因/审核意见" min-width="220" show-overflow-tooltip />
         <el-table-column label="操作" width="220" fixed="right">
           <template #default="{ row }">
+            <el-button v-if="row.statusCode === 'DRAFT'" link type="danger" @click="removeDraft(row.id)">删除</el-button>
             <el-button link type="primary" @click="openEdit(row.id)">查看</el-button>
             <el-button v-if="canEdit(row.statusCode)" link type="success" @click="openEdit(row.id)">编辑</el-button>
             <el-button v-if="canSubmit(row.statusCode)" link type="warning" @click="submit(row.id)">提交审核</el-button>

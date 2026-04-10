@@ -90,6 +90,10 @@ export async function submitCreationContent(id: string) {
   return http.post<never, { data: null }>(`/creation/contents/${id}/submit`);
 }
 
+export async function deleteCreationDraft(id: string) {
+  return http.delete<never, { data: null }>(`/creation/contents/${id}`);
+}
+
 export async function uploadCreationCover(file: File) {
   const formData = new FormData();
   formData.append('file', file);

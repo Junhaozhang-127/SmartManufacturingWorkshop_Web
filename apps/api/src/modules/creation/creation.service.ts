@@ -265,6 +265,23 @@ export class CreationService {
     return null;
   }
 
+  async deleteDraft(currentUser: CurrentUserProfile, id: string) {
+    const { record, isOwner } = await this.loadContentForUser(currentUser, id);
+    if (!isOwner) throw new ForbiddenException('仅作者可删除草稿');
+
+    const status = record.statusCode as CreationStatus;
+    if (status !== 'DRAFT') {
+      throw new BadRequestException('仅草稿状态允许删除');
+    }
+
+    await this.prisma.creationContent.update({
+      where: { id: BigInt(id) },
+      data: { isDeleted: true },
+    });
+
+    return null;
+  }
+
   async listPendingReviews(currentUser: CurrentUserProfile, query: { page: number; pageSize: number; keyword?: string }) {
     this.assertReviewer(currentUser);
     const pagination = normalizePagination({ page: query.page, pageSize: query.pageSize });

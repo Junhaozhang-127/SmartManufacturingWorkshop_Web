@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import type { CurrentUserProfile } from '@smw/shared';
 
 import { CurrentUser } from '../auth/auth.decorators';
@@ -39,6 +39,11 @@ export class CreationContentController {
   @Post(':id/submit')
   submit(@CurrentUser() currentUser: CurrentUserProfile, @Param('id') id: string) {
     return this.creationService.submit(currentUser, id);
+  }
+
+  @Delete(':id')
+  deleteDraft(@CurrentUser() currentUser: CurrentUserProfile, @Param('id') id: string) {
+    return this.creationService.deleteDraft(currentUser, id);
   }
 }
 
