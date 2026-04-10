@@ -1,4 +1,5 @@
 import type { RoutePermissionMeta } from '@smw/shared';
+import type { RoleCode } from '@smw/shared';
 import type { RouteLocationNormalized } from 'vue-router';
 
 interface AuthGuardState {
@@ -6,6 +7,7 @@ interface AuthGuardState {
   initialized: boolean;
   forcePasswordChange: boolean;
   permissions: string[];
+  activeRoleCode: RoleCode | null;
 }
 
 type GuardResult =
@@ -55,6 +57,10 @@ export function resolveAuthNavigation(
         redirect: to.fullPath,
       },
     };
+  }
+
+  if (meta.roles?.length && (!auth.activeRoleCode || !meta.roles.includes(auth.activeRoleCode))) {
+    return { path: '/' };
   }
 
   if (meta.permissions?.length && !meta.permissions.every((permission) => auth.permissions.includes(permission))) {

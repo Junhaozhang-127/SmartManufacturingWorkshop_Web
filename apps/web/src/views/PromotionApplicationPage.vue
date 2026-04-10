@@ -16,9 +16,15 @@ import { ElMessage } from 'element-plus';
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
+defineProps<{
+  embedded?: boolean;
+}>();
+
 const route = useRoute();
 const router = useRouter();
 const { hasPermission } = useAuthz();
+
+const isResultView = computed(() => route.query.tab === 'results');
 
 const loading = ref(false);
 const detailLoading = ref(false);
@@ -62,6 +68,26 @@ const publishForm = reactive({
 
 const canCreate = computed(() => hasPermission(PermissionCodes.promotionCreate));
 const canApprove = computed(() => hasPermission(PermissionCodes.promotionApprove));
+
+const statusOptions = computed(() => {
+  if (isResultView.value) {
+    return [
+      { label: '已任命', value: PromotionApplicationStatus.APPOINTED },
+      { label: '未任命', value: PromotionApplicationStatus.NOT_APPOINTED },
+      { label: '已驳回', value: PromotionApplicationStatus.REJECTED },
+      { label: '已撤回', value: PromotionApplicationStatus.WITHDRAWN },
+    ];
+  }
+
+  return [
+    { label: '审批中', value: PromotionApplicationStatus.IN_APPROVAL },
+    { label: '待公示', value: PromotionApplicationStatus.PUBLIC_NOTICE },
+    { label: '已任命', value: PromotionApplicationStatus.APPOINTED },
+    { label: '未任命', value: PromotionApplicationStatus.NOT_APPOINTED },
+    { label: '已驳回', value: PromotionApplicationStatus.REJECTED },
+    { label: '已撤回', value: PromotionApplicationStatus.WITHDRAWN },
+  ];
+});
 
 async function loadSchemes() {
   const response = await fetchEvaluationSchemes();
@@ -180,6 +206,7 @@ function openApprovalCenter() {
 }
 
 function openCreateFromRoute() {
+  if (isResultView.value) return;
   if (route.query.openCreate !== '1') return;
   createForm.memberProfileId = String(route.query.memberProfileId || '');
   createForm.schemeId = String(route.query.schemeId || createForm.schemeId);
@@ -204,10 +231,11 @@ onMounted(async () => {
 
 <template>
   <section class="page-grid">
-    <div class="hero-card">
-      <p class="hero-card__eyebrow">晋升申请与评审</p>
-      <h2>晋升申请与评审</h2>
-      <p>统一承载申请、团队评价、部门审核、公示结果与审批流转，审批轨迹仍回到统一审批中心查看。</p>
+    <div v-if="!embedded" class="hero-card">
+      <p class="hero-card__eyebrow">{{ isResultView ? '评审结果' : '晋升申请与评审' }}</p>
+      <h2>{{ isResultView ? '评审结果' : '晋升申请与评审' }}</h2>
+      <p v-if="isResultView">聚合展示已完成评审的晋升申请结果，支持按任命/驳回等结果快速筛选。</p>
+      <p v-else>统一承载申请、团队评价、部门审核、公示结果与审批流转，审批轨迹仍回到统一审批中心查看。</p>
     </div>
 
     <div class="panel-card">
@@ -217,19 +245,14 @@ onMounted(async () => {
         </el-select>
         <el-input v-model="query.keyword" placeholder="搜索申请单号、成员或组织" clearable @keyup.enter="load" />
         <el-select v-model="query.statusCode" clearable>
-          <el-option label="审批中" :value="PromotionApplicationStatus.IN_APPROVAL" />
-          <el-option label="待公示" :value="PromotionApplicationStatus.PUBLIC_NOTICE" />
-          <el-option label="已任命" :value="PromotionApplicationStatus.APPOINTED" />
-          <el-option label="未任命" :value="PromotionApplicationStatus.NOT_APPOINTED" />
-          <el-option label="已驳回" :value="PromotionApplicationStatus.REJECTED" />
-          <el-option label="已撤回" :value="PromotionApplicationStatus.WITHDRAWN" />
+          <el-option v-for="option in statusOptions" :key="option.value" :label="option.label" :value="option.value" />
         </el-select>
         <el-select v-model="query.targetPositionCode" clearable>
           <el-option label="组长" value="GROUP_LEADER" />
           <el-option label="部长" value="MINISTER" />
         </el-select>
         <el-button type="primary" @click="load">查询</el-button>
-        <el-button v-if="canCreate" type="success" @click="createVisible = true">发起申请</el-button>
+        <el-button v-if="canCreate && !isResultView" type="success" @click="createVisible = true">发起申请</el-button>
       </div>
 
       <el-table v-loading="loading" :data="rows" border stripe>

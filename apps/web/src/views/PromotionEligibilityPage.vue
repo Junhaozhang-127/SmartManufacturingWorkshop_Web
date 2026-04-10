@@ -6,6 +6,10 @@ import { ElMessage } from 'element-plus';
 import { onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
+defineProps<{
+  embedded?: boolean;
+}>();
+
 const router = useRouter();
 const { hasPermission } = useAuthz();
 
@@ -50,12 +54,13 @@ async function load() {
 
 function goApply(row: (typeof rows.value)[number]) {
   void router.push({
-    name: 'promotion.applications',
+    name: 'promotion.manage',
     query: {
       memberProfileId: row.memberProfileId,
       schemeId: row.schemeId,
       targetPositionCode: row.targetPositionCode,
       openCreate: '1',
+      tab: 'applications',
     },
   });
 }
@@ -68,7 +73,7 @@ onMounted(async () => {
 
 <template>
   <section class="page-grid">
-    <div class="hero-card">
+    <div v-if="!embedded" class="hero-card">
       <p class="hero-card__eyebrow">晋升资格看板</p>
       <h2>晋升资格看板</h2>
       <p>结合最近考核结果、成果等级与项目经历进行资格校验，输出可申请名单、未达标原因和目标岗位建议。</p>

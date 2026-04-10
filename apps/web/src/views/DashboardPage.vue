@@ -42,7 +42,7 @@ onMounted(() => {
 <template>
   <section v-loading="loading" class="page-grid dashboard-page">
     <div class="hero-card dashboard-hero">
-      <p class="hero-card__eyebrow">首页总览</p>
+      <p class="hero-card__eyebrow">工作台</p>
       <h2>{{ dashboard?.roleName || '角色化首页' }}</h2>
       <p class="dashboard-hero-desc">首页统一展示待办、申请、通知，帮助你快速进入当前最需要处理的工作。</p>
     </div>

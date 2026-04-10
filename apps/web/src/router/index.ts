@@ -1,4 +1,4 @@
-import { PermissionCodes } from '@smw/shared';
+import { PermissionCodes, RoleCode } from '@smw/shared';
 import { useAuthStore } from '@web/stores/auth';
 import type { RouteRecordRaw } from 'vue-router';
 import { createRouter, createWebHistory } from 'vue-router';
@@ -9,8 +9,10 @@ declare module 'vue-router' {
   interface RouteMeta {
     title?: string;
     breadcrumb?: string[];
+    activeMenu?: string;
     requiresAuth?: boolean;
     permissions?: string[];
+    roles?: RoleCode[];
     allowFirstLoginBypass?: boolean;
     homeVariant?: string;
     contentType?: string;
@@ -104,8 +106,8 @@ const routes: RouteRecordRaw[] = [
         name: 'system.dashboard',
         component: () => import('@web/views/DashboardPage.vue'),
         meta: {
-          title: '系统总览',
-          breadcrumb: ['系统总览'],
+          title: '工作台',
+          breadcrumb: ['工作台'],
           permissions: [PermissionCodes.systemDashboardView],
         },
       },
@@ -125,7 +127,7 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@web/views/NotificationPage.vue'),
         meta: {
           title: '通知公告',
-          breadcrumb: ['通知公告'],
+          breadcrumb: ['内容中心', '通知公告'],
           permissions: [PermissionCodes.notificationView],
         },
       },
@@ -135,8 +137,9 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@web/views/OrgOverviewPage.vue'),
         meta: {
           title: '组织架构总览',
-          breadcrumb: ['组织成员', '组织架构总览'],
+          breadcrumb: ['组织与成员', '组织架构总览'],
           permissions: [PermissionCodes.orgTreeView],
+          roles: [RoleCode.TEACHER, RoleCode.MINISTER],
         },
       },
       {
@@ -145,7 +148,7 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@web/views/MemberArchiveListPage.vue'),
         meta: {
           title: '成员档案',
-          breadcrumb: ['组织成员', '成员档案'],
+          breadcrumb: ['组织与成员', '成员档案'],
           permissions: [PermissionCodes.memberListView],
         },
       },
@@ -155,7 +158,8 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@web/views/MemberArchiveDetailPage.vue'),
         meta: {
           title: '成员档案详情',
-          breadcrumb: ['组织成员', '成员档案', '详情'],
+          breadcrumb: ['组织与成员', '成员档案', '详情'],
+          activeMenu: '/members/archive',
           permissions: [PermissionCodes.memberListView],
         },
       },
@@ -165,7 +169,7 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@web/views/MemberRegularizationPage.vue'),
         meta: {
           title: '成员转正管理',
-          breadcrumb: ['组织成员', '成员转正'],
+          breadcrumb: ['组织与成员', '成员转正'],
           permissions: [PermissionCodes.memberListView],
         },
       },
@@ -175,28 +179,41 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@web/views/EvaluationScorePage.vue'),
         meta: {
           title: '考核评分与结果',
-          breadcrumb: ['组织成员', '考核评分与结果'],
+          breadcrumb: ['考核与晋升', '考核评分'],
           permissions: [PermissionCodes.evaluationView],
         },
       },
       {
         path: 'promotion/eligibility',
         name: 'promotion.eligibility',
-        component: () => import('@web/views/PromotionEligibilityPage.vue'),
-        meta: {
-          title: '晋升资格看板',
-          breadcrumb: ['组织成员', '晋升资格看板'],
-          permissions: [PermissionCodes.promotionView],
-        },
+        redirect: (to) => ({
+          name: 'promotion.manage',
+          query: {
+            ...to.query,
+            tab: 'eligibility',
+          },
+        }),
       },
       {
         path: 'promotion/applications',
         name: 'promotion.applications',
-        component: () => import('@web/views/PromotionApplicationPage.vue'),
+        redirect: (to) => ({
+          name: 'promotion.manage',
+          query: {
+            ...to.query,
+            tab: 'applications',
+          },
+        }),
+      },
+      {
+        path: 'promotion/manage',
+        name: 'promotion.manage',
+        component: () => import('@web/views/PromotionManagePage.vue'),
         meta: {
-          title: '晋升申请与评审',
-          breadcrumb: ['组织成员', '晋升申请与评审'],
+          title: '晋升管理',
+          breadcrumb: ['考核与晋升', '晋升管理'],
           permissions: [PermissionCodes.promotionView],
+          activeMenu: '/promotion/manage',
         },
       },
       {
@@ -205,8 +222,9 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@web/views/FundOverviewPage.vue'),
         meta: {
           title: '经费总览',
-          breadcrumb: ['经费管理', '经费总览'],
+          breadcrumb: ['设备与资源', '经费总览'],
           permissions: [PermissionCodes.fundView],
+          roles: [RoleCode.TEACHER],
         },
       },
       {
@@ -215,8 +233,9 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@web/views/FundApplicationPage.vue'),
         meta: {
           title: '经费申请与审批',
-          breadcrumb: ['经费管理', '经费申请与审批'],
+          breadcrumb: ['设备与资源', '经费申请与审批'],
           permissions: [PermissionCodes.fundCreate],
+          activeMenu: '/funds/applications',
         },
       },
       {
@@ -225,7 +244,8 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@web/views/ProjectFundDetailPage.vue'),
         meta: {
           title: '项目经费明细',
-          breadcrumb: ['项目经费明细'],
+          breadcrumb: ['设备与资源', '经费总览', '项目经费明细'],
+          activeMenu: '/funds/overview',
           permissions: [PermissionCodes.fundView],
         },
       },
@@ -235,8 +255,9 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@web/views/DeviceRepairPage.vue'),
         meta: {
           title: '设备报修工单',
-          breadcrumb: ['设备管理', '设备报修工单'],
+          breadcrumb: ['设备与资源', '设备报修工单'],
           permissions: [PermissionCodes.deviceRepairView],
+          activeMenu: '/devices/repairs',
         },
       },
       {
@@ -245,7 +266,7 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@web/views/CompetitionLibraryPage.vue'),
         meta: {
           title: '竞赛库与报名',
-          breadcrumb: ['竞赛管理', '竞赛库与报名'],
+          breadcrumb: ['竞赛与成果', '竞赛库与报名'],
           permissions: [PermissionCodes.competitionView],
         },
       },
@@ -255,7 +276,7 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@web/views/AchievementListPage.vue'),
         meta: {
           title: '成果列表',
-          breadcrumb: ['竞赛管理', '成果列表'],
+          breadcrumb: ['竞赛与成果', '成果列表'],
           permissions: [PermissionCodes.achievementView],
         },
       },
@@ -265,7 +286,8 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@web/views/AchievementFormPage.vue'),
         meta: {
           title: '成果新增',
-          breadcrumb: ['竞赛管理', '成果新增'],
+          breadcrumb: ['竞赛与成果', '成果列表', '新增'],
+          activeMenu: '/achievements',
           permissions: [PermissionCodes.achievementCreate],
         },
       },
@@ -275,7 +297,8 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@web/views/AchievementFormPage.vue'),
         meta: {
           title: '成果编辑',
-          breadcrumb: ['竞赛管理', '成果编辑'],
+          breadcrumb: ['竞赛与成果', '成果列表', '编辑'],
+          activeMenu: '/achievements',
           permissions: [PermissionCodes.achievementUpdate],
         },
       },
@@ -285,8 +308,9 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@web/views/ApprovalCenterPage.vue'),
         meta: {
           title: '统一审批中心',
-          breadcrumb: ['审批管理', '统一审批中心'],
+          breadcrumb: ['审批中心', '统一审批中心'],
           permissions: [PermissionCodes.approvalCenterView],
+          roles: [RoleCode.TEACHER, RoleCode.MINISTER, RoleCode.GROUP_LEADER],
         },
       },
       {
@@ -295,8 +319,9 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@web/views/HealthCheckPage.vue'),
         meta: {
           title: '系统健康',
-          breadcrumb: ['系统管理', '系统健康'],
+          breadcrumb: ['工作台', '系统健康'],
           permissions: [PermissionCodes.systemHealthView],
+          activeMenu: '/system/health',
         },
       },
       {
@@ -305,8 +330,9 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@web/views/SystemConfigPage.vue'),
         meta: {
           title: '数据字典与配置管理',
-          breadcrumb: ['系统管理', '数据字典与配置管理'],
+          breadcrumb: ['工作台', '数据字典与配置管理'],
           permissions: [PermissionCodes.systemConfigView],
+          activeMenu: '/system/configuration',
         },
       },
       {
@@ -315,7 +341,9 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@web/views/PortalContentManagePage.vue'),
         meta: {
           title: '首页内容管理',
-          breadcrumb: ['首页内容管理'],
+          breadcrumb: ['内容中心', '首页内容管理'],
+          roles: [RoleCode.TEACHER, RoleCode.MINISTER],
+          activeMenu: '/portal/manage',
         },
       },
       {
@@ -324,7 +352,7 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@web/views/CreationCenterPage.vue'),
         meta: {
           title: '创作中心',
-          breadcrumb: ['创作中心'],
+          breadcrumb: ['内容中心', '创作中心'],
         },
       },
       {
@@ -333,7 +361,8 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@web/views/CreationEditorPage.vue'),
         meta: {
           title: '新建内容',
-          breadcrumb: ['创作中心', '新建内容'],
+          breadcrumb: ['内容中心', '创作中心', '新建内容'],
+          activeMenu: '/creation',
         },
       },
       {
@@ -342,7 +371,8 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@web/views/CreationEditorPage.vue'),
         meta: {
           title: '编辑内容',
-          breadcrumb: ['创作中心', '编辑内容'],
+          breadcrumb: ['内容中心', '创作中心', '编辑内容'],
+          activeMenu: '/creation',
         },
       },
       {
@@ -351,7 +381,9 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@web/views/CreationReviewPage.vue'),
         meta: {
           title: '创作审核',
-          breadcrumb: ['创作审核'],
+          breadcrumb: ['内容中心', '创作审核'],
+          roles: [RoleCode.TEACHER, RoleCode.MINISTER],
+          activeMenu: '/creation/review',
         },
       },
       {
@@ -360,7 +392,7 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@web/views/KnowledgeBaseListPage.vue'),
         meta: {
           title: '智库',
-          breadcrumb: ['智库'],
+          breadcrumb: ['内容中心', '智库'],
         },
       },
       {
@@ -369,7 +401,8 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@web/views/KnowledgeBaseDetailPage.vue'),
         meta: {
           title: '智库详情',
-          breadcrumb: ['智库', '详情'],
+          breadcrumb: ['内容中心', '智库', '详情'],
+          activeMenu: '/knowledge/contents',
         },
       },
     ],
@@ -393,5 +426,6 @@ router.beforeEach(async (to) => {
     initialized: authStore.initialized,
     forcePasswordChange: authStore.forcePasswordChange,
     permissions: authStore.permissions,
+    activeRoleCode: authStore.activeRoleCode,
   });
 });

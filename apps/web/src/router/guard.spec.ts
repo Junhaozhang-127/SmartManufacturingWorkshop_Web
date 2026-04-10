@@ -1,3 +1,4 @@
+import { RoleCode } from '@smw/shared';
 import { describe, expect, it } from 'vitest';
 
 import { resolveAuthNavigation } from './guard';
@@ -15,6 +16,7 @@ describe('resolveAuthNavigation', () => {
         initialized: true,
         forcePasswordChange: false,
         permissions: [],
+        activeRoleCode: null,
       },
     );
 
@@ -38,6 +40,7 @@ describe('resolveAuthNavigation', () => {
         initialized: true,
         forcePasswordChange: true,
         permissions: ['MEMBER:VIEW'],
+        activeRoleCode: RoleCode.MEMBER,
       },
     );
 
@@ -61,6 +64,26 @@ describe('resolveAuthNavigation', () => {
         initialized: true,
         forcePasswordChange: false,
         permissions: [],
+        activeRoleCode: RoleCode.MEMBER,
+      },
+    );
+
+    expect(result).toEqual({ path: '/' });
+  });
+
+  it('redirects to home when role is missing', () => {
+    const result = resolveAuthNavigation(
+      {
+        path: '/portal/manage',
+        fullPath: '/portal/manage',
+        meta: { requiresAuth: true, roles: [RoleCode.TEACHER] },
+      },
+      {
+        isAuthenticated: true,
+        initialized: true,
+        forcePasswordChange: false,
+        permissions: ['CONFIG:VIEW'],
+        activeRoleCode: RoleCode.MEMBER,
       },
     );
 

@@ -22,11 +22,15 @@ describe('filterMenuByAccess', () => {
       adminMenu,
       [
         PermissionCodes.systemDashboardView,
+        PermissionCodes.systemHealthView,
+        PermissionCodes.systemConfigView,
         PermissionCodes.profileView,
         PermissionCodes.memberListView,
+        PermissionCodes.orgTreeView,
         PermissionCodes.evaluationView,
         PermissionCodes.promotionView,
         PermissionCodes.fundView,
+        PermissionCodes.deviceRepairView,
         PermissionCodes.competitionView,
         PermissionCodes.achievementView,
         PermissionCodes.approvalCenterView,
@@ -34,18 +38,19 @@ describe('filterMenuByAccess', () => {
       RoleCode.TEACHER,
     );
 
+    expect(result).toHaveLength(8);
     expect(result.map((item) => item.key)).toEqual([
-      'dashboard',
-      'profile',
-      'member-archive',
-      'member-regularization',
-      'evaluation-score',
-      'promotion-eligibility',
-      'promotion-application',
-      'fund-overview',
-      'competition-library',
-      'achievement-list',
+      'workbench',
+      'org-member',
+      'evaluation-promotion',
+      'competition-achievement',
+      'device-resource',
+      'content-center',
       'approval-center',
+      'profile',
     ]);
+
+    const promotion = result.find((item) => item.key === 'evaluation-promotion');
+    expect(promotion?.children?.some((child) => child.key === 'promotion-manage')).toBe(true);
   });
 });
