@@ -2,12 +2,14 @@
 import { RoleCode } from '@smw/shared';
 import {
   approveCreationContent,
+  fetchCreationDetail,
   fetchReviewApproved,
   fetchReviewPending,
   type HomeSection,
   publishCreationContent,
   rejectCreationContent,
 } from '@web/api/creation';
+import RichTextViewer from '@web/components/RichTextViewer.vue';
 import { useAuthStore } from '@web/stores/auth';
 import { ElMessage } from 'element-plus';
 import { computed, onMounted, reactive, ref } from 'vue';
@@ -51,6 +53,10 @@ const publishForm = reactive({
   recommendToHome: false,
   homeSection: '' as '' | HomeSection,
 });
+
+const viewDialogVisible = ref(false);
+const viewLoading = ref(false);
+const viewDetail = ref<Awaited<ReturnType<typeof fetchCreationDetail>>['data'] | null>(null);
 
 const homeSectionOptions: Array<{ label: string; value: HomeSection }> = [
   { label: '首页轮播', value: 'CAROUSEL' },
@@ -102,6 +108,20 @@ async function loadApproved() {
 async function loadActive() {
   if (activeTab.value === 'PENDING') return loadPending();
   return loadApproved();
+}
+
+async function openView(id: string) {
+  viewDialogVisible.value = true;
+  viewLoading.value = true;
+  try {
+    const response = await fetchCreationDetail(id);
+    viewDetail.value = response.data;
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '内容加载失败');
+    viewDialogVisible.value = false;
+  } finally {
+    viewLoading.value = false;
+  }
 }
 
 function openApprove(id: string) {
@@ -236,8 +256,9 @@ onMounted(() => {
           <el-table-column label="提交时间" width="180">
             <template #default="{ row }">{{ formatDate(row.submittedAt) }}</template>
           </el-table-column>
-          <el-table-column label="操作" width="220" fixed="right">
+          <el-table-column label="操作" width="260" fixed="right">
             <template #default="{ row }">
+              <el-button link type="primary" @click="openView(row.id)">查看</el-button>
               <el-button link type="success" @click="openApprove(row.id)">通过</el-button>
               <el-button link type="danger" @click="openReject(row.id)">驳回</el-button>
             </template>
@@ -280,8 +301,9 @@ onMounted(() => {
             </template>
           </el-table-column>
           <el-table-column prop="homeSection" label="首页栏目" width="160" />
-          <el-table-column label="操作" width="160" fixed="right">
+          <el-table-column label="操作" width="220" fixed="right">
             <template #default="{ row }">
+              <el-button link type="primary" @click="openView(row.id)">查看</el-button>
               <el-button link type="primary" @click="openPublish(row)">发布设置</el-button>
             </template>
           </el-table-column>
@@ -300,6 +322,17 @@ onMounted(() => {
         </div>
       </div>
     </div>
+
+    <el-dialog v-model="viewDialogVisible" title="正文预览" width="860px" destroy-on-close>
+      <div v-loading="viewLoading" class="view-body">
+        <el-image v-if="viewDetail?.coverUrl" :src="viewDetail.coverUrl" fit="cover" class="view-cover" />
+        <p v-if="viewDetail?.summary" class="muted">摘要：{{ viewDetail.summary }}</p>
+        <RichTextViewer :content="viewDetail?.body" />
+      </div>
+      <template #footer>
+        <el-button @click="viewDialogVisible = false">关闭</el-button>
+      </template>
+    </el-dialog>
 
     <el-dialog v-model="approveDialogVisible" title="审核通过" width="520px" destroy-on-close>
       <el-form label-width="120px">
@@ -364,6 +397,18 @@ onMounted(() => {
 <style scoped>
 .muted {
   color: #64748b;
+}
+
+.view-body {
+  display: grid;
+  gap: 12px;
+}
+
+.view-cover {
+  width: 100%;
+  max-height: 360px;
+  border-radius: 12px;
+  overflow: hidden;
 }
 </style>
 

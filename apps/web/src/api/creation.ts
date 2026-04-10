@@ -111,6 +111,27 @@ export async function uploadCreationCover(file: File) {
   });
 }
 
+export async function uploadCreationBodyImage(file: File) {
+  const formData = new FormData();
+  formData.append('file', file);
+  return http.post<
+    never,
+    {
+      data: {
+        storageKey: string;
+        fileName: string;
+        downloadUrl: string;
+        mimeType: string | null;
+        size: number | null;
+      };
+    }
+  >('/files/upload?bucket=portal', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+}
+
 export async function fetchReviewPending(params: { page?: number; pageSize?: number; keyword?: string }) {
   return http.get<
     never,

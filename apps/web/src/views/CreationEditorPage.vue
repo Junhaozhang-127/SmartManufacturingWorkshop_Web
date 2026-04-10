@@ -6,6 +6,7 @@ import {
   updateCreationContent,
   uploadCreationCover,
 } from '@web/api/creation';
+import RichTextEditor from '@web/components/RichTextEditor.vue';
 import { ElMessage, ElMessageBox, type UploadRequestOptions } from 'element-plus';
 import { computed, nextTick, onMounted, reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
@@ -16,6 +17,7 @@ const route = useRoute();
 const loading = ref(false);
 const saving = ref(false);
 const submitting = ref(false);
+const bodyTextLength = ref(0);
 
 const contentId = ref<string | null>(null);
 const detail = ref<Awaited<ReturnType<typeof fetchCreationDetail>>['data'] | null>(null);
@@ -38,6 +40,37 @@ const canSubmit = computed(() => {
   const status = detail.value?.statusCode;
   return status === 'DRAFT' || status === 'REJECTED';
 });
+
+function looksLikeHtml(value: string) {
+  if (!value) return false;
+  if (!/[<>]/.test(value)) return false;
+  return /<\/(p|div|span|h1|h2|h3|ul|ol|li|pre|code|blockquote|img|hr|a)\b/i.test(value);
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function normalizeBodyForEditor(value: string) {
+  const raw = value ?? '';
+  if (!raw) return '';
+  if (looksLikeHtml(raw)) return raw;
+  return `<p>${escapeHtml(raw).replace(/\n/g, '<br>')}</p>`;
+}
+
+function getBodyTextLength(value: string) {
+  if (!value) return 0;
+  if (!looksLikeHtml(value)) return value.length;
+  return value
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .length;
+}
 
 function statusLabel(status: string | null | undefined) {
   switch (status) {
@@ -67,10 +100,11 @@ async function load(id: string) {
 
     form.title = response.data.title || '';
     form.summary = response.data.summary || '';
-    form.body = response.data.body || '';
+    form.body = normalizeBodyForEditor(response.data.body || '');
     form.coverStorageKey = response.data.coverStorageKey || '';
     form.coverFileName = response.data.coverFileName || '';
     form.coverUrl = response.data.coverUrl || '';
+    bodyTextLength.value = getBodyTextLength(response.data.body || '');
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '内容加载失败');
   } finally {
@@ -193,13 +227,12 @@ onMounted(() => {
           </div>
         </el-form-item>
         <el-form-item label="正文">
-          <el-input
-            v-model="form.body"
-            :disabled="!canEdit"
-            type="textarea"
-            :rows="10"
-            placeholder="最小实现：纯文本正文"
-          />
+          <div class="body-editor">
+            <RichTextEditor v-model="form.body" :disabled="!canEdit" @text-length-change="(v) => (bodyTextLength = v)" />
+            <div class="body-editor__meta">
+              <span class="muted">字数：{{ bodyTextLength }}</span>
+            </div>
+          </div>
         </el-form-item>
       </el-form>
 
@@ -236,6 +269,16 @@ onMounted(() => {
 
 .toolbar-row--right {
   justify-content: flex-end;
+}
+
+.body-editor {
+  width: 100%;
+}
+
+.body-editor__meta {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
 }
 </style>
 

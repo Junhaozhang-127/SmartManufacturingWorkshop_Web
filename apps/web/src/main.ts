@@ -1,4 +1,5 @@
 import 'element-plus/dist/index.css';
+import '@wangeditor/editor/dist/css/style.css';
 import './styles/index.css';
 
 import ElementPlus from 'element-plus';

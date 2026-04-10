@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { fetchKnowledgeDetail } from '@web/api/creation';
+import RichTextViewer from '@web/components/RichTextViewer.vue';
 import { ElMessage } from 'element-plus';
 import { onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
@@ -54,8 +55,7 @@ onMounted(() => {
         <img :src="detail.coverUrl" alt="" />
       </div>
       <article class="body">
-        <pre v-if="detail?.body" class="body__text">{{ detail.body }}</pre>
-        <p v-else class="muted">暂无正文</p>
+        <RichTextViewer :content="detail?.body" />
       </article>
     </div>
   </section>
@@ -85,11 +85,5 @@ onMounted(() => {
   display: block;
 }
 
-.body__text {
-  white-space: pre-wrap;
-  word-break: break-word;
-  font-family: inherit;
-  margin: 0;
-}
 </style>
 

@@ -50,5 +50,10 @@
     "typescript": "^5.9.2",
     "typescript-eslint": "^8.44.0",
     "vue-eslint-parser": "^10.2.0"
+  },
+  "dependencies": {
+    "@wangeditor/editor": "^5.1.23",
+    "@wangeditor/editor-for-vue": "^5.1.12",
+    "dompurify": "^3.3.3"
   }
 }

@@ -31,6 +31,7 @@ export class FileController {
     }),
   )
   async upload(
+    @Query('bucket') bucket: string | undefined,
     @UploadedFile()
     file?: {
       originalname: string;
@@ -43,7 +44,16 @@ export class FileController {
       throw new BadRequestException('未接收到上传文件');
     }
 
-    return this.fileService.saveFile(file);
+    const targetBucket = bucket?.trim();
+    if (!targetBucket) {
+      return this.fileService.saveFile(file);
+    }
+
+    if (targetBucket !== 'funds' && targetBucket !== 'portal') {
+      throw new BadRequestException('bucket 仅支持 funds / portal');
+    }
+
+    return this.fileService.saveFile(file, targetBucket);
   }
 
   @Get('download')

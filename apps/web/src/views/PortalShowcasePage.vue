@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { fetchPortalContentDetail, fetchPortalContentList, type PortalContentType } from '@web/api/portal';
+import RichTextViewer from '@web/components/RichTextViewer.vue';
 import { ElMessage } from 'element-plus';
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
@@ -112,8 +113,7 @@ onMounted(load);
       <div v-loading="detailLoading" class="detail-body">
         <el-image v-if="detail?.coverUrl" :src="detail.coverUrl" fit="cover" class="detail-cover" />
         <p v-if="detail?.summary" class="detail-summary">{{ detail.summary }}</p>
-        <pre v-if="detail?.body" class="detail-text">{{ detail.body }}</pre>
-        <p v-else class="muted">暂无正文</p>
+        <RichTextViewer :content="detail?.body" />
         <el-link v-if="detail?.linkUrl" :href="detail.linkUrl" target="_blank" type="primary">打开跳转链接</el-link>
       </div>
       <template #footer>
