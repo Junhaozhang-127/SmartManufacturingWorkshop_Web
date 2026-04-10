@@ -63,12 +63,43 @@ body {
 .sidebar__menu {
   border-right: none;
   background: transparent;
+  --el-menu-bg-color: transparent;
+  --el-menu-text-color: rgba(255, 255, 255, 0.84);
+  --el-menu-hover-bg-color: rgba(255, 255, 255, 0.08);
+  --el-menu-active-color: #fff;
 }
 
 .sidebar__menu .el-menu-item {
   margin-bottom: 0.4rem;
   border-radius: 0.85rem;
   color: rgba(255, 255, 255, 0.84);
+}
+
+.sidebar__menu .el-sub-menu__title {
+  margin-bottom: 0.4rem;
+  border-radius: 0.85rem;
+  color: var(--el-menu-text-color);
+}
+
+.sidebar__menu .el-menu-item:not(.is-active):hover,
+.sidebar__menu .el-sub-menu__title:hover {
+  background: var(--el-menu-hover-bg-color);
+}
+
+.sidebar__menu .el-sub-menu.is-active > .el-sub-menu__title {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.sidebar__menu .el-menu--inline,
+.sidebar__menu .el-sub-menu .el-menu {
+  background: transparent;
+}
+
+.sidebar__menu .el-menu-item .el-icon,
+.sidebar__menu .el-sub-menu__title .el-icon,
+.sidebar__menu .el-sub-menu__icon-arrow {
+  color: inherit;
 }
 
 .sidebar__menu .el-menu-item.is-active {
