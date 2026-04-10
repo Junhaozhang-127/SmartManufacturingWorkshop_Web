@@ -3,6 +3,7 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 import pluginVue from 'eslint-plugin-vue';
 import simpleImportSort from 'eslint-plugin-simple-import-sort';
+import unusedImports from 'eslint-plugin-unused-imports';
 import vueParser from 'vue-eslint-parser';
 import prettier from 'eslint-config-prettier';
 
@@ -44,6 +45,10 @@ export default tseslint.config(
     },
     rules: {
       '@typescript-eslint/no-require-imports': 'off',
+      'unused-imports/no-unused-imports': 'error',
+    },
+    plugins: {
+      'unused-imports': unusedImports,
     },
   },
   {
@@ -66,6 +71,7 @@ export default tseslint.config(
     },
     plugins: {
       'simple-import-sort': simpleImportSort,
+      'unused-imports': unusedImports,
     },
     rules: {
       '@typescript-eslint/consistent-type-imports': 'error',
@@ -77,6 +83,7 @@ export default tseslint.config(
       '@typescript-eslint/no-unsafe-return': 'off',
       'simple-import-sort/imports': 'error',
       'simple-import-sort/exports': 'error',
+      'unused-imports/no-unused-imports': 'error',
     },
   },
   {
@@ -95,11 +102,13 @@ export default tseslint.config(
     },
     plugins: {
       'simple-import-sort': simpleImportSort,
+      'unused-imports': unusedImports,
     },
     rules: {
       'vue/multi-word-component-names': 'off',
       'simple-import-sort/imports': 'error',
       'simple-import-sort/exports': 'error',
+      'unused-imports/no-unused-imports': 'error',
     },
   },
   {

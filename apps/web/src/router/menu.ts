@@ -116,6 +116,25 @@ export const adminMenu: AppMenuItem[] = [
     icon: 'Picture',
     roles: [RoleCodeEnum.TEACHER, RoleCodeEnum.MINISTER],
   },
+  {
+    key: 'creation-center',
+    label: '创作中心',
+    path: '/creation',
+    icon: 'EditPen',
+  },
+  {
+    key: 'knowledge-base',
+    label: '智库',
+    path: '/knowledge/contents',
+    icon: 'Collection',
+  },
+  {
+    key: 'creation-review',
+    label: '创作审核',
+    path: '/creation/review',
+    icon: 'Finished',
+    roles: [RoleCodeEnum.TEACHER, RoleCodeEnum.MINISTER],
+  },
 ];
 
 export function filterMenuByAccess(items: AppMenuItem[], permissions: string[], roleCode: RoleCode | null) {

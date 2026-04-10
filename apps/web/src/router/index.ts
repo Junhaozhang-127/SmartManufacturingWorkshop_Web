@@ -318,6 +318,60 @@ const routes: RouteRecordRaw[] = [
           breadcrumb: ['首页内容管理'],
         },
       },
+      {
+        path: 'creation',
+        name: 'creation.center',
+        component: () => import('@web/views/CreationCenterPage.vue'),
+        meta: {
+          title: '创作中心',
+          breadcrumb: ['创作中心'],
+        },
+      },
+      {
+        path: 'creation/new',
+        name: 'creation.new',
+        component: () => import('@web/views/CreationEditorPage.vue'),
+        meta: {
+          title: '新建内容',
+          breadcrumb: ['创作中心', '新建内容'],
+        },
+      },
+      {
+        path: 'creation/:id/edit',
+        name: 'creation.edit',
+        component: () => import('@web/views/CreationEditorPage.vue'),
+        meta: {
+          title: '编辑内容',
+          breadcrumb: ['创作中心', '编辑内容'],
+        },
+      },
+      {
+        path: 'creation/review',
+        name: 'creation.review',
+        component: () => import('@web/views/CreationReviewPage.vue'),
+        meta: {
+          title: '创作审核',
+          breadcrumb: ['创作审核'],
+        },
+      },
+      {
+        path: 'knowledge/contents',
+        name: 'knowledge.list',
+        component: () => import('@web/views/KnowledgeBaseListPage.vue'),
+        meta: {
+          title: '智库',
+          breadcrumb: ['智库'],
+        },
+      },
+      {
+        path: 'knowledge/contents/:id',
+        name: 'knowledge.detail',
+        component: () => import('@web/views/KnowledgeBaseDetailPage.vue'),
+        meta: {
+          title: '智库详情',
+          breadcrumb: ['智库', '详情'],
+        },
+      },
     ],
   },
 ];

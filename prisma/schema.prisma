@@ -55,6 +55,8 @@ model SysUser {
   managedFundAccounts       FundAccount[]        @relation("FundAccountManager")
   fundApplications          FundApplication[]    @relation("FundApplicationApplicant")
   notifications             SysNotification[]
+  creationContents          CreationContent[]
+  creationReviewedContents  CreationContent[]    @relation("CreationContentReviewer")
 
   @@map("sys_user")
 }
@@ -942,4 +944,44 @@ model PortalContent {
   @@index([contentType, statusCode, publishedAt])
   @@index([createdBy, createdAt])
   @@map("portal_content")
+}
+
+model CreationContent {
+  id             BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  title          String   @db.VarChar(255)
+  summary        String?  @db.VarChar(1000)
+  body           String?  @db.LongText
+  coverStorageKey String? @map("cover_storage_key") @db.VarChar(128)
+  coverFileName  String?  @map("cover_file_name") @db.VarChar(128)
+
+  authorUserId   BigInt   @map("author_user_id") @db.UnsignedBigInt
+  statusCode     String   @default("DRAFT") @map("status_code") @db.VarChar(20)
+  submittedAt    DateTime? @map("submitted_at")
+
+  reviewerUserId BigInt?  @map("reviewer_user_id") @db.UnsignedBigInt
+  reviewComment  String?  @map("review_comment") @db.VarChar(1000)
+  reviewedAt     DateTime? @map("reviewed_at")
+
+  inKnowledgeBase Boolean @default(false) @map("in_knowledge_base")
+  recommendToHome Boolean @default(false) @map("recommend_to_home")
+  homeSection     String? @map("home_section") @db.VarChar(32)
+
+  portalContentId BigInt? @map("portal_content_id") @db.UnsignedBigInt
+  portalCarouselId BigInt? @map("portal_carousel_id") @db.UnsignedBigInt
+
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+  createdBy      BigInt?  @map("created_by") @db.UnsignedBigInt
+  isDeleted      Boolean  @default(false) @map("is_deleted")
+
+  author         SysUser  @relation(fields: [authorUserId], references: [id])
+  reviewer       SysUser? @relation("CreationContentReviewer", fields: [reviewerUserId], references: [id])
+
+  @@index([authorUserId, createdAt])
+  @@index([statusCode, submittedAt])
+  @@index([inKnowledgeBase, statusCode, reviewedAt])
+  @@index([recommendToHome, homeSection])
+  @@index([portalContentId])
+  @@index([portalCarouselId])
+  @@map("creation_content")
 }
