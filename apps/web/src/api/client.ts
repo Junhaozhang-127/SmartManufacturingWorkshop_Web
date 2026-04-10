@@ -59,9 +59,12 @@ http.interceptors.response.use(
       : responseMessage ?? error.message ?? '请求失败';
 
     if (error.response?.status === 401) {
+      const hadToken = Boolean(getStoredAccessToken());
       clearPersistedAuthState();
 
-      if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+      // If the user already has no session, avoid forcing a redirect to login.
+      // Route guards handle protected-route navigation, and this prevents "logout -> portal -> 401 from in-flight request -> back to login".
+      if (hadToken && typeof window !== 'undefined' && window.location.pathname !== '/login') {
         window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname)}`;
       }
     }

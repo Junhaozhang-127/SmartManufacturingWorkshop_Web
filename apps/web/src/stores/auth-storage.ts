@@ -6,6 +6,17 @@ export interface PersistedAuthState {
 }
 
 const STORAGE_KEY = 'smw-web-auth';
+const LEGACY_TOKEN_KEYS = ['token', 'accessToken', 'refreshToken'] as const;
+
+function removeFromWebStorage(key: string) {
+  if (typeof localStorage !== 'undefined') {
+    localStorage.removeItem(key);
+  }
+
+  if (typeof sessionStorage !== 'undefined') {
+    sessionStorage.removeItem(key);
+  }
+}
 
 export function readPersistedAuthState(): PersistedAuthState {
   if (typeof localStorage === 'undefined') {
@@ -30,7 +41,8 @@ export function writePersistedAuthState(state: PersistedAuthState) {
 }
 
 export function clearPersistedAuthState() {
-  localStorage.removeItem(STORAGE_KEY);
+  removeFromWebStorage(STORAGE_KEY);
+  LEGACY_TOKEN_KEYS.forEach((key) => removeFromWebStorage(key));
 }
 
 export function getStoredAccessToken() {

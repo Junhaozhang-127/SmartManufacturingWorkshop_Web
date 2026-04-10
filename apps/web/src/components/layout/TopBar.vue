@@ -14,7 +14,7 @@ async function goNotifications() {
 
 async function logout() {
   authStore.logout();
-  await router.push('/login');
+  await router.replace('/portal');
 }
 
 async function loadUnreadCount() {
