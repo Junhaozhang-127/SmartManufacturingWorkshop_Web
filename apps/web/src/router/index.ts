@@ -303,6 +303,17 @@ const routes: RouteRecordRaw[] = [
         },
       },
       {
+        path: 'achievements/:id',
+        name: 'achievements.detail',
+        component: () => import('@web/views/AchievementDetailPage.vue'),
+        meta: {
+          title: '成果详情',
+          breadcrumb: ['竞赛与成果', '成果列表', '详情'],
+          activeMenu: '/achievements',
+          permissions: [PermissionCodes.achievementView],
+        },
+      },
+      {
         path: 'workflow/approval-center',
         name: 'workflow.approval-center',
         component: () => import('@web/views/ApprovalCenterPage.vue'),

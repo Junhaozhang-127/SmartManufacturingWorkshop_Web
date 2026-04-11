@@ -14,6 +14,7 @@ export interface AttachmentItem {
   uploadedBy?: string;
   uploadedByName?: string;
   downloadUrl?: string;
+  previewUrl?: string;
 }
 
 export async function uploadAttachment(file: File) {

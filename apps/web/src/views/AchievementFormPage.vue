@@ -1,5 +1,12 @@
 <script setup lang="ts">
-import { AchievementStatus, AchievementType } from '@smw/shared';
+import { AchievementStatus, AchievementType, ApprovalBusinessType } from '@smw/shared';
+import {
+  type AttachmentItem,
+  deleteMyTempAttachment,
+  listBusinessAttachments,
+  unbindBusinessAttachment,
+  uploadAttachment,
+} from '@web/api/attachments';
 import {
   createAchievement,
   fetchAchievementDetail,
@@ -7,6 +14,7 @@ import {
   fetchCompetitionOptions,
   updateAchievement,
 } from '@web/api/competition-achievement';
+import AttachmentUploader from '@web/components/attachments/AttachmentUploader.vue';
 import { ElMessage } from 'element-plus';
 import { computed, onMounted, reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
@@ -23,6 +31,13 @@ const approvalInstanceId = ref<string | null>(null);
 
 const isEdit = computed(() => Boolean(route.params.id));
 const pageTitle = computed(() => (isEdit.value ? '成果编辑' : '成果录入'));
+const isReadonly = computed(() => isEdit.value && currentStatus.value !== AchievementStatus.DRAFT);
+
+const ACHIEVEMENT_ATTACHMENT_BUSINESS_TYPE = ApprovalBusinessType.ACHIEVEMENT_RECOGNITION;
+const ACHIEVEMENT_ATTACHMENT_USAGE_TYPE = 'ACHIEVEMENT_PROOF';
+
+type AchievementAttachmentItem = AttachmentItem & { __source?: 'bound' | 'temp' };
+const attachments = ref<AchievementAttachmentItem[]>([]);
 
 const form = reactive({
   title: '',
@@ -120,11 +135,37 @@ async function loadDetail() {
         remarks: detail.ipAsset?.remarks ?? '',
       },
     });
+
+    const attachmentResponse = await listBusinessAttachments({
+      businessType: ACHIEVEMENT_ATTACHMENT_BUSINESS_TYPE,
+      businessId: String(route.params.id),
+      usageType: ACHIEVEMENT_ATTACHMENT_USAGE_TYPE,
+    });
+    attachments.value = attachmentResponse.data.map((item) => ({ ...item, __source: 'bound' }));
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '成果详情加载失败');
+    attachments.value = [];
   } finally {
     loading.value = false;
   }
+}
+
+async function uploadAchievementAttachment(file: File) {
+  const response = await uploadAttachment(file);
+  return { data: { ...response.data, __source: 'temp' } as AchievementAttachmentItem };
+}
+
+async function removeAchievementAttachment(item: AchievementAttachmentItem) {
+  if (item.__source === 'bound' && route.params.id) {
+    await unbindBusinessAttachment({
+      businessType: ACHIEVEMENT_ATTACHMENT_BUSINESS_TYPE,
+      businessId: String(route.params.id),
+      usageType: ACHIEVEMENT_ATTACHMENT_USAGE_TYPE,
+      fileId: item.fileId,
+    });
+    return;
+  }
+  await deleteMyTempAttachment(item.fileId);
 }
 
 function addContributor() {
@@ -155,6 +196,7 @@ async function submit(submitForApproval: boolean) {
       sourceCompetitionId: form.sourceCompetitionId || undefined,
       sourceTeamId: form.sourceTeamId || undefined,
       description: form.description || undefined,
+      attachmentFileIds: attachments.value.length ? attachments.value.map((item) => item.fileId) : undefined,
       contributors: form.contributors.map((item) => ({
         userId: item.userId || undefined,
         contributorName: item.contributorName,
@@ -257,6 +299,16 @@ onMounted(async () => {
         </div>
 
         <el-form-item label="成果说明"><el-input v-model="form.description" type="textarea" :rows="4" /></el-form-item>
+
+        <div class="achievement-section">
+          <h3>附件（比赛证书/成果证明/图片/普通文件）</h3>
+          <AttachmentUploader
+            v-model="attachments"
+            :readonly="isReadonly"
+            :upload-request="uploadAchievementAttachment"
+            :remove-request="removeAchievementAttachment"
+          />
+        </div>
 
         <div class="achievement-section">
           <div class="achievement-section__header">

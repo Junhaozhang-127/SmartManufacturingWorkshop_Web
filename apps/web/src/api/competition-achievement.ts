@@ -123,6 +123,7 @@ export async function createAchievement(payload: {
   sourceCompetitionId?: string;
   sourceTeamId?: string;
   description?: string;
+  attachmentFileIds?: string[];
   contributors: Array<{
     userId?: string;
     contributorName: string;
@@ -163,6 +164,7 @@ export async function updateAchievement(
     sourceCompetitionId?: string;
     sourceTeamId?: string;
     description?: string;
+    attachmentFileIds?: string[];
     contributors: Array<{
       userId?: string;
       contributorName: string;

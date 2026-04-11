@@ -73,6 +73,10 @@ function openEdit(id: string) {
   void router.push({ name: 'achievements.edit', params: { id } });
 }
 
+function openDetail(id: string) {
+  void router.push({ name: 'achievements.detail', params: { id } });
+}
+
 function openApproval(approvalInstanceId: string | null) {
   if (!approvalInstanceId) return;
   void router.push({ name: 'workflow.approval-center', query: { focus: approvalInstanceId } });
@@ -120,8 +124,9 @@ onMounted(async () => {
           <template #default="{ row }">{{ row.contributorNames.join('、') }}</template>
         </el-table-column>
         <el-table-column prop="latestResult" label="最近结果" min-width="180" show-overflow-tooltip />
-        <el-table-column label="操作" width="220" fixed="right">
+        <el-table-column label="操作" width="280" fixed="right">
           <template #default="{ row }">
+            <el-button link type="primary" @click="openDetail(row.id)">查看详情</el-button>
             <el-button link type="primary" @click="openApproval(row.approvalInstanceId)">审批</el-button>
             <el-button
               v-if="canUpdate && row.statusCode === AchievementStatus.DRAFT"
