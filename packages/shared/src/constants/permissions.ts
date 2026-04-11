@@ -19,6 +19,7 @@ export enum ResourceCode {
   APPROVAL = 'APPROVAL',
   INVENTORY = 'INVENTORY',
   FUND = 'FUND',
+  DEVICE_LEDGER = 'DEVICE_LEDGER',
   DEVICE_REPAIR = 'DEVICE_REPAIR',
   COMPETITION = 'COMPETITION',
   COMPETITION_TEAM = 'COMPETITION_TEAM',
@@ -97,6 +98,7 @@ export const PermissionCodes = {
   fundCreate: buildPermissionCode(ResourceCode.FUND, ActionCode.CREATE),
   fundUpdate: buildPermissionCode(ResourceCode.FUND, ActionCode.UPDATE),
   fundApprove: buildPermissionCode(ResourceCode.FUND, ActionCode.APPROVE),
+  deviceLedgerCreate: buildPermissionCode(ResourceCode.DEVICE_LEDGER, ActionCode.CREATE),
   deviceRepairView: buildPermissionCode(ResourceCode.DEVICE_REPAIR, ActionCode.VIEW),
   deviceRepairCreate: buildPermissionCode(ResourceCode.DEVICE_REPAIR, ActionCode.CREATE),
   deviceRepairUpdate: buildPermissionCode(ResourceCode.DEVICE_REPAIR, ActionCode.UPDATE),
@@ -130,6 +132,7 @@ const managementPermissions: PermissionCode[] = [
   PermissionCodes.inventoryCreate,
   PermissionCodes.inventoryUpdate,
   PermissionCodes.inventoryApprove,
+  PermissionCodes.deviceLedgerCreate,
   PermissionCodes.deviceRepairView,
   PermissionCodes.deviceRepairCreate,
   PermissionCodes.deviceRepairUpdate,
@@ -146,6 +149,10 @@ const managementPermissions: PermissionCode[] = [
   PermissionCodes.achievementApprove,
 ];
 
+const groupLeaderManagementPermissions: PermissionCode[] = managementPermissions.filter(
+  (permission) => permission !== PermissionCodes.competitionCreate,
+);
+
 export const RolePermissionMap: Record<RoleCode, PermissionCode[]> = {
   [RoleCode.TEACHER]: [
     PermissionCodes.authLogin,
@@ -159,6 +166,11 @@ export const RolePermissionMap: Record<RoleCode, PermissionCode[]> = {
     PermissionCodes.promotionView,
     PermissionCodes.promotionApprove,
     PermissionCodes.fundView,
+    PermissionCodes.deviceRepairView,
+    PermissionCodes.deviceRepairCreate,
+    PermissionCodes.deviceLedgerCreate,
+    PermissionCodes.competitionView,
+    PermissionCodes.competitionCreate,
     PermissionCodes.approvalCenterView,
   ],
   [RoleCode.MINISTER]: [
@@ -174,6 +186,7 @@ export const RolePermissionMap: Record<RoleCode, PermissionCode[]> = {
     PermissionCodes.memberCreate,
     PermissionCodes.memberApprove,
     PermissionCodes.orgTreeView,
+    PermissionCodes.fundView,
     ...managementPermissions,
     PermissionCodes.approvalCenterView,
     PermissionCodes.approvalCreate,
@@ -191,7 +204,7 @@ export const RolePermissionMap: Record<RoleCode, PermissionCode[]> = {
     PermissionCodes.memberUpdate,
     PermissionCodes.memberCreate,
     PermissionCodes.memberApprove,
-    ...managementPermissions,
+    ...groupLeaderManagementPermissions,
     PermissionCodes.approvalCenterView,
     PermissionCodes.approvalCreate,
     PermissionCodes.approvalApprove,

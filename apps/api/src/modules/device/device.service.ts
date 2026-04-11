@@ -15,6 +15,7 @@ import {
 
 import type { AssignDeviceRepairDto } from './dto/assign-device-repair.dto';
 import type { ConfirmDeviceRepairDto } from './dto/confirm-device-repair.dto';
+import type { CreateDeviceDto } from './dto/create-device.dto';
 import type { CreateDeviceRepairDto } from './dto/create-device-repair.dto';
 import type { DeviceRepairQueryDto } from './dto/device-repair-query.dto';
 import type { ResolveDeviceRepairDto } from './dto/resolve-device-repair.dto';
@@ -197,6 +198,42 @@ export class DeviceService {
           }
         : null,
     };
+  }
+
+  async createDevice(currentUser: CurrentUserProfile, payload: CreateDeviceDto, dataScopeContext: DataScopeContext) {
+    const deviceCode = payload.deviceCode.trim();
+    const deviceName = payload.deviceName.trim();
+    const categoryName = payload.categoryName.trim();
+    const orgUnitId = payload.orgUnitId ? this.toBigInt(payload.orgUnitId) : null;
+    const responsibleUserId = payload.responsibleUserId ? this.toBigInt(payload.responsibleUserId) : null;
+
+    this.ensureDeviceCreatable({ orgUnitId, responsibleUserId }, dataScopeContext);
+
+    const existing = await this.prisma.assetDevice.findUnique({ where: { deviceCode } });
+    if (existing && !existing.isDeleted) {
+      throw new BadRequestException('设备编号已存在');
+    }
+
+    const record = await this.prisma.assetDevice.create({
+      data: {
+        deviceCode,
+        deviceName,
+        categoryName,
+        model: payload.model?.trim() || null,
+        locationLabel: payload.locationLabel?.trim() || null,
+        statusCode: payload.statusCode ?? 'IDLE',
+        orgUnitId,
+        responsibleUserId,
+        remarks: payload.remarks?.trim() || null,
+        purchaseAmount: payload.purchaseAmount === undefined ? undefined : this.toDecimal(payload.purchaseAmount),
+        purchaseDate: payload.purchaseDate ? this.parseDateOnly(payload.purchaseDate, '购置日期') : undefined,
+        warrantyUntil: payload.warrantyUntil ? this.parseDateOnly(payload.warrantyUntil, '质保到期') : undefined,
+        statusChangedAt: new Date(),
+        createdBy: this.toBigInt(currentUser.id),
+      },
+    });
+
+    return this.getDeviceDetail(String(record.id), dataScopeContext);
   }
 
   async listRepairs(query: DeviceRepairQueryDto, dataScopeContext: DataScopeContext) {
@@ -747,6 +784,36 @@ export class DeviceService {
     }
   }
 
+  private ensureDeviceCreatable(
+    record: Pick<VisibleDeviceRecord, 'orgUnitId' | 'responsibleUserId'>,
+    dataScopeContext: DataScopeContext,
+  ) {
+    if (dataScopeContext.scope === DataScope.ALL) {
+      return;
+    }
+
+    const currentUserId = this.toBigInt(dataScopeContext.userId);
+    if (record.responsibleUserId === currentUserId) {
+      return;
+    }
+
+    if (
+      dataScopeContext.scope === DataScope.DEPT_PROJECT &&
+      record.orgUnitId &&
+      dataScopeContext.departmentAndDescendantIds.includes(String(record.orgUnitId))
+    ) {
+      return;
+    }
+
+    if (dataScopeContext.scope === DataScope.GROUP_PROJECT && record.orgUnitId && dataScopeContext.groupId) {
+      if (String(record.orgUnitId) === dataScopeContext.groupId) {
+        return;
+      }
+    }
+
+    throw new ForbiddenException('当前数据范围不可新建设备');
+  }
+
   private ensureDeviceVisible(record: VisibleDeviceRecord, dataScopeContext: DataScopeContext) {
     if (dataScopeContext.scope === DataScope.ALL) {
       return;
@@ -821,6 +888,18 @@ export class DeviceService {
       throw new BadRequestException(message);
     }
     return user;
+  }
+
+  private parseDateOnly(value: string, label: string) {
+    const trimmed = value.trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      throw new BadRequestException(`${label}格式应为 YYYY-MM-DD`);
+    }
+    const parsed = new Date(`${trimmed}T00:00:00.000Z`);
+    if (Number.isNaN(parsed.getTime())) {
+      throw new BadRequestException(`${label}无效`);
+    }
+    return parsed;
   }
 
   private toBigInt(value: string) {

@@ -61,9 +61,8 @@ const registerForm = reactive({
   applicationReason: '',
 });
 
-const canMaintain = computed(
-  () => hasPermission(PermissionCodes.competitionCreate) || hasPermission(PermissionCodes.competitionUpdate),
-);
+const canCreateCompetition = computed(() => hasPermission(PermissionCodes.competitionCreate));
+const canUpdateCompetition = computed(() => hasPermission(PermissionCodes.competitionUpdate));
 const canRegister = computed(() => hasPermission(PermissionCodes.competitionRegistrationCreate));
 
 const statusOptions = [
@@ -144,6 +143,10 @@ async function openDetail(id: string) {
 }
 
 function openCreateCompetition() {
+  if (!canCreateCompetition.value) {
+    ElMessage.warning('无权限：仅部长及以上身份可新建赛事');
+    return;
+  }
   resetCompetitionForm();
   competitionDialogVisible.value = true;
 }
@@ -176,9 +179,17 @@ async function submitCompetition() {
   submitting.value = true;
   try {
     if (editingCompetitionId.value) {
+      if (!canUpdateCompetition.value) {
+        ElMessage.error('无权限：不可编辑赛事');
+        return;
+      }
       await updateCompetition(editingCompetitionId.value, competitionForm);
       ElMessage.success('竞赛已更新');
     } else {
+      if (!canCreateCompetition.value) {
+        ElMessage.error('无权限：不可新建赛事');
+        return;
+      }
       await createCompetition(competitionForm);
       ElMessage.success('竞赛已创建');
     }
@@ -241,7 +252,7 @@ onMounted(async () => {
           <el-option v-for="option in levelOptions" :key="option.value" :label="option.label" :value="option.value" />
         </el-select>
         <el-button type="primary" @click="load">查询</el-button>
-        <el-button v-if="canMaintain" type="success" @click="openCreateCompetition">维护竞赛</el-button>
+        <el-button v-if="canCreateCompetition" type="success" @click="openCreateCompetition">新建赛事</el-button>
       </div>
 
       <el-table v-loading="loading" :data="rows" border stripe>
@@ -256,7 +267,7 @@ onMounted(async () => {
           <template #default="{ row }">
             <el-button link type="primary" @click="openDetail(row.id)">详情</el-button>
             <el-button v-if="canRegister" link type="success" @click="openRegister(row)">报名</el-button>
-            <el-button v-if="canMaintain" link @click="openEditCompetition(row)">编辑</el-button>
+            <el-button v-if="canUpdateCompetition" link @click="openEditCompetition(row)">编辑</el-button>
           </template>
         </el-table-column>
       </el-table>

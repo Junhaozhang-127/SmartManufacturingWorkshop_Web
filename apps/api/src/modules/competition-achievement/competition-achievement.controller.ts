@@ -1,5 +1,5 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
-import { type CurrentUserProfile, type DataScopeContext, PermissionCodes } from '@smw/shared';
+import { Body, Controller, ForbiddenException, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { type CurrentUserProfile, type DataScopeContext, PermissionCodes, RoleCode } from '@smw/shared';
 
 import {
   CurrentUser,
@@ -45,6 +45,9 @@ export class CompetitionAchievementController {
   @Post('competitions')
   @RequirePermissions(PermissionCodes.competitionCreate)
   createCompetition(@CurrentUser() currentUser: CurrentUserProfile, @Body() payload: UpsertCompetitionDto) {
+    if (![RoleCode.TEACHER, RoleCode.MINISTER].includes(currentUser.activeRole.roleCode)) {
+      throw new ForbiddenException('仅部长及以上身份可新建赛事');
+    }
     return this.competitionAchievementService.upsertCompetition(currentUser, null, payload);
   }
 

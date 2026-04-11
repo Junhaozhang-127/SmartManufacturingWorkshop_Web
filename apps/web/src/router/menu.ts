@@ -140,7 +140,7 @@ export const adminMenu: AppMenuItem[] = [
     label: '老师面板',
     path: '/teacher/projects/entry',
     icon: 'Money',
-    roles: [RoleCodeEnum.TEACHER],
+    roles: [RoleCodeEnum.TEACHER, RoleCodeEnum.MINISTER],
     permissions: [PermissionCodes.fundView],
     children: [
       {
@@ -148,7 +148,7 @@ export const adminMenu: AppMenuItem[] = [
         label: '项目录入',
         path: '/teacher/projects/entry',
         icon: 'DocumentAdd',
-        roles: [RoleCodeEnum.TEACHER],
+        roles: [RoleCodeEnum.TEACHER, RoleCodeEnum.MINISTER],
         permissions: [PermissionCodes.fundView],
       },
       {
@@ -156,7 +156,7 @@ export const adminMenu: AppMenuItem[] = [
         label: '项目分配',
         path: '/teacher/projects/assign',
         icon: 'Share',
-        roles: [RoleCodeEnum.TEACHER],
+        roles: [RoleCodeEnum.TEACHER, RoleCodeEnum.MINISTER],
         permissions: [PermissionCodes.fundView],
       },
       {

@@ -1,15 +1,23 @@
 <script setup lang="ts">
+import { PermissionCodes } from '@smw/shared';
 import {
+  createDevice,
+  createDeviceRepair,
   type DeviceLedgerDetail,
   type DeviceLedgerListItem,
   fetchDeviceLedgerDetail,
   fetchDeviceLedgerList,
 } from '@web/api/device';
+import { useAuthz } from '@web/composables/useAuthz';
+import { useAuthStore } from '@web/stores/auth';
+import type { FormInstance } from 'element-plus';
 import { ElMessage } from 'element-plus';
-import { onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 const router = useRouter();
+const authStore = useAuthStore();
+const { hasPermission } = useAuthz();
 const loading = ref(false);
 const detailLoading = ref(false);
 const rows = ref<DeviceLedgerListItem[]>([]);
@@ -24,6 +32,29 @@ const query = reactive({
 
 const detailVisible = ref(false);
 const detail = ref<DeviceLedgerDetail | null>(null);
+
+const canCreateDevice = computed(() => hasPermission(PermissionCodes.deviceLedgerCreate));
+const canCreateRepair = computed(() => hasPermission(PermissionCodes.deviceRepairCreate));
+
+const createVisible = ref(false);
+const createLoading = ref(false);
+const createFormRef = ref<FormInstance>();
+const createForm = reactive({
+  deviceCode: '',
+  deviceName: '',
+  categoryName: '',
+  model: '',
+  locationLabel: '',
+});
+
+const repairVisible = ref(false);
+const repairLoading = ref(false);
+const repairFormRef = ref<FormInstance>();
+const repairTarget = ref<{ id: string; deviceName: string } | null>(null);
+const repairForm = reactive({
+  faultDescription: '',
+  severity: 'MEDIUM',
+});
 
 const statusOptions = [
   { label: '全部', value: '' },
@@ -66,6 +97,75 @@ async function openDetail(id: string) {
   }
 }
 
+function openCreateDevice() {
+  createForm.deviceCode = '';
+  createForm.deviceName = '';
+  createForm.categoryName = '';
+  createForm.model = '';
+  createForm.locationLabel = '';
+  createVisible.value = true;
+}
+
+async function submitCreateDevice() {
+  if (!createFormRef.value) return;
+  await createFormRef.value.validate();
+
+  createLoading.value = true;
+  try {
+    const orgUnitId =
+      authStore.orgProfile?.groupId ?? authStore.orgProfile?.departmentId ?? authStore.orgProfile?.orgUnitId ?? undefined;
+    const responsibleUserId = authStore.user?.id ?? undefined;
+
+    await createDevice({
+      deviceCode: createForm.deviceCode.trim(),
+      deviceName: createForm.deviceName.trim(),
+      categoryName: createForm.categoryName.trim(),
+      model: createForm.model.trim() || undefined,
+      locationLabel: createForm.locationLabel.trim() || undefined,
+      orgUnitId,
+      responsibleUserId,
+    });
+
+    ElMessage.success('设备已创建');
+    createVisible.value = false;
+    await load();
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '新增设备失败');
+  } finally {
+    createLoading.value = false;
+  }
+}
+
+function openRepairApply(target: { id: string; deviceName: string }) {
+  repairTarget.value = target;
+  repairForm.faultDescription = '';
+  repairForm.severity = 'MEDIUM';
+  repairVisible.value = true;
+}
+
+async function submitRepairApply() {
+  if (!repairTarget.value || !repairFormRef.value) return;
+  await repairFormRef.value.validate();
+
+  repairLoading.value = true;
+  try {
+    const response = await createDeviceRepair({
+      deviceId: repairTarget.value.id,
+      faultDescription: repairForm.faultDescription.trim(),
+      severity: repairForm.severity,
+    });
+
+    ElMessage.success('报修申请已提交');
+    repairVisible.value = false;
+    await Promise.all([load(), detail.value ? openDetail(detail.value.id) : Promise.resolve()]);
+    void router.push({ name: 'devices.repairs', query: { focus: response.data.id } });
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '报修申请失败');
+  } finally {
+    repairLoading.value = false;
+  }
+}
+
 function openRepairList(row: DeviceLedgerListItem) {
   if (row.latestRepairId) {
     void router.push({ name: 'devices.repairs', query: { focus: row.latestRepairId } });
@@ -99,6 +199,7 @@ onMounted(() => {
           <el-option v-for="item in statusOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
         <el-button type="primary" @click="load">查询</el-button>
+        <el-button v-if="canCreateDevice" type="success" @click="openCreateDevice">新增设备</el-button>
       </div>
 
       <el-table v-loading="loading" :data="rows" border stripe>
@@ -114,6 +215,7 @@ onMounted(() => {
           <template #default="{ row }">
             <el-button link type="primary" @click="openDetail(row.id)">详情</el-button>
             <el-button link type="primary" @click="openRepairList(row)">报修工单</el-button>
+            <el-button v-if="canCreateRepair" link type="success" @click="openRepairApply(row)">报修申请</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -146,7 +248,10 @@ onMounted(() => {
               <p class="panel-card__eyebrow">基础信息</p>
               <h2>设备信息</h2>
             </div>
-            <el-button v-if="detail.latestRepairId" @click="openLatestRepair">查看最新报修</el-button>
+            <div class="toolbar-row">
+              <el-button v-if="canCreateRepair" type="success" @click="openRepairApply(detail)">报修申请</el-button>
+              <el-button v-if="detail.latestRepairId" @click="openLatestRepair">查看最新报修</el-button>
+            </div>
           </div>
           <el-descriptions :column="2" border>
             <el-descriptions-item label="设备编号">{{ detail.deviceCode }}</el-descriptions-item>
@@ -205,5 +310,52 @@ onMounted(() => {
         </div>
       </div>
     </el-drawer>
+
+    <el-dialog v-model="createVisible" title="新增设备" width="520px" destroy-on-close>
+      <el-form ref="createFormRef" :model="createForm" label-width="100px">
+        <el-form-item label="设备编号" prop="deviceCode" :rules="[{ required: true, message: '请输入设备编号' }]">
+          <el-input v-model="createForm.deviceCode" maxlength="64" show-word-limit />
+        </el-form-item>
+        <el-form-item label="设备名称" prop="deviceName" :rules="[{ required: true, message: '请输入设备名称' }]">
+          <el-input v-model="createForm.deviceName" maxlength="128" show-word-limit />
+        </el-form-item>
+        <el-form-item label="类别" prop="categoryName" :rules="[{ required: true, message: '请输入类别' }]">
+          <el-input v-model="createForm.categoryName" maxlength="64" show-word-limit />
+        </el-form-item>
+        <el-form-item label="型号">
+          <el-input v-model="createForm.model" maxlength="128" show-word-limit />
+        </el-form-item>
+        <el-form-item label="位置">
+          <el-input v-model="createForm.locationLabel" maxlength="128" show-word-limit />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="createVisible = false">取消</el-button>
+        <el-button type="primary" :loading="createLoading" @click="submitCreateDevice">创建</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="repairVisible" title="报修申请" width="560px" destroy-on-close>
+      <el-form ref="repairFormRef" :model="repairForm" label-width="100px">
+        <el-form-item label="设备">
+          <el-input :model-value="repairTarget?.deviceName || '-'" disabled />
+        </el-form-item>
+        <el-form-item label="紧急程度" prop="severity" :rules="[{ required: true, message: '请选择紧急程度' }]">
+          <el-select v-model="repairForm.severity" style="width: 12rem">
+            <el-option label="LOW" value="LOW" />
+            <el-option label="MEDIUM" value="MEDIUM" />
+            <el-option label="HIGH" value="HIGH" />
+            <el-option label="CRITICAL" value="CRITICAL" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="故障描述" prop="faultDescription" :rules="[{ required: true, message: '请输入故障描述' }]">
+          <el-input v-model="repairForm.faultDescription" type="textarea" :rows="5" maxlength="2000" show-word-limit />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="repairVisible = false">取消</el-button>
+        <el-button type="primary" :loading="repairLoading" @click="submitRepairApply">提交</el-button>
+      </template>
+    </el-dialog>
   </section>
 </template>

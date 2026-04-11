@@ -20,7 +20,10 @@ const authStore = useAuthStore();
 const route = useRoute();
 const router = useRouter();
 
-const canUse = computed(() => authStore.activeRoleCode === RoleCode.TEACHER);
+const canUse = computed(() =>
+  [RoleCode.TEACHER, RoleCode.MINISTER].includes(authStore.activeRoleCode ?? RoleCode.MEMBER),
+);
+const canGoFundManage = computed(() => authStore.activeRoleCode === RoleCode.TEACHER);
 const mode = computed<Mode>(() => (route.name === 'teacher.projects.assign' ? 'ASSIGN' : 'ENTRY'));
 
 const loading = ref(false);
@@ -243,12 +246,12 @@ onMounted(async () => {
           <el-button :type="mode === 'ENTRY' ? 'primary' : 'default'" @click="goEntry">项目录入</el-button>
           <el-button :type="mode === 'ASSIGN' ? 'primary' : 'default'" @click="goAssign">项目分配</el-button>
         </el-button-group>
-        <el-button @click="goFundManage">经费管理</el-button>
+        <el-button v-if="canGoFundManage" @click="goFundManage">经费管理</el-button>
       </div>
     </div>
 
     <div v-if="!canUse" class="panel-card">
-      <p class="muted">无权限：仅老师可访问项目台账。</p>
+      <p class="muted">无权限：仅部长及以上身份可访问项目台账。</p>
     </div>
 
     <div v-else class="panel-card">
@@ -258,7 +261,7 @@ onMounted(async () => {
           <el-option v-for="item in statusOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
         <el-button type="primary" @click="load">查询</el-button>
-        <el-button v-if="mode === 'ENTRY'" type="success" @click="openCreate">新建项目</el-button>
+        <el-button v-if="mode === 'ENTRY' && canUse" type="success" @click="openCreate">新建项目</el-button>
       </div>
 
       <el-table v-loading="loading" :data="rows" border stripe>

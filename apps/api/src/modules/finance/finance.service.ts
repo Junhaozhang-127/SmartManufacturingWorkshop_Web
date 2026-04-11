@@ -57,8 +57,8 @@ export class FinanceService {
   ) {}
 
   private assertTeacher(currentUser: CurrentUserProfile) {
-    if (currentUser.activeRole.roleCode !== RoleCode.TEACHER) {
-      throw new ForbiddenException('仅老师可管理项目台账');
+    if (![RoleCode.TEACHER, RoleCode.MINISTER].includes(currentUser.activeRole.roleCode)) {
+      throw new ForbiddenException('仅部长及以上身份可管理项目台账');
     }
   }
 

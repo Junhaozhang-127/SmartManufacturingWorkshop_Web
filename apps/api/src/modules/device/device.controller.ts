@@ -13,6 +13,7 @@ import { PermissionGuard } from '../auth/permission.guard';
 import { DeviceService } from './device.service';
 import { AssignDeviceRepairDto } from './dto/assign-device-repair.dto';
 import { ConfirmDeviceRepairDto } from './dto/confirm-device-repair.dto';
+import { CreateDeviceDto } from './dto/create-device.dto';
 import { CreateDeviceRepairDto } from './dto/create-device-repair.dto';
 import { DeviceLedgerQueryDto } from './dto/device-ledger-query.dto';
 import { DeviceRepairQueryDto } from './dto/device-repair-query.dto';
@@ -43,6 +44,17 @@ export class DeviceController {
   @RequireDataScope()
   getDeviceDetail(@Param('id') id: string, @DataScopeContextParam() dataScopeContext: DataScopeContext) {
     return this.deviceService.getDeviceDetail(id, dataScopeContext);
+  }
+
+  @Post('devices')
+  @RequirePermissions(PermissionCodes.deviceLedgerCreate)
+  @RequireDataScope()
+  createDevice(
+    @CurrentUser() currentUser: CurrentUserProfile,
+    @Body() payload: CreateDeviceDto,
+    @DataScopeContextParam() dataScopeContext: DataScopeContext,
+  ) {
+    return this.deviceService.createDevice(currentUser, payload, dataScopeContext);
   }
 
   @Get('device-repairs')

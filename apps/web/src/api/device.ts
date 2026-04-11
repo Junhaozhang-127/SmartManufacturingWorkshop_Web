@@ -67,6 +67,20 @@ export interface DeviceLedgerDetail {
   } | null;
 }
 
+export async function createDevice(payload: {
+  deviceCode: string;
+  deviceName: string;
+  categoryName: string;
+  model?: string;
+  locationLabel?: string;
+  orgUnitId?: string;
+  responsibleUserId?: string;
+  statusCode?: string;
+  remarks?: string;
+}) {
+  return http.post<never, { data: DeviceLedgerDetail }>('/devices', payload);
+}
+
 export async function fetchDeviceLedgerList(params: {
   page: number;
   pageSize: number;
