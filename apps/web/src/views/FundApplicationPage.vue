@@ -8,7 +8,7 @@ import {
   fetchFundApplications,
   markFundApplicationPaid,
 } from '@web/api/finance';
-import AttachmentField from '@web/components/AttachmentField.vue';
+import AttachmentUploader from '@web/components/attachments/AttachmentUploader.vue';
 import { useAuthz } from '@web/composables/useAuthz';
 import type { FormInstance } from 'element-plus';
 import { ElMessage } from 'element-plus';
@@ -305,7 +305,7 @@ onMounted(() => {
           <el-input v-model="form.purpose" type="textarea" :rows="4" />
         </el-form-item>
         <el-form-item label="附件凭证">
-          <AttachmentField v-model="form.attachments" />
+          <AttachmentUploader v-model="form.attachments" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -370,7 +370,7 @@ onMounted(() => {
               <h2>附件凭证</h2>
             </div>
           </div>
-          <AttachmentField v-model="detailAttachments" readonly />
+          <AttachmentUploader v-model="detailAttachments" readonly />
         </div>
 
         <div class="panel-card">
