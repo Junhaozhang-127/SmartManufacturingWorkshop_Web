@@ -19,12 +19,23 @@ import { CurrentUser } from '../auth/auth.decorators';
 import { AuthGuard } from '../auth/auth.guard';
 import { PortalAdminCarouselListQueryDto, UpsertPortalCarouselItemDto } from './dto/portal-admin-carousel.dto';
 import { PortalAdminContentListQueryDto, UpsertPortalContentDto } from './dto/portal-admin-content.dto';
+import { UpsertPortalContactConfigDto } from './dto/portal-contact-config.dto';
 import { PortalService } from './portal.service';
 
 @Controller('portal/admin')
 @UseGuards(AuthGuard)
 export class PortalAdminController {
   constructor(private readonly portalService: PortalService) {}
+
+  @Get('contact-config')
+  getContactConfig(@CurrentUser() currentUser: CurrentUserProfile) {
+    return this.portalService.getAdminContactConfig(currentUser);
+  }
+
+  @Post('contact-config')
+  upsertContactConfig(@CurrentUser() currentUser: CurrentUserProfile, @Body() payload: UpsertPortalContactConfigDto) {
+    return this.portalService.upsertContactConfig(currentUser, payload);
+  }
 
   @Get('carousel')
   listCarousel(@CurrentUser() currentUser: CurrentUserProfile, @Query() query: PortalAdminCarouselListQueryDto) {

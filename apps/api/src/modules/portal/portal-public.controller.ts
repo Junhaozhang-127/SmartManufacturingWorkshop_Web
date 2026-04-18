@@ -17,6 +17,11 @@ export class PortalPublicController {
     return this.portalService.getHomeData();
   }
 
+  @Get('contact')
+  getContact() {
+    return this.portalService.getPublicContactConfig();
+  }
+
   @Get('contents')
   listContents(@Query() query: PortalPublicContentListQueryDto) {
     return this.portalService.listPublicContents({

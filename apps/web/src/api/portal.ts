@@ -18,8 +18,22 @@ export interface PortalHomeResponse {
   members: Array<{ id: string; title: string; summary: string | null; coverUrl: string | null }>;
 }
 
+export interface PortalContactResponse {
+  contactEmail: string | null;
+  contactAddress: string | null;
+  publicAccountQr: null | {
+    storageKey: string;
+    fileName: string | null;
+    imageUrl: string;
+  };
+}
+
 export async function fetchPortalHome() {
   return http.get<never, { data: PortalHomeResponse }>('/portal/home');
+}
+
+export async function fetchPortalContact() {
+  return http.get<never, { data: PortalContactResponse }>('/portal/contact');
 }
 
 export async function fetchPortalContentList(params: { contentType: PortalContentType; page?: number; pageSize?: number }) {
@@ -64,6 +78,29 @@ export async function uploadPortalAsset(file: File) {
       },
     },
   );
+}
+
+export interface PortalAdminContactConfigResponse {
+  contactEmail: string | null;
+  contactAddress: string | null;
+  publicAccountQr: null | {
+    storageKey: string;
+    fileName: string | null;
+    previewUrl: string;
+  };
+}
+
+export async function fetchPortalAdminContactConfig() {
+  return http.get<never, { data: PortalAdminContactConfigResponse }>('/portal/admin/contact-config');
+}
+
+export async function upsertPortalAdminContactConfig(payload: {
+  contactEmail?: string | null;
+  contactAddress?: string | null;
+  publicAccountQrStorageKey?: string | null;
+  publicAccountQrFileName?: string | null;
+}) {
+  return http.post<never, { data: PortalAdminContactConfigResponse }>('/portal/admin/contact-config', payload);
 }
 
 export async function fetchPortalAdminCarousel(params: {

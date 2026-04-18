@@ -6,6 +6,7 @@ import { FileService } from '../file/file.service';
 import { PrismaService } from '../prisma/prisma.service';
 import type { UpsertPortalCarouselItemDto } from './dto/portal-admin-carousel.dto';
 import type { UpsertPortalContentDto } from './dto/portal-admin-content.dto';
+import type { UpsertPortalContactConfigDto } from './dto/portal-contact-config.dto';
 
 type PortalContentType = 'NEWS' | 'NOTICE' | 'ACHIEVEMENT' | 'COMPETITION' | 'MEMBER_INTRO';
 
@@ -13,12 +14,30 @@ function isPortalManager(currentUser: CurrentUserProfile) {
   return [RoleCode.TEACHER, RoleCode.MINISTER].includes(currentUser.activeRole.roleCode);
 }
 
+const PORTAL_CONFIG_CATEGORY = 'PORTAL_HOME';
+const PORTAL_CONTACT_EMAIL_KEY = 'PORTAL_CONTACT_EMAIL';
+const PORTAL_CONTACT_ADDRESS_KEY = 'PORTAL_CONTACT_ADDRESS';
+const PORTAL_CONTACT_PUBLIC_ACCOUNT_QR_KEY = 'PORTAL_CONTACT_PUBLIC_ACCOUNT_QR';
+
 @Injectable()
 export class PortalService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly fileService: FileService,
   ) {}
+
+  private normalizeText(value: string | null | undefined) {
+    const trimmed = value?.trim() ?? '';
+    return trimmed ? trimmed : null;
+  }
+
+  private safeParseJson<T>(value: string): T | null {
+    try {
+      return JSON.parse(value) as T;
+    } catch {
+      return null;
+    }
+  }
 
   private toId(value: unknown) {
     if (typeof value === 'bigint') return value.toString();
@@ -41,6 +60,170 @@ export class PortalService {
   buildPreviewUrl(storageKey: string) {
     const apiPrefix = process.env.API_PREFIX ?? 'api';
     return `/${apiPrefix}/portal/files/preview?key=${encodeURIComponent(storageKey)}`;
+  }
+
+  private async readPortalContactConfigs() {
+    const configs = await this.prisma.sysConfigItem.findMany({
+      where: {
+        configKey: {
+          in: [PORTAL_CONTACT_EMAIL_KEY, PORTAL_CONTACT_ADDRESS_KEY, PORTAL_CONTACT_PUBLIC_ACCOUNT_QR_KEY],
+        },
+      },
+    });
+
+    const map = new Map(configs.map((item) => [item.configKey, item]));
+    return map;
+  }
+
+  private mapPublicAccountQr(configValue: string | null) {
+    const raw = this.normalizeText(configValue);
+    if (!raw) return null;
+    const parsed = this.safeParseJson<{ storageKey?: unknown; fileName?: unknown }>(raw);
+    if (!parsed || typeof parsed.storageKey !== 'string' || !parsed.storageKey.trim()) return null;
+    const storageKey = parsed.storageKey.trim();
+    const fileName = typeof parsed.fileName === 'string' && parsed.fileName.trim() ? parsed.fileName.trim() : null;
+
+    return {
+      storageKey,
+      fileName,
+      imageUrl: this.buildPreviewUrl(storageKey),
+      previewUrl: this.buildPreviewUrl(storageKey),
+    };
+  }
+
+  async getPublicContactConfig() {
+    const map = await this.readPortalContactConfigs();
+    const email = map.get(PORTAL_CONTACT_EMAIL_KEY);
+    const address = map.get(PORTAL_CONTACT_ADDRESS_KEY);
+    const qr = map.get(PORTAL_CONTACT_PUBLIC_ACCOUNT_QR_KEY);
+
+    const contactEmail = email?.statusCode === 'ACTIVE' ? this.normalizeText(email.configValue) : null;
+    const contactAddress = address?.statusCode === 'ACTIVE' ? this.normalizeText(address.configValue) : null;
+    const publicAccountQr = qr?.statusCode === 'ACTIVE' ? this.mapPublicAccountQr(qr.configValue) : null;
+
+    return {
+      contactEmail,
+      contactAddress,
+      publicAccountQr: publicAccountQr
+        ? { storageKey: publicAccountQr.storageKey, fileName: publicAccountQr.fileName, imageUrl: publicAccountQr.imageUrl }
+        : null,
+    };
+  }
+
+  async getAdminContactConfig(currentUser: CurrentUserProfile) {
+    this.assertManager(currentUser);
+    const map = await this.readPortalContactConfigs();
+    const email = map.get(PORTAL_CONTACT_EMAIL_KEY);
+    const address = map.get(PORTAL_CONTACT_ADDRESS_KEY);
+    const qr = map.get(PORTAL_CONTACT_PUBLIC_ACCOUNT_QR_KEY);
+
+    const contactEmail = email?.statusCode === 'ACTIVE' ? this.normalizeText(email.configValue) : null;
+    const contactAddress = address?.statusCode === 'ACTIVE' ? this.normalizeText(address.configValue) : null;
+    const publicAccountQr = qr?.statusCode === 'ACTIVE' ? this.mapPublicAccountQr(qr.configValue) : null;
+
+    return {
+      contactEmail,
+      contactAddress,
+      publicAccountQr: publicAccountQr
+        ? { storageKey: publicAccountQr.storageKey, fileName: publicAccountQr.fileName, previewUrl: publicAccountQr.previewUrl }
+        : null,
+    };
+  }
+
+  async upsertContactConfig(currentUser: CurrentUserProfile, payload: UpsertPortalContactConfigDto) {
+    this.assertManager(currentUser);
+
+    const wantsEmailUpdate = payload.contactEmail !== undefined;
+    const wantsAddressUpdate = payload.contactAddress !== undefined;
+    const wantsQrUpdate = payload.publicAccountQrStorageKey !== undefined || payload.publicAccountQrFileName !== undefined;
+
+    if (!wantsEmailUpdate && !wantsAddressUpdate && !wantsQrUpdate) {
+      return this.getAdminContactConfig(currentUser);
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      if (wantsEmailUpdate) {
+        const configValue = payload.contactEmail ? String(payload.contactEmail).trim() : '';
+        await tx.sysConfigItem.upsert({
+          where: { configKey: PORTAL_CONTACT_EMAIL_KEY },
+          update: {
+            configCategory: PORTAL_CONFIG_CATEGORY,
+            configName: 'Portal Contact Email',
+            configValue,
+            valueType: 'TEXT',
+            statusCode: 'ACTIVE',
+            remark: 'Portal contact email (public).',
+            editable: true,
+          },
+          create: {
+            configCategory: PORTAL_CONFIG_CATEGORY,
+            configKey: PORTAL_CONTACT_EMAIL_KEY,
+            configName: 'Portal Contact Email',
+            configValue,
+            valueType: 'TEXT',
+            statusCode: 'ACTIVE',
+            remark: 'Portal contact email (public).',
+            editable: true,
+          },
+        });
+      }
+
+      if (wantsAddressUpdate) {
+        const configValue = payload.contactAddress ? String(payload.contactAddress).trim() : '';
+        await tx.sysConfigItem.upsert({
+          where: { configKey: PORTAL_CONTACT_ADDRESS_KEY },
+          update: {
+            configCategory: PORTAL_CONFIG_CATEGORY,
+            configName: 'Portal Contact Address',
+            configValue,
+            valueType: 'TEXT',
+            statusCode: 'ACTIVE',
+            remark: 'Portal contact address (public).',
+            editable: true,
+          },
+          create: {
+            configCategory: PORTAL_CONFIG_CATEGORY,
+            configKey: PORTAL_CONTACT_ADDRESS_KEY,
+            configName: 'Portal Contact Address',
+            configValue,
+            valueType: 'TEXT',
+            statusCode: 'ACTIVE',
+            remark: 'Portal contact address (public).',
+            editable: true,
+          },
+        });
+      }
+
+      if (wantsQrUpdate) {
+        const storageKey = payload.publicAccountQrStorageKey ? String(payload.publicAccountQrStorageKey).trim() : '';
+        const fileName = payload.publicAccountQrFileName ? String(payload.publicAccountQrFileName).trim() : '';
+        const configValue = storageKey ? JSON.stringify({ storageKey, fileName: fileName || null }) : '';
+        await tx.sysConfigItem.upsert({
+          where: { configKey: PORTAL_CONTACT_PUBLIC_ACCOUNT_QR_KEY },
+          update: {
+            configCategory: PORTAL_CONFIG_CATEGORY,
+            configName: 'Portal Public Account QR',
+            configValue,
+            valueType: 'JSON',
+            statusCode: 'ACTIVE',
+            remark: 'Portal wechat public account QR image (public).',
+            editable: true,
+          },
+          create: {
+            configCategory: PORTAL_CONFIG_CATEGORY,
+            configKey: PORTAL_CONTACT_PUBLIC_ACCOUNT_QR_KEY,
+            configName: 'Portal Public Account QR',
+            configValue,
+            valueType: 'JSON',
+            statusCode: 'ACTIVE',
+            remark: 'Portal wechat public account QR image (public).',
+            editable: true,
+          },
+        });
+      }
+    });
+
+    return this.getAdminContactConfig(currentUser);
   }
 
   async listAdminCarousel(query: { page: number; pageSize: number; keyword?: string; statusCode?: string }) {

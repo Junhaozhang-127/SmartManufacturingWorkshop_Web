@@ -7,18 +7,20 @@ import {
   deletePortalAdminCarousel,
   deletePortalAdminContent,
   fetchPortalAdminCarousel,
+  fetchPortalAdminContactConfig,
   fetchPortalAdminContents,
   type PortalContentType,
   updatePortalAdminCarousel,
   updatePortalAdminContent,
   uploadPortalAsset,
+  upsertPortalAdminContactConfig,
 } from '@web/api/portal';
 import { useAuthStore } from '@web/stores/auth';
 import { ElMessage, ElMessageBox, type UploadRequestOptions } from 'element-plus';
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 
-type ManageTab = 'CAROUSEL' | PortalContentType;
+type ManageTab = 'CAROUSEL' | PortalContentType | 'CONTACT';
 
 const authStore = useAuthStore();
 const router = useRouter();
@@ -39,6 +41,7 @@ const tabOptions: Array<{ key: ManageTab; label: string }> = [
   { key: 'ACHIEVEMENT', label: '优秀成果展示' },
   { key: 'COMPETITION', label: '竞赛风采' },
   { key: 'MEMBER_INTRO', label: '成员简介' },
+  { key: 'CONTACT', label: '联系我们配置' },
 ];
 
 const carouselLoading = ref(false);
@@ -91,9 +94,11 @@ const contentForm = reactive({
   statusCode: 'ACTIVE' as 'ACTIVE' | 'INACTIVE',
 });
 
-const currentContentType = computed(() => (activeTab.value === 'CAROUSEL' ? null : activeTab.value));
+const currentContentType = computed(() =>
+  activeTab.value === 'CAROUSEL' || activeTab.value === 'CONTACT' ? null : activeTab.value,
+);
 const importHomeSection = computed<HomeSection>(() =>
-  (activeTab.value === 'CAROUSEL' ? 'CAROUSEL' : (activeTab.value as HomeSection)),
+  activeTab.value === 'CAROUSEL' ? 'CAROUSEL' : activeTab.value === 'CONTACT' ? 'NEWS' : (activeTab.value as HomeSection),
 );
 
 const knowledgeVisible = ref(false);
@@ -105,6 +110,69 @@ const knowledgeQuery = reactive({
   pageSize: 10,
   keyword: '',
 });
+
+const contactLoading = ref(false);
+const contactSaving = ref(false);
+const contactForm = reactive({
+  contactEmail: '',
+  contactAddress: '',
+  publicAccountQrStorageKey: '',
+  publicAccountQrFileName: '',
+  publicAccountQrUrl: '',
+});
+
+async function loadContactConfig() {
+  contactLoading.value = true;
+  try {
+    const response = await fetchPortalAdminContactConfig();
+    contactForm.contactEmail = response.data.contactEmail ?? '';
+    contactForm.contactAddress = response.data.contactAddress ?? '';
+    contactForm.publicAccountQrStorageKey = response.data.publicAccountQr?.storageKey ?? '';
+    contactForm.publicAccountQrFileName = response.data.publicAccountQr?.fileName ?? '';
+    contactForm.publicAccountQrUrl = response.data.publicAccountQr?.previewUrl ?? '';
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '联系我们配置加载失败');
+  } finally {
+    contactLoading.value = false;
+  }
+}
+
+async function saveContactConfig() {
+  contactSaving.value = true;
+  try {
+    await upsertPortalAdminContactConfig({
+      contactEmail: contactForm.contactEmail.trim() || null,
+      contactAddress: contactForm.contactAddress.trim() || null,
+      publicAccountQrStorageKey: contactForm.publicAccountQrStorageKey || null,
+      publicAccountQrFileName: contactForm.publicAccountQrFileName || null,
+    });
+    ElMessage.success('已保存');
+    await loadContactConfig();
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '保存失败');
+  } finally {
+    contactSaving.value = false;
+  }
+}
+
+async function handlePublicAccountQrUpload(option: UploadRequestOptions) {
+  try {
+    const response = await uploadPortalAsset(option.file as File);
+    contactForm.publicAccountQrStorageKey = response.data.storageKey;
+    contactForm.publicAccountQrFileName = response.data.fileName;
+    contactForm.publicAccountQrUrl = response.data.previewUrl;
+    option.onSuccess?.(response);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '图片上传失败';
+    option.onError?.(Object.assign(new Error(message), { status: 500, method: 'POST', url: '/portal/admin/upload' }));
+  }
+}
+
+function clearPublicAccountQr() {
+  contactForm.publicAccountQrStorageKey = '';
+  contactForm.publicAccountQrFileName = '';
+  contactForm.publicAccountQrUrl = '';
+}
 
 async function loadKnowledge() {
   knowledgeLoading.value = true;
@@ -375,6 +443,10 @@ watch(
       await loadCarousel();
       return;
     }
+    if (value === 'CONTACT') {
+      await loadContactConfig();
+      return;
+    }
     contentQuery.page = 1;
     await loadContents();
   },
@@ -458,15 +530,42 @@ onMounted(async () => {
             :total="carouselTotal"
             @change="loadCarousel"
           />
-        </div>
-      </div>
+         </div>
+       </div>
 
-       <div v-else>
-         <div class="toolbar-row">
-           <el-input v-model="contentQuery.keyword" placeholder="搜索标题/摘要" clearable @keyup.enter="loadContents" />
-           <el-select v-model="contentQuery.statusCode" style="width: 140px">
-             <el-option v-for="option in statusOptions" :key="option.value" :label="option.label" :value="option.value" />
-           </el-select>
+        <div v-else-if="activeTab === 'CONTACT'" v-loading="contactLoading">
+          <el-form label-width="110px" style="max-width: 760px">
+            <el-form-item label="联系邮箱">
+              <el-input v-model="contactForm.contactEmail" placeholder="例如：contact@example.com" maxlength="128" />
+            </el-form-item>
+
+            <el-form-item label="公众号图片">
+              <div class="upload-row">
+                <el-upload :http-request="handlePublicAccountQrUpload" :show-file-list="false" accept="image/*">
+                  <el-button>上传图片</el-button>
+                </el-upload>
+                <el-button v-if="contactForm.publicAccountQrUrl" text type="danger" @click="clearPublicAccountQr">清空</el-button>
+                <el-image v-if="contactForm.publicAccountQrUrl" :src="contactForm.publicAccountQrUrl" fit="contain" class="upload-preview" />
+                <span v-else class="muted">用于门户首页“联系我们”展示的公众号二维码/图片。</span>
+              </div>
+            </el-form-item>
+
+            <el-form-item label="通讯地址">
+              <el-input v-model="contactForm.contactAddress" type="textarea" :rows="3" maxlength="500" show-word-limit />
+            </el-form-item>
+
+            <el-form-item>
+              <el-button type="primary" :loading="contactSaving" @click="saveContactConfig">保存</el-button>
+            </el-form-item>
+          </el-form>
+        </div>
+
+        <div v-else>
+          <div class="toolbar-row">
+            <el-input v-model="contentQuery.keyword" placeholder="搜索标题/摘要" clearable @keyup.enter="loadContents" />
+            <el-select v-model="contentQuery.statusCode" style="width: 140px">
+              <el-option v-for="option in statusOptions" :key="option.value" :label="option.label" :value="option.value" />
+            </el-select>
            <el-button type="primary" @click="loadContents">查询</el-button>
            <el-button @click="openKnowledgeImport">从智库选择</el-button>
            <el-button type="success" @click="openContentCreate">新增</el-button>
