@@ -132,6 +132,7 @@ export async function createDeviceRepair(payload: {
   costEstimate?: number;
   fundLinkCode?: string;
   attachments?: Array<{ url: string }>;
+  attachmentFileIds?: string[];
 }) {
   return http.post<never, { data: DeviceRepairDetail }>('/device-repairs', payload);
 }

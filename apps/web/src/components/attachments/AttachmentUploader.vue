@@ -1,5 +1,10 @@
 <script setup lang="ts">
-import { type AttachmentItem, deleteMyTempAttachment, downloadAttachment, uploadAttachment } from '@web/api/attachments';
+import {
+  type AttachmentItem,
+  deleteMyTempAttachment,
+  downloadAttachment,
+  uploadAttachmentWithProgress,
+} from '@web/api/attachments';
 import type { UploadRawFile, UploadRequestOptions } from 'element-plus';
 import { ElMessage } from 'element-plus';
 import { computed, ref, watch } from 'vue';
@@ -12,6 +17,7 @@ interface PendingUploadItem {
   name: string;
   size: number;
   status: Exclude<UploadStatus, 'success'>;
+  percent?: number;
   errorMessage?: string;
 }
 
@@ -22,7 +28,7 @@ const props = withDefaults(
     multiple?: boolean;
     accept?: string;
     maxCount?: number;
-    uploadRequest?: (_file: File) => Promise<{ data: AttachmentItem }>;
+    uploadRequest?: (_file: File, _onProgress?: (_percent: number) => void) => Promise<{ data: AttachmentItem }>;
     downloadRequest?: (_attachment: AttachmentItem) => Promise<Blob>;
     removeRequest?: (_attachment: AttachmentItem) => Promise<void>;
   }>(),
@@ -31,7 +37,15 @@ const props = withDefaults(
     multiple: true,
     accept: undefined,
     maxCount: undefined,
-    uploadRequest: (file: File) => uploadAttachment(file),
+    uploadRequest: (file: File, onProgress?: (_percent: number) => void) =>
+      uploadAttachmentWithProgress(file, {
+        onUploadProgress: (event) => {
+          const total = event.total;
+          if (!total) return;
+          const percent = Math.min(99, Math.max(0, Math.round((event.loaded / total) * 100)));
+          onProgress?.(percent);
+        },
+      }),
     downloadRequest: (attachment: AttachmentItem) => downloadAttachment(attachment.fileId, attachment.originalName),
     removeRequest: (attachment: AttachmentItem) => deleteMyTempAttachment(attachment.fileId).then(() => undefined),
   },
@@ -97,6 +111,10 @@ function removePending(uid: PendingUploadItem['uid']) {
   pendingUploads.value = pendingUploads.value.filter((item) => item.uid !== uid);
 }
 
+function updatePendingPercent(uid: PendingUploadItem['uid'], percent: number) {
+  pendingUploads.value = pendingUploads.value.map((item) => (item.uid === uid ? { ...item, percent } : item));
+}
+
 async function handleUpload(option: UploadRequestOptions) {
   if (!canUpload.value) {
     const message = props.maxCount ? `最多只能上传 ${props.maxCount} 个附件` : '暂不可上传';
@@ -116,11 +134,15 @@ async function handleUpload(option: UploadRequestOptions) {
       name: file.name,
       size: file.size,
       status: 'uploading',
+      percent: undefined,
     },
   ];
 
   try {
-    const response = await props.uploadRequest(file);
+    const response = await props.uploadRequest(file, (percent) => {
+      updatePendingPercent(uid, percent);
+      option.onProgress?.({ percent } as any);
+    });
     removePending(uid);
     attachments.value = [...attachments.value, response.data];
     ElMessage.success('附件上传成功');
@@ -169,10 +191,12 @@ async function handleRemoveAttachment(index: number) {
 async function retryPendingUpload(uid: PendingUploadItem['uid']) {
   const target = pendingUploads.value.find((item) => item.uid === uid);
   if (!target) return;
-  pendingUploads.value = pendingUploads.value.map((item) => (item.uid === uid ? { ...item, status: 'uploading' } : item));
+  pendingUploads.value = pendingUploads.value.map((item) =>
+    item.uid === uid ? { ...item, status: 'uploading', percent: undefined } : item,
+  );
 
   try {
-    const response = await props.uploadRequest(target.file);
+    const response = await props.uploadRequest(target.file, (percent) => updatePendingPercent(uid, percent));
     removePending(uid);
     attachments.value = [...attachments.value, response.data];
     ElMessage.success('附件上传成功');
@@ -208,7 +232,9 @@ async function retryPendingUpload(uid: PendingUploadItem['uid']) {
           <span class="attachment-list__size">{{ formatBytes(item.size) }}</span>
         </div>
         <div class="attachment-list__actions">
-          <el-tag size="small" :type="statusTagType(item.status)">{{ statusText(item.status) }}</el-tag>
+          <el-tag size="small" :type="statusTagType(item.status)">
+            {{ statusText(item.status) }}<span v-if="item.status === 'uploading' && item.percent != null"> {{ item.percent }}%</span>
+          </el-tag>
           <el-button v-if="!readonly && item.status === 'error'" link type="primary" @click="retryPendingUpload(item.uid)">
             重试
           </el-button>

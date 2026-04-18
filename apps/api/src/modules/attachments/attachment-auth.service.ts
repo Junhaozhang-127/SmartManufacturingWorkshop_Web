@@ -76,6 +76,8 @@ export class AttachmentAuthService {
         return this.canViewFundApplication(currentUser, context.businessId);
       case 'ACHIEVEMENT_RECOGNITION':
         return this.canViewAchievement(currentUser, context.businessId);
+      case 'REPAIR_ORDER':
+        return this.canViewRepairOrder(currentUser, context.businessId);
       default:
         return false;
     }
@@ -298,6 +300,42 @@ export class AttachmentAuthService {
     if (!record) throw new NotFoundException('成果不存在');
     if (String(record.statusCode) !== 'DRAFT') return false;
     return String(record.applicantUserId) === currentUser.id || currentUser.permissions.includes(PermissionCodes.achievementUpdate);
+  }
+
+  private async canViewRepairOrder(currentUser: CurrentUserProfile, repairId: string) {
+    const record = await this.prisma.assetDeviceRepair.findFirst({
+      where: { id: this.toBigInt(repairId), isDeleted: false },
+      select: {
+        applicantUserId: true,
+        handlerUserId: true,
+        device: {
+          select: {
+            orgUnitId: true,
+            responsibleUserId: true,
+          },
+        },
+      },
+    });
+
+    if (!record) throw new NotFoundException('维修工单不存在');
+
+    const context = currentUser.dataScopeContext;
+    if (context.scope === DataScope.ALL) return true;
+
+    const currentUserId = this.toBigInt(currentUser.id);
+    if (record.applicantUserId === currentUserId) return true;
+    if (record.handlerUserId && record.handlerUserId === currentUserId) return true;
+    if (record.device.responsibleUserId && record.device.responsibleUserId === currentUserId) return true;
+
+    if (context.scope === DataScope.DEPT_PROJECT && record.device.orgUnitId) {
+      return context.departmentAndDescendantIds.includes(String(record.device.orgUnitId));
+    }
+
+    if (context.scope === DataScope.GROUP_PROJECT && record.device.orgUnitId && context.groupId) {
+      return String(record.device.orgUnitId) === context.groupId;
+    }
+
+    return false;
   }
 
   private async canViewByApprovalFallback(currentUser: CurrentUserProfile, context: BusinessContext) {

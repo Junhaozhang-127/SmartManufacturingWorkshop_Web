@@ -1,3 +1,5 @@
+import type { AxiosProgressEvent } from 'axios';
+
 import { http } from './client';
 
 export type FileCategory = 'DOCUMENT' | 'ARCHIVE' | 'IMAGE' | 'OTHER';
@@ -25,6 +27,23 @@ export async function uploadAttachment(file: File) {
     headers: {
       'Content-Type': 'multipart/form-data',
     },
+  });
+}
+
+export async function uploadAttachmentWithProgress(
+  file: File,
+  options?: {
+    onUploadProgress?: (event: AxiosProgressEvent) => void;
+  },
+) {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  return http.post<never, { data: AttachmentItem }>('/attachments/upload', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+    onUploadProgress: options?.onUploadProgress,
   });
 }
 

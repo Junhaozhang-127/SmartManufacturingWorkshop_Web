@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { PermissionCodes } from '@smw/shared';
+import type { AttachmentItem } from '@web/api/attachments';
 import {
   createDevice,
   createDeviceRepair,
@@ -8,6 +9,7 @@ import {
   fetchDeviceLedgerDetail,
   fetchDeviceLedgerList,
 } from '@web/api/device';
+import AttachmentUploader from '@web/components/attachments/AttachmentUploader.vue';
 import { useAuthz } from '@web/composables/useAuthz';
 import { useAuthStore } from '@web/stores/auth';
 import type { FormInstance } from 'element-plus';
@@ -51,6 +53,7 @@ const repairVisible = ref(false);
 const repairLoading = ref(false);
 const repairFormRef = ref<FormInstance>();
 const repairTarget = ref<{ id: string; deviceName: string } | null>(null);
+const repairImages = ref<AttachmentItem[]>([]);
 const repairForm = reactive({
   faultDescription: '',
   severity: 'MEDIUM',
@@ -140,6 +143,7 @@ function openRepairApply(target: { id: string; deviceName: string }) {
   repairTarget.value = target;
   repairForm.faultDescription = '';
   repairForm.severity = 'MEDIUM';
+  repairImages.value = [];
   repairVisible.value = true;
 }
 
@@ -153,6 +157,7 @@ async function submitRepairApply() {
       deviceId: repairTarget.value.id,
       faultDescription: repairForm.faultDescription.trim(),
       severity: repairForm.severity,
+      attachmentFileIds: repairImages.value.length ? repairImages.value.map((item) => item.fileId) : undefined,
     });
 
     ElMessage.success('报修申请已提交');
@@ -350,6 +355,9 @@ onMounted(() => {
         </el-form-item>
         <el-form-item label="故障描述" prop="faultDescription" :rules="[{ required: true, message: '请输入故障描述' }]">
           <el-input v-model="repairForm.faultDescription" type="textarea" :rows="5" maxlength="2000" show-word-limit />
+        </el-form-item>
+        <el-form-item label="故障图片">
+          <AttachmentUploader v-model="repairImages" accept="image/*" :max-count="9" />
         </el-form-item>
       </el-form>
       <template #footer>

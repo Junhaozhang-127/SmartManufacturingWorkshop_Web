@@ -1,4 +1,5 @@
 import { ApprovalService } from '@api/modules/approval/approval.service';
+import { AttachmentsService } from '@api/modules/attachments/attachments.service';
 import { PrismaService } from '@api/modules/prisma/prisma.service';
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
@@ -60,6 +61,7 @@ export class DeviceService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly approvalService: ApprovalService,
+    private readonly attachmentsService: AttachmentsService,
   ) {}
 
   async listDevices(
@@ -387,6 +389,15 @@ export class DeviceService {
           createdBy: this.toBigInt(currentUser.id),
         },
       });
+
+      if (Array.isArray(payload.attachmentFileIds) && payload.attachmentFileIds.length) {
+        await this.attachmentsService.bindAttachmentsAsSystem(tx, currentUser, {
+          businessType: ApprovalBusinessType.REPAIR_ORDER,
+          businessId: String(repair.id),
+          usageType: 'REPAIR_FAULT_IMAGE',
+          fileIds: payload.attachmentFileIds,
+        });
+      }
 
       const approval = await this.approvalService.startBusinessApproval(tx, {
         businessType: ApprovalBusinessType.REPAIR_ORDER,

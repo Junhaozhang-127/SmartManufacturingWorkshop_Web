@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { DeviceRepairAction } from '@smw/shared';
+import { ApprovalBusinessType, DeviceRepairAction } from '@smw/shared';
+import { type AttachmentItem, downloadAttachment, listBusinessAttachments } from '@web/api/attachments';
 import { fetchAchievementUsers } from '@web/api/competition-achievement';
 import {
   assignDeviceRepair,
@@ -10,7 +11,7 @@ import {
 } from '@web/api/device';
 import type { FormInstance } from 'element-plus';
 import { ElMessage } from 'element-plus';
-import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 const route = useRoute();
@@ -23,6 +24,53 @@ const users = ref<Array<{ id: string; label: string }>>([]);
 const detail = ref<Awaited<ReturnType<typeof fetchDeviceRepairDetail>>['data'] | null>(null);
 const assignFormRef = ref<FormInstance>();
 const resolveFormRef = ref<FormInstance>();
+
+const REPAIR_ATTACHMENT_BUSINESS_TYPE = ApprovalBusinessType.REPAIR_ORDER;
+const REPAIR_ATTACHMENT_USAGE_TYPE = 'REPAIR_FAULT_IMAGE';
+
+const attachments = ref<AttachmentItem[]>([]);
+const imageUrls = ref<Record<string, string>>({});
+
+function isImageAttachment(item: AttachmentItem) {
+  if (item.fileCategory === 'IMAGE') return true;
+  return Boolean(item.mimeType && item.mimeType.startsWith('image/'));
+}
+
+const imageAttachments = computed(() => attachments.value.filter((item) => isImageAttachment(item)));
+const previewSrcList = computed(() =>
+  imageAttachments.value.map((item) => imageUrls.value[item.fileId]).filter(Boolean),
+);
+
+function revokeImageUrls() {
+  for (const url of Object.values(imageUrls.value)) {
+    if (url) window.URL.revokeObjectURL(url);
+  }
+  imageUrls.value = {};
+}
+
+async function loadImagePreviews(items: AttachmentItem[]) {
+  const nextUrls: Record<string, string> = { ...imageUrls.value };
+  for (const item of items) {
+    if (nextUrls[item.fileId]) continue;
+    try {
+      const blob = await downloadAttachment(item.fileId, item.originalName);
+      nextUrls[item.fileId] = window.URL.createObjectURL(blob);
+    } catch {
+      // ignore: image preview is best-effort
+    }
+  }
+  imageUrls.value = nextUrls;
+}
+
+async function loadRepairAttachments(repairId: string) {
+  const response = await listBusinessAttachments({
+    businessType: REPAIR_ATTACHMENT_BUSINESS_TYPE,
+    businessId: repairId,
+    usageType: REPAIR_ATTACHMENT_USAGE_TYPE,
+  });
+  attachments.value = response.data;
+  await loadImagePreviews(response.data.filter((item) => isImageAttachment(item)));
+}
 
 const query = reactive({
   page: 1,
@@ -70,9 +118,18 @@ async function loadList() {
 async function openDetail(id: string) {
   detailVisible.value = true;
   detailLoading.value = true;
+  attachments.value = [];
+  revokeImageUrls();
   try {
     const response = await fetchDeviceRepairDetail(id);
     detail.value = response.data;
+    try {
+      await loadRepairAttachments(response.data.id);
+    } catch (error) {
+      ElMessage.error(error instanceof Error ? error.message : '故障图片加载失败');
+      attachments.value = [];
+      revokeImageUrls();
+    }
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '维修工单详情加载失败');
   } finally {
@@ -145,6 +202,20 @@ watch(
   { immediate: true },
 );
 
+watch(
+  () => detailVisible.value,
+  (visible) => {
+    if (visible) return;
+    attachments.value = [];
+    revokeImageUrls();
+    detail.value = null;
+  },
+);
+
+onBeforeUnmount(() => {
+  revokeImageUrls();
+});
+
 onMounted(async () => {
   await Promise.all([loadUsers(), loadList()]);
 });
@@ -213,6 +284,32 @@ onMounted(async () => {
 
       <div v-loading="detailLoading" class="device-detail-grid">
         <template v-if="detail">
+          <div class="panel-card">
+            <div class="panel-card__header">
+              <div>
+                <p class="panel-card__eyebrow">故障图片</p>
+                <h2>故障图片</h2>
+              </div>
+            </div>
+
+            <el-empty v-if="!imageAttachments.length" description="暂无图片" />
+
+            <div v-else class="repair-image-grid">
+              <div v-for="item in imageAttachments" :key="item.fileId" class="repair-image-grid__item">
+                <el-image
+                  v-if="imageUrls[item.fileId]"
+                  :src="imageUrls[item.fileId]"
+                  fit="cover"
+                  :preview-src-list="previewSrcList"
+                  :initial-index="imageAttachments.findIndex((x) => x.fileId === item.fileId)"
+                  preview-teleported
+                  class="repair-image-grid__image"
+                />
+                <div v-else class="repair-image-grid__placeholder">{{ item.originalName }}</div>
+              </div>
+            </div>
+          </div>
+
           <div class="panel-card">
             <div class="panel-card__header">
               <div>
@@ -331,3 +428,32 @@ onMounted(async () => {
     </el-dialog>
   </section>
 </template>
+
+<style scoped>
+.repair-image-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px;
+  padding: 0 4px 4px;
+}
+
+.repair-image-grid__image {
+  width: 100%;
+  height: 120px;
+  border-radius: 6px;
+}
+
+.repair-image-grid__placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 120px;
+  padding: 8px;
+  border: 1px dashed var(--el-border-color);
+  border-radius: 6px;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  text-align: center;
+  overflow: hidden;
+}
+</style>
