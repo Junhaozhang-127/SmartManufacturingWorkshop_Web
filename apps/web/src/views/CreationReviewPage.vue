@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { RoleCode } from '@smw/shared';
+import { type AttachmentItem, listBusinessAttachments } from '@web/api/attachments';
 import {
   approveCreationContent,
   fetchCreationDetail,
@@ -9,6 +10,7 @@ import {
   publishCreationContent,
   rejectCreationContent,
 } from '@web/api/creation';
+import AttachmentUploader from '@web/components/attachments/AttachmentUploader.vue';
 import RichTextViewer from '@web/components/RichTextViewer.vue';
 import { useAuthStore } from '@web/stores/auth';
 import { ElMessage } from 'element-plus';
@@ -59,6 +61,10 @@ const publishForm = reactive({
 const viewDialogVisible = ref(false);
 const viewLoading = ref(false);
 const viewDetail = ref<Awaited<ReturnType<typeof fetchCreationDetail>>['data'] | null>(null);
+const viewAttachments = ref<AttachmentItem[]>([]);
+
+const CREATION_ATTACHMENT_USAGE_TYPE = 'CREATION_ATTACHMENT';
+const CREATION_BUSINESS_TYPE = 'CREATION_CONTENT';
 
 const homeSectionOptions: Array<{ label: string; value: HomeSection }> = [
   { label: '首页轮播', value: 'CAROUSEL' },
@@ -126,9 +132,16 @@ async function openView(id: string) {
   try {
     const response = await fetchCreationDetail(id);
     viewDetail.value = response.data;
+    const attachmentResponse = await listBusinessAttachments({
+      businessType: CREATION_BUSINESS_TYPE,
+      businessId: id,
+      usageType: CREATION_ATTACHMENT_USAGE_TYPE,
+    });
+    viewAttachments.value = attachmentResponse.data;
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '内容加载失败');
     viewDialogVisible.value = false;
+    viewAttachments.value = [];
   } finally {
     viewLoading.value = false;
   }
@@ -344,6 +357,10 @@ onMounted(() => {
         <el-image v-if="viewDetail?.coverUrl" :src="viewDetail.coverUrl" fit="cover" class="view-cover" />
         <p v-if="viewDetail?.summary" class="muted">摘要：{{ viewDetail.summary }}</p>
         <RichTextViewer :content="viewDetail?.body" />
+        <div class="view-attachments">
+          <h4>附件</h4>
+          <AttachmentUploader v-model="viewAttachments" readonly />
+        </div>
       </div>
       <template #footer>
         <el-button @click="viewDialogVisible = false">关闭</el-button>
@@ -429,6 +446,10 @@ onMounted(() => {
   max-height: 360px;
   border-radius: 12px;
   overflow: hidden;
+}
+
+.view-attachments {
+  margin-top: 8px;
 }
 </style>
 

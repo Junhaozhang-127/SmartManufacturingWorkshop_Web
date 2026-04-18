@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { type AttachmentItem, listBusinessAttachments } from '@web/api/attachments';
 import { fetchKnowledgeDetail } from '@web/api/creation';
+import AttachmentUploader from '@web/components/attachments/AttachmentUploader.vue';
 import RichTextViewer from '@web/components/RichTextViewer.vue';
 import { ElMessage } from 'element-plus';
 import { onMounted, ref } from 'vue';
@@ -10,6 +12,10 @@ const router = useRouter();
 
 const loading = ref(false);
 const detail = ref<Awaited<ReturnType<typeof fetchKnowledgeDetail>>['data'] | null>(null);
+const attachments = ref<AttachmentItem[]>([]);
+
+const CREATION_ATTACHMENT_USAGE_TYPE = 'CREATION_ATTACHMENT';
+const KNOWLEDGE_BUSINESS_TYPE = 'KNOWLEDGE_CONTENT';
 
 function formatDateTime(value: string | null) {
   return value ? value.slice(0, 19).replace('T', ' ') : '-';
@@ -22,8 +28,15 @@ async function load() {
   try {
     const response = await fetchKnowledgeDetail(id);
     detail.value = response.data;
+    const attachmentResponse = await listBusinessAttachments({
+      businessType: KNOWLEDGE_BUSINESS_TYPE,
+      businessId: id,
+      usageType: CREATION_ATTACHMENT_USAGE_TYPE,
+    });
+    attachments.value = attachmentResponse.data;
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '智库详情加载失败');
+    attachments.value = [];
   } finally {
     loading.value = false;
   }
@@ -57,6 +70,11 @@ onMounted(() => {
       <article class="body">
         <RichTextViewer :content="detail?.body" />
       </article>
+
+      <section class="attachments">
+        <h3>附件</h3>
+        <AttachmentUploader v-model="attachments" readonly />
+      </section>
     </div>
   </section>
 </template>
@@ -83,6 +101,10 @@ onMounted(() => {
   height: 100%;
   object-fit: cover;
   display: block;
+}
+
+.attachments {
+  margin-top: 16px;
 }
 
 </style>

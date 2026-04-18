@@ -238,7 +238,7 @@ onMounted(async () => {
 <template>
   <section class="page-grid">
     <div class="hero-card">
-      <p class="hero-card__eyebrow">老师面板</p>
+      <p class="hero-card__eyebrow">项目面板</p>
       <h2>{{ mode === 'ENTRY' ? '项目录入' : '项目分配' }}</h2>
       <p>以“经费账户（FundAccount）”作为项目台账承载：录入项目编号/名称/预算，并分配归属组织与经费管理员。</p>
       <div class="hero-card__actions">

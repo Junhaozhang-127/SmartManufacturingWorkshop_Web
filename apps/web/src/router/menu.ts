@@ -137,7 +137,7 @@ export const adminMenu: AppMenuItem[] = [
   },
   {
     key: 'teacher-panel',
-    label: '老师面板',
+    label: '项目面板',
     path: '/teacher/projects/entry',
     icon: 'Money',
     roles: [RoleCodeEnum.TEACHER, RoleCodeEnum.MINISTER],

@@ -414,7 +414,7 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@web/views/TeacherProjectLedgerPage.vue'),
         meta: {
           title: '项目录入',
-          breadcrumb: ['老师面板', '项目录入'],
+          breadcrumb: ['项目面板', '项目录入'],
           permissions: [PermissionCodes.fundView],
           roles: [RoleCode.TEACHER, RoleCode.MINISTER],
           activeMenu: '/teacher/projects/entry',
@@ -426,7 +426,7 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@web/views/TeacherProjectLedgerPage.vue'),
         meta: {
           title: '项目分配',
-          breadcrumb: ['老师面板', '项目分配'],
+          breadcrumb: ['项目面板', '项目分配'],
           permissions: [PermissionCodes.fundView],
           roles: [RoleCode.TEACHER, RoleCode.MINISTER],
           activeMenu: '/teacher/projects/assign',

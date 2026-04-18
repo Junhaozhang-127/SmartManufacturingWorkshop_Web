@@ -1,5 +1,13 @@
 <script setup lang="ts">
 import {
+  type AttachmentItem,
+  bindBusinessAttachments,
+  deleteMyTempAttachment,
+  listBusinessAttachments,
+  unbindBusinessAttachment,
+  uploadAttachmentWithProgress,
+} from '@web/api/attachments';
+import {
   createCreationDraft,
   deleteCreationDraft,
   fetchCreationDetail,
@@ -7,6 +15,7 @@ import {
   updateCreationContent,
   uploadCreationCover,
 } from '@web/api/creation';
+import AttachmentUploader from '@web/components/attachments/AttachmentUploader.vue';
 import RichTextEditor from '@web/components/RichTextEditor.vue';
 import { ElMessage, ElMessageBox, type UploadRequestOptions } from 'element-plus';
 import { computed, nextTick, onMounted, reactive, ref } from 'vue';
@@ -23,6 +32,16 @@ const bodyTextLength = ref(0);
 
 const contentId = ref<string | null>(null);
 const detail = ref<Awaited<ReturnType<typeof fetchCreationDetail>>['data'] | null>(null);
+const attachments = ref<AttachmentItem[]>([]);
+
+const CREATION_ATTACHMENT_USAGE_TYPE = 'CREATION_ATTACHMENT';
+const CREATION_BUSINESS_TYPE = 'CREATION_CONTENT';
+
+const DOCUMENT_EXTS = new Set(['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'md']);
+const ARCHIVE_EXTS = new Set(['zip', 'rar', '7z']);
+const DOCUMENT_MAX_BYTES = 100 * 1024 * 1024;
+const ARCHIVE_MAX_BYTES = 300 * 1024 * 1024;
+const attachmentAccept = [...DOCUMENT_EXTS, ...ARCHIVE_EXTS].map((ext) => `.${ext}`).join(',');
 
 const form = reactive({
   title: '',
@@ -112,8 +131,16 @@ async function load(id: string) {
     form.coverFileName = response.data.coverFileName || '';
     form.coverUrl = response.data.coverUrl || '';
     bodyTextLength.value = getBodyTextLength(response.data.body || '');
+
+    const attachmentResponse = await listBusinessAttachments({
+      businessType: CREATION_BUSINESS_TYPE,
+      businessId: response.data.id,
+      usageType: CREATION_ATTACHMENT_USAGE_TYPE,
+    });
+    attachments.value = attachmentResponse.data;
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '内容加载失败');
+    attachments.value = [];
   } finally {
     loading.value = false;
   }
@@ -198,6 +225,67 @@ async function handleUpload(option: UploadRequestOptions) {
   }
 }
 
+function normalizeExt(fileName: string) {
+  const trimmed = (fileName ?? '').trim();
+  if (!trimmed) return '';
+  const lastDot = trimmed.lastIndexOf('.');
+  if (lastDot < 0) return '';
+  return trimmed.slice(lastDot + 1).toLowerCase();
+}
+
+function assertAttachmentAllowed(file: File) {
+  const ext = normalizeExt(file.name);
+  if (!ext || (!DOCUMENT_EXTS.has(ext) && !ARCHIVE_EXTS.has(ext))) {
+    throw new Error(`格式不支持：仅支持 ${[...DOCUMENT_EXTS, ...ARCHIVE_EXTS].map((e) => `.${e}`).join('、')}`);
+  }
+
+  const maxBytes = DOCUMENT_EXTS.has(ext) ? DOCUMENT_MAX_BYTES : ARCHIVE_MAX_BYTES;
+  if (file.size > maxBytes) {
+    const maxMb = Math.round(maxBytes / 1024 / 1024);
+    throw new Error(`文件超限：.${ext} 最大 ${maxMb}MB`);
+  }
+}
+
+async function uploadCreationAttachment(file: File, onProgress?: (_percent: number) => void) {
+  if (!contentId.value) {
+    throw new Error('请等待草稿创建完成后再上传附件');
+  }
+  assertAttachmentAllowed(file);
+
+  const uploaded = await uploadAttachmentWithProgress(file, {
+    onUploadProgress: (event) => {
+      const total = event.total;
+      if (!total) return;
+      const percent = Math.min(99, Math.max(0, Math.round((event.loaded / total) * 100)));
+      onProgress?.(percent);
+    },
+  });
+
+  try {
+    await bindBusinessAttachments({
+      businessType: CREATION_BUSINESS_TYPE,
+      businessId: contentId.value,
+      usageType: CREATION_ATTACHMENT_USAGE_TYPE,
+      fileIds: [uploaded.data.fileId],
+    });
+  } catch (error) {
+    await deleteMyTempAttachment(uploaded.data.fileId).catch(() => undefined);
+    throw error;
+  }
+
+  return uploaded;
+}
+
+async function removeCreationAttachment(item: AttachmentItem) {
+  if (!contentId.value) return;
+  await unbindBusinessAttachment({
+    businessType: CREATION_BUSINESS_TYPE,
+    businessId: contentId.value,
+    usageType: CREATION_ATTACHMENT_USAGE_TYPE,
+    fileId: item.fileId,
+  });
+}
+
 async function removeDraft() {
   const id = contentId.value;
   if (!id) return;
@@ -271,6 +359,19 @@ onMounted(() => {
             </div>
           </div>
         </el-form-item>
+        <el-form-item label="附件">
+          <div class="attachment-block">
+            <AttachmentUploader
+              v-model="attachments"
+              :readonly="!canEdit || !contentId"
+              :accept="attachmentAccept"
+              :upload-request="uploadCreationAttachment"
+              :remove-request="removeCreationAttachment"
+            />
+            <p class="muted attachment-help">支持文档/压缩包：{{ attachmentAccept }}</p>
+            <p class="muted attachment-help">大小限制：文档 ≤ 100MB，压缩包 ≤ 300MB</p>
+          </div>
+        </el-form-item>
       </el-form>
 
       <div class="toolbar-row toolbar-row--right">
@@ -317,6 +418,14 @@ onMounted(() => {
   display: flex;
   justify-content: flex-end;
   margin-top: 8px;
+}
+
+.attachment-block {
+  width: 100%;
+}
+
+.attachment-help {
+  margin: 8px 0 0;
 }
 </style>
 

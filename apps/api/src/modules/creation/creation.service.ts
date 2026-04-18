@@ -20,6 +20,10 @@ export class CreationService {
     private readonly fileService: FileService,
   ) {}
 
+  private readonly CREATION_ATTACHMENT_USAGE_TYPE = 'CREATION_ATTACHMENT';
+  private readonly CREATION_ATTACHMENT_SOURCE_BUSINESS_TYPE = 'CREATION_CONTENT';
+  private readonly CREATION_ATTACHMENT_KNOWLEDGE_BUSINESS_TYPE = 'KNOWLEDGE_CONTENT';
+
   private toId(value: unknown) {
     if (typeof value === 'bigint') return value.toString();
     return String(value);
@@ -471,6 +475,10 @@ export class CreationService {
       },
     });
 
+    if (shouldKnowledge) {
+      await this.copyCreationAttachmentsToKnowledge(id);
+    }
+
     return null;
   }
 
@@ -543,7 +551,35 @@ export class CreationService {
       data,
     });
 
+    if (data.inKnowledgeBase === true) {
+      await this.copyCreationAttachmentsToKnowledge(id);
+    }
+
     return null;
+  }
+
+  private async copyCreationAttachmentsToKnowledge(creationContentId: string) {
+    const links = await this.prisma.sysFileLink.findMany({
+      where: {
+        businessType: this.CREATION_ATTACHMENT_SOURCE_BUSINESS_TYPE,
+        businessId: creationContentId,
+        usageType: this.CREATION_ATTACHMENT_USAGE_TYPE,
+      },
+      select: { fileId: true },
+      take: 50,
+    });
+
+    if (!links.length) return;
+
+    await this.prisma.sysFileLink.createMany({
+      data: links.map((link) => ({
+        businessType: this.CREATION_ATTACHMENT_KNOWLEDGE_BUSINESS_TYPE,
+        businessId: creationContentId,
+        usageType: this.CREATION_ATTACHMENT_USAGE_TYPE,
+        fileId: link.fileId,
+      })),
+      skipDuplicates: true,
+    });
   }
 
   async listKnowledge(query: { page: number; pageSize: number; keyword?: string }) {
