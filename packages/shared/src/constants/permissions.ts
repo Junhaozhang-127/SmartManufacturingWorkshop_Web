@@ -162,6 +162,7 @@ export const RolePermissionMap: Record<RoleCode, PermissionCode[]> = {
     PermissionCodes.notificationView,
     PermissionCodes.notificationUpdate,
     PermissionCodes.systemDashboardView,
+    PermissionCodes.memberListView,
     PermissionCodes.orgTreeView,
     PermissionCodes.promotionView,
     PermissionCodes.promotionApprove,
