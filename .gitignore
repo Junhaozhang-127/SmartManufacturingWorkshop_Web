@@ -9,6 +9,7 @@ Thumbs.db
 .cache
 *.log
 *.tsbuildinfo
+.codex-temp/
 
 # Env files
 .env
@@ -35,5 +36,7 @@ prisma/dev.db-journal
 .husky/_/
 
 # API runtime storage (uploads/tmp)
-apps/api/storage/tmp
+apps/api/storage/tmp/*
+!apps/api/storage/tmp/.gitkeep
 apps/api/storage/uploads/**/*
+!apps/api/storage/uploads/.gitkeep
