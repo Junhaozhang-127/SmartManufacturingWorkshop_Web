@@ -64,6 +64,8 @@ export class AttachmentAuthService {
 
   private async canViewBusinessByType(currentUser: CurrentUserProfile, context: BusinessContext) {
     switch (context.businessType) {
+      case 'PROFILE_AVATAR':
+        return context.businessId === currentUser.id;
       case 'CREATION_CONTENT':
         return this.canViewCreationContent(currentUser, context.businessId);
       case 'KNOWLEDGE_CONTENT':
@@ -85,6 +87,8 @@ export class AttachmentAuthService {
 
   private async canEditBusinessAttachmentsByType(currentUser: CurrentUserProfile, context: BusinessContext) {
     switch (context.businessType) {
+      case 'PROFILE_AVATAR':
+        return context.businessId === currentUser.id;
       case 'CREATION_CONTENT':
         return this.canEditCreationContentAttachments(currentUser, context.businessId);
       case 'ANNOUNCEMENT':

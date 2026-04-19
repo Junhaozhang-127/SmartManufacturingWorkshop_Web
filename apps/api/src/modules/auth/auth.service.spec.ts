@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { type CurrentUserProfile, DataScope, MemberStatus, RoleCode } from '@smw/shared';
 import bcrypt from 'bcryptjs';
@@ -8,9 +10,12 @@ import type { AccessTokenService } from './access-token.service';
 import { AuthService } from './auth.service';
 
 describe('AuthService', () => {
+  const sampleUsername = `user_${randomUUID().slice(0, 8)}`;
+  const samplePassword = randomUUID();
+
   const builtProfile: CurrentUserProfile = {
     id: '1',
-    username: 'teacher01',
+    username: sampleUsername,
     displayName: 'Teacher One',
     statusCode: 'ACTIVE',
     activeRole: {
@@ -49,7 +54,7 @@ describe('AuthService', () => {
   function createUser(overrides?: Partial<Record<string, unknown>>) {
     return {
       id: 1n,
-      username: 'teacher01',
+      username: sampleUsername,
       passwordHash: 'hash-1',
       isDeleted: false,
       statusCode: 'ACTIVE',
@@ -132,6 +137,7 @@ describe('AuthService', () => {
 
   it('registers user and creates member profile for archive list', async () => {
     jest.spyOn(bcrypt, 'hash').mockImplementation(() => Promise.resolve('hashed-password'));
+    const registrationPassword = randomUUID();
 
     const tx = {
       sysUser: {
@@ -171,7 +177,7 @@ describe('AuthService', () => {
       service.register({
         username: 'new-user',
         displayName: 'New User',
-        password: '123456',
+        password: registrationPassword,
       }),
     ).resolves.toEqual({ success: true });
 
@@ -212,11 +218,11 @@ describe('AuthService', () => {
     jest.spyOn(bcrypt, 'compare').mockImplementation(() => Promise.resolve(true));
 
     const result = await service.login({
-      username: 'teacher01',
-      password: '123456',
+      username: sampleUsername,
+      password: samplePassword,
     });
 
-    expect(accessControlService.loadUserByUsername).toHaveBeenCalledWith('teacher01');
+    expect(accessControlService.loadUserByUsername).toHaveBeenCalledWith(sampleUsername);
     expect(prisma.sysUser.update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: 1n },
@@ -228,7 +234,7 @@ describe('AuthService', () => {
     expect(accessTokenService.sign).toHaveBeenCalledWith(
       expect.objectContaining({
         sub: '1',
-        username: 'teacher01',
+        username: sampleUsername,
         activeRoleCode: RoleCode.TEACHER,
         roleCodes: [RoleCode.TEACHER],
       }),
@@ -246,8 +252,8 @@ describe('AuthService', () => {
     jest.spyOn(bcrypt, 'compare').mockImplementation(() => Promise.resolve(true));
 
     await service.login({
-      username: 'teacher01',
-      password: '123456',
+      username: sampleUsername,
+      password: samplePassword,
     });
 
     expect(accessTokenService.sign).toHaveBeenCalledWith(
@@ -264,7 +270,7 @@ describe('AuthService', () => {
     await expect(
       service.login({
         username: 'ghost',
-        password: '123456',
+        password: samplePassword,
       }),
     ).rejects.toBeInstanceOf(UnauthorizedException);
   });
@@ -275,7 +281,7 @@ describe('AuthService', () => {
 
     await expect(
       service.login({
-        username: 'teacher01',
+        username: sampleUsername,
         password: 'bad-password',
       }),
     ).rejects.toBeInstanceOf(UnauthorizedException);
@@ -318,8 +324,8 @@ describe('AuthService', () => {
     jest.spyOn(bcrypt, 'hash').mockImplementation(() => Promise.resolve('new-hash'));
 
     const result = await service.changePassword('1', {
-      currentPassword: '123456',
-      newPassword: '654321',
+      currentPassword: samplePassword,
+      newPassword: randomUUID(),
     });
 
     expect(prisma.sysUser.update).toHaveBeenCalledWith(
@@ -342,7 +348,7 @@ describe('AuthService', () => {
     await expect(
       service.changePassword('1', {
         currentPassword: 'bad-password',
-        newPassword: '654321',
+        newPassword: randomUUID(),
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
@@ -353,8 +359,8 @@ describe('AuthService', () => {
 
     await expect(
       service.changePassword('1', {
-        currentPassword: '123456',
-        newPassword: '123456',
+        currentPassword: samplePassword,
+        newPassword: samplePassword,
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
   });

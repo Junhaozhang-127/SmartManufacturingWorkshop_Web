@@ -15,7 +15,7 @@ import { DeviceService } from './device.service';
 describe('DeviceService', () => {
   const currentUser: CurrentUserProfile = {
     id: '5',
-    username: 'member01',
+    username: 'user',
     displayName: '成员A',
     statusCode: 'ACTIVE',
     activeRole: {

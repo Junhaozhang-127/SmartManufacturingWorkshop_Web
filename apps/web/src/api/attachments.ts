@@ -6,6 +6,7 @@ export type FileCategory = 'DOCUMENT' | 'ARCHIVE' | 'IMAGE' | 'OTHER';
 
 export interface AttachmentItem {
   fileId: string;
+  storageKey?: string;
   originalName: string;
   fileExt?: string;
   mimeType?: string | null;

@@ -1,7 +1,10 @@
+import { extname } from 'node:path';
+
 import { BadRequestException,ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import type { CreationContent, Prisma } from '@prisma/client';
 import { type CurrentUserProfile, normalizePagination, RoleCode } from '@smw/shared';
 
+import { AttachmentsService } from '../attachments/attachments.service';
 import { FileService } from '../file/file.service';
 import { PrismaService } from '../prisma/prisma.service';
 import type { CreateCreationContentDto, UpdateCreationContentDto } from './dto/creation-content.dto';
@@ -18,6 +21,7 @@ export class CreationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly fileService: FileService,
+    private readonly attachmentsService: AttachmentsService,
   ) {}
 
   private readonly CREATION_ATTACHMENT_USAGE_TYPE = 'CREATION_ATTACHMENT';
@@ -33,11 +37,41 @@ export class CreationService {
     return value ? value.toISOString() : null;
   }
 
-  private buildPrivateDownloadUrl(storageKey: string, fileName?: string | null) {
+  private buildAttachmentPreviewUrl(fileId: string) {
     const apiPrefix = process.env.API_PREFIX ?? 'api';
-    const query = new URLSearchParams({ key: storageKey });
-    if (fileName) query.set('name', fileName);
-    return `/${apiPrefix}/files/download?${query.toString()}`;
+    return `/${apiPrefix}/attachments/${encodeURIComponent(fileId)}/preview`;
+  }
+
+  private async buildAttachmentPreviewUrlByStorageKey(storageKey: string | null) {
+    const key = storageKey?.trim();
+    if (!key) return null;
+
+    const file = await this.prisma.sysFile.findFirst({
+      where: { storageKey: key },
+      select: { id: true },
+      orderBy: { id: 'desc' },
+    });
+
+    return file ? this.buildAttachmentPreviewUrl(String(file.id)) : null;
+  }
+
+  private async buildAttachmentPreviewUrlMapByStorageKeys(storageKeys: string[]) {
+    const keys = [...new Set(storageKeys.map((key) => key.trim()).filter(Boolean))];
+    if (!keys.length) return new Map<string, string>();
+
+    const files = await this.prisma.sysFile.findMany({
+      where: { storageKey: { in: keys } },
+      select: { id: true, storageKey: true },
+      orderBy: { id: 'desc' },
+    });
+
+    const map = new Map<string, string>();
+    for (const file of files) {
+      if (!map.has(file.storageKey)) {
+        map.set(file.storageKey, this.buildAttachmentPreviewUrl(String(file.id)));
+      }
+    }
+    return map;
   }
 
   private buildPortalPreviewUrl(storageKey: string) {
@@ -102,6 +136,141 @@ export class CreationService {
     };
   }
 
+  private async migrateBodyAssetsToPortal(body: string | null) {
+    if (!body) return body;
+
+    const mappings = new Map<string, string>();
+    const keyRegex = /(\/(?:api\/)?(?:portal\/files\/preview|files\/download)\?key=)([^&"'\\s]+)/g;
+
+    const matches = [...body.matchAll(keyRegex)];
+    for (const match of matches) {
+      const encodedKey = match[2];
+      if (!encodedKey) continue;
+
+      let storageKey: string;
+      try {
+        storageKey = decodeURIComponent(encodedKey);
+      } catch {
+        continue;
+      }
+
+      if (!storageKey || storageKey.startsWith('portal/')) continue;
+      if (mappings.has(storageKey)) continue;
+
+      const loaded = await this.fileService.loadFile(storageKey);
+      const ext = extname(storageKey);
+      const saved = await this.fileService.saveFile(
+        {
+          originalname: `asset${ext || ''}`,
+          mimetype: '',
+          size: loaded.buffer.length,
+          buffer: loaded.buffer,
+        },
+        'portal',
+      );
+
+      mappings.set(storageKey, saved.storageKey);
+    }
+
+    const attachmentMappings = new Map<string, string>();
+    const attachmentRegex = /\/(?:api\/)?attachments\/([^/]+)\/preview\b/g;
+    const attachmentMatches = [...body.matchAll(attachmentRegex)];
+
+    for (const match of attachmentMatches) {
+      const fileIdRaw = match[1];
+      if (!fileIdRaw) continue;
+      if (attachmentMappings.has(fileIdRaw)) continue;
+
+      let fileId: bigint;
+      try {
+        fileId = BigInt(fileIdRaw);
+      } catch {
+        continue;
+      }
+
+      const file = await this.prisma.sysFile.findUnique({
+        where: { id: fileId },
+        select: { storageKey: true, originalName: true },
+      });
+      if (!file) continue;
+
+      const loaded = await this.fileService.loadFile(file.storageKey);
+      const saved = await this.fileService.saveFile(
+        {
+          originalname: file.originalName || 'asset',
+          mimetype: '',
+          size: loaded.buffer.length,
+          buffer: loaded.buffer,
+        },
+        'portal',
+      );
+
+      attachmentMappings.set(fileIdRaw, saved.storageKey);
+    }
+
+    let migrated = body;
+    for (const [fromKey, toKey] of mappings.entries()) {
+      migrated = migrated.replaceAll(encodeURIComponent(fromKey), encodeURIComponent(toKey));
+    }
+
+    for (const [fromFileId, toStorageKey] of attachmentMappings.entries()) {
+      migrated = migrated.replaceAll(
+        `/api/attachments/${fromFileId}/preview`,
+        `/api/portal/files/preview?key=${encodeURIComponent(toStorageKey)}`,
+      );
+      migrated = migrated.replaceAll(
+        `/attachments/${fromFileId}/preview`,
+        `/portal/files/preview?key=${encodeURIComponent(toStorageKey)}`,
+      );
+    }
+
+    migrated = migrated.replaceAll('/files/download?key=', '/portal/files/preview?key=');
+    migrated = migrated.replaceAll('/api/files/download?key=', '/api/portal/files/preview?key=');
+
+    return migrated;
+  }
+
+  private extractAttachmentFileIds(body: string | null) {
+    if (!body) return [];
+    const matches = [...body.matchAll(/\/(?:api\/)?attachments\/([^/]+)\/(?:preview|download)\b/g)];
+    return [...new Set(matches.map((match) => match[1]).filter((id): id is string => typeof id === 'string' && Boolean(id?.trim())))];
+  }
+
+  private async bindCreationAssetsAsSystem(
+    tx: Prisma.TransactionClient,
+    currentUser: CurrentUserProfile,
+    creationId: string,
+    payload: { coverStorageKey?: string | null; body?: string | null },
+  ) {
+    const fileIds = this.extractAttachmentFileIds(payload.body ?? null);
+
+    if (fileIds.length) {
+      await this.attachmentsService.bindAttachmentsAsSystem(tx, currentUser, {
+        businessType: this.CREATION_ATTACHMENT_SOURCE_BUSINESS_TYPE,
+        businessId: creationId,
+        usageType: 'CREATION_BODY_IMAGE',
+        fileIds,
+      });
+    }
+
+    const coverStorageKey = payload.coverStorageKey?.trim() || '';
+    if (coverStorageKey) {
+      const coverFile = await tx.sysFile.findFirst({
+        where: { storageKey: coverStorageKey },
+        select: { id: true },
+      });
+
+      if (coverFile) {
+        await this.attachmentsService.bindAttachmentsAsSystem(tx, currentUser, {
+          businessType: this.CREATION_ATTACHMENT_SOURCE_BUSINESS_TYPE,
+          businessId: creationId,
+          usageType: 'CREATION_COVER',
+          fileIds: [String(coverFile.id)],
+        });
+      }
+    }
+  }
+
   async createDraft(currentUser: CurrentUserProfile, payload: CreateCreationContentDto) {
     const title = payload.title?.trim() || '未命名';
     const summary = payload.summary?.trim() || null;
@@ -109,21 +278,30 @@ export class CreationService {
     const coverStorageKey = payload.coverStorageKey?.trim() || null;
     const coverFileName = payload.coverFileName?.trim() || null;
 
-    const created = await this.prisma.creationContent.create({
-      data: {
-        title,
-        summary,
-        body,
+    const created = await this.prisma.$transaction(async (tx) => {
+      const record = await tx.creationContent.create({
+        data: {
+          title,
+          summary,
+          body,
+          coverStorageKey,
+          coverFileName,
+          authorUserId: BigInt(currentUser.id),
+          statusCode: 'DRAFT',
+          inKnowledgeBase: false,
+          recommendToHome: false,
+          homeSection: null,
+          createdBy: BigInt(currentUser.id),
+        },
+        select: { id: true },
+      });
+
+      await this.bindCreationAssetsAsSystem(tx, currentUser, this.toId(record.id), {
         coverStorageKey,
-        coverFileName,
-        authorUserId: BigInt(currentUser.id),
-        statusCode: 'DRAFT',
-        inKnowledgeBase: false,
-        recommendToHome: false,
-        homeSection: null,
-        createdBy: BigInt(currentUser.id),
-      },
-      select: { id: true },
+        body,
+      });
+
+      return record;
     });
 
     return { id: this.toId(created.id) };
@@ -200,8 +378,7 @@ export class CreationService {
       body: record.body,
       coverStorageKey: record.coverStorageKey,
       coverFileName: record.coverFileName,
-      coverUrl:
-        record.coverStorageKey ? this.buildPrivateDownloadUrl(record.coverStorageKey, record.coverFileName) : null,
+      coverUrl: await this.buildAttachmentPreviewUrlByStorageKey(record.coverStorageKey),
       author: {
         id: this.toId(record.author.id),
         displayName: record.author.displayName,
@@ -243,6 +420,17 @@ export class CreationService {
       },
     });
 
+    const nextCoverStorageKey =
+      payload.coverStorageKey !== undefined ? payload.coverStorageKey.trim() || null : record.coverStorageKey;
+    const nextBody = payload.body !== undefined ? payload.body : record.body;
+
+    await this.prisma.$transaction(async (tx) => {
+      await this.bindCreationAssetsAsSystem(tx, currentUser, id, {
+        coverStorageKey: nextCoverStorageKey,
+        body: nextBody,
+      });
+    });
+
     return null;
   }
 
@@ -254,6 +442,13 @@ export class CreationService {
     if (status !== 'DRAFT' && status !== 'REJECTED') {
       throw new BadRequestException('当前状态不可提交审核');
     }
+
+    await this.prisma.$transaction(async (tx) => {
+      await this.bindCreationAssetsAsSystem(tx, currentUser, id, {
+        coverStorageKey: record.coverStorageKey,
+        body: record.body,
+      });
+    });
 
     await this.prisma.creationContent.update({
       where: { id: BigInt(id) },
@@ -314,6 +509,10 @@ export class CreationService {
       this.prisma.creationContent.count({ where }),
     ]);
 
+    const coverUrlMap = await this.buildAttachmentPreviewUrlMapByStorageKeys(
+      items.map((item) => item.coverStorageKey).filter((key): key is string => typeof key === 'string' && Boolean(key.trim())),
+    );
+
     return {
       items: items.map((item) => ({
         id: this.toId(item.id),
@@ -322,7 +521,7 @@ export class CreationService {
         statusCode: item.statusCode as CreationStatus,
         submittedAt: this.toIso(item.submittedAt),
         author: { id: this.toId(item.author.id), displayName: item.author.displayName },
-        coverUrl: item.coverStorageKey ? this.buildPrivateDownloadUrl(item.coverStorageKey, item.coverFileName) : null,
+        coverUrl: item.coverStorageKey ? (coverUrlMap.get(item.coverStorageKey) ?? null) : null,
       })),
       meta: { page: pagination.page, pageSize: pagination.pageSize, total },
     };
@@ -411,12 +610,13 @@ export class CreationService {
     }
 
     const cover = await this.copyFileToPortalBucket(record.coverStorageKey, record.coverFileName);
+    const migratedBody = await this.migrateBodyAssetsToPortal(record.body);
     const created = await this.prisma.portalContent.create({
       data: {
         contentType: homeSection,
         title: record.title,
         summary: record.summary,
-        body: record.body,
+        body: migratedBody,
         coverStorageKey: cover?.storageKey ?? null,
         coverFileName: cover?.fileName ?? null,
         linkUrl: null,
@@ -563,10 +763,10 @@ export class CreationService {
       where: {
         businessType: this.CREATION_ATTACHMENT_SOURCE_BUSINESS_TYPE,
         businessId: creationContentId,
-        usageType: this.CREATION_ATTACHMENT_USAGE_TYPE,
+        usageType: { in: [this.CREATION_ATTACHMENT_USAGE_TYPE, 'CREATION_BODY_IMAGE', 'CREATION_COVER'] },
       },
-      select: { fileId: true },
-      take: 50,
+      select: { fileId: true, usageType: true },
+      take: 200,
     });
 
     if (!links.length) return;
@@ -575,7 +775,7 @@ export class CreationService {
       data: links.map((link) => ({
         businessType: this.CREATION_ATTACHMENT_KNOWLEDGE_BUSINESS_TYPE,
         businessId: creationContentId,
-        usageType: this.CREATION_ATTACHMENT_USAGE_TYPE,
+        usageType: link.usageType,
         fileId: link.fileId,
       })),
       skipDuplicates: true,
@@ -608,12 +808,16 @@ export class CreationService {
       this.prisma.creationContent.count({ where }),
     ]);
 
+    const coverUrlMap = await this.buildAttachmentPreviewUrlMapByStorageKeys(
+      items.map((item) => item.coverStorageKey).filter((key): key is string => typeof key === 'string' && Boolean(key.trim())),
+    );
+
     return {
       items: items.map((item) => ({
         id: this.toId(item.id),
         title: item.title,
         summary: item.summary,
-        coverUrl: item.coverStorageKey ? this.buildPrivateDownloadUrl(item.coverStorageKey, item.coverFileName) : null,
+        coverUrl: item.coverStorageKey ? (coverUrlMap.get(item.coverStorageKey) ?? null) : null,
         author: { id: this.toId(item.author.id), displayName: item.author.displayName },
         reviewedAt: this.toIso(item.reviewedAt),
       })),
@@ -636,7 +840,7 @@ export class CreationService {
       title: record.title,
       summary: record.summary,
       body: record.body,
-      coverUrl: record.coverStorageKey ? this.buildPrivateDownloadUrl(record.coverStorageKey, record.coverFileName) : null,
+      coverUrl: await this.buildAttachmentPreviewUrlByStorageKey(record.coverStorageKey),
       author: { id: this.toId(record.author.id), displayName: record.author.displayName },
       reviewer: record.reviewer ? { id: this.toId(record.reviewer.id), displayName: record.reviewer.displayName } : null,
       reviewedAt: this.toIso(record.reviewedAt),

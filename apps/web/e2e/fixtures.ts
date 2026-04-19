@@ -1,36 +1,40 @@
 import type { Page } from '@playwright/test';
 
-const authUser = {
-  id: '2',
-  username: 'teacher01',
-  displayName: 'Teacher One',
-  statusCode: 'ACTIVE',
-  activeRole: {
-    roleCode: 'TEACHER',
-    roleName: '指导教师',
-    dataScope: 'ALL',
-  },
-  roleOptions: [],
-  permissions: ['SYSTEM:VIEW', 'NOTIFICATION:VIEW', 'PROFILE:VIEW', 'APPROVAL:VIEW'],
-  forcePasswordChange: false,
-  orgProfile: null,
-  dataScopeContext: {
-    scope: 'ALL',
-    userId: '2',
-    orgUnitId: null,
-    departmentId: null,
-    departmentAndDescendantIds: [],
-    groupId: null,
-    selfUserIds: ['2'],
-    participatingUserIds: ['2'],
-  },
-  dashboard: {
-    todoCount: 2,
-    shortcutEntries: [],
-  },
-};
+function buildAuthUser(username: string) {
+  return {
+    id: '2',
+    username,
+    displayName: 'User',
+    statusCode: 'ACTIVE',
+    activeRole: {
+      roleCode: 'TEACHER',
+      roleName: '指导教师',
+      dataScope: 'ALL',
+    },
+    roleOptions: [],
+    permissions: ['SYSTEM:VIEW', 'NOTIFICATION:VIEW', 'PROFILE:VIEW', 'APPROVAL:VIEW'],
+    forcePasswordChange: false,
+    orgProfile: null,
+    dataScopeContext: {
+      scope: 'ALL',
+      userId: '2',
+      orgUnitId: null,
+      departmentId: null,
+      departmentAndDescendantIds: [],
+      groupId: null,
+      selfUserIds: ['2'],
+      participatingUserIds: ['2'],
+    },
+    dashboard: {
+      todoCount: 2,
+      shortcutEntries: [],
+    },
+  };
+}
 
-export async function mockLoginApis(page: Page) {
+export async function mockLoginApis(page: Page, username: string) {
+  const authUser = buildAuthUser(username);
+
   await page.route('**/api/auth/login', async (route) => {
     await route.fulfill({
       json: {
@@ -55,8 +59,8 @@ export async function mockLoginApis(page: Page) {
   });
 }
 
-export async function mockDashboardApis(page: Page) {
-  await mockLoginApis(page);
+export async function mockDashboardApis(page: Page, username: string) {
+  await mockLoginApis(page, username);
 
   await page.route('**/api/dashboard/home', async (route) => {
     await route.fulfill({
@@ -121,30 +125,24 @@ export async function mockDashboardApis(page: Page) {
         code: 0,
         message: 'ok',
         data: {
-          items: [],
-          meta: { page: 1, pageSize: 10, total: 0 },
-        },
-      },
-    });
-  });
-
-  await page.route('**/api/approval-center**', async (route) => {
-    await route.fulfill({
-      json: {
-        code: 0,
-        message: 'ok',
-        data: {
-          items: [],
-          meta: { page: 1, pageSize: 10, total: 0 },
+          unreadCount: 1,
+          total: 1,
+          list: [
+            {
+              id: 'n-1',
+              title: 'Approval Assigned',
+              content: 'Please review',
+              categoryCode: 'APPROVAL',
+              levelCode: 'INFO',
+              read: false,
+              routePath: '/workflow/approval-center',
+              routeQuery: { focus: '1001' },
+              createdAt: new Date().toISOString(),
+            },
+          ],
         },
       },
     });
   });
 }
 
-export function persistedAuthState() {
-  return JSON.stringify({
-    token: 'mock-token',
-    user: authUser,
-  });
-}

@@ -8,6 +8,7 @@ import {
   Controller,
   Delete,
   Get,
+  Header,
   Param,
   Post,
   Query,
@@ -126,6 +127,14 @@ export class AttachmentsController {
     const fileName = name?.trim() || file.fileName || 'attachment';
     response.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`);
     file.stream.pipe(response);
+  }
+
+  @Get(':fileId/preview')
+  @Header('Cache-Control', 'private, max-age=300')
+  async preview(@CurrentUser() currentUser: CurrentUserProfile, @Param('fileId') fileId: string, @Res() response: Response) {
+    const file = await this.attachmentsService.getPreviewFile(currentUser, fileId);
+    response.setHeader('Content-Type', file.contentType);
+    response.send(file.buffer);
   }
 }
 

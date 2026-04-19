@@ -70,8 +70,11 @@ const editorConfig: Partial<IEditorConfig> = {
       async customUpload(file: File, insertFn: (url: string, alt: string, href: string) => void) {
         try {
           const uploaded = await uploadImage(file);
-          const previewUrl = `/api/portal/files/preview?key=${encodeURIComponent(uploaded.storageKey)}`;
-          insertFn(previewUrl, uploaded.fileName || 'image', previewUrl);
+          const previewUrl = uploaded.previewUrl || uploaded.downloadUrl;
+          if (!previewUrl) {
+            throw new Error('Upload response is missing previewUrl');
+          }
+          insertFn(previewUrl, uploaded.originalName || 'image', previewUrl);
         } catch (error) {
           ElMessage.error(error instanceof Error ? error.message : '图片上传失败');
         }

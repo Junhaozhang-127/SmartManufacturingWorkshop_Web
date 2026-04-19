@@ -214,11 +214,15 @@ async function submit() {
 }
 
 async function handleUpload(option: UploadRequestOptions) {
+  if (!contentId.value) {
+    ElMessage.error('Please save the draft before uploading the cover.');
+    return;
+  }
   try {
     const response = await uploadCreationCover(option.file as File);
-    form.coverStorageKey = response.data.storageKey;
-    form.coverFileName = response.data.fileName;
-    form.coverUrl = response.data.downloadUrl;
+    form.coverStorageKey = response.data.storageKey || '';
+    form.coverFileName = response.data.originalName || '';
+    form.coverUrl = response.data.previewUrl || response.data.downloadUrl || '';
     ElMessage.success('封面已上传');
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '封面上传失败');

@@ -1,3 +1,6 @@
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
+
 import { validateEnv } from '@api/shared/env.validation';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
@@ -18,10 +21,16 @@ import { PortalModule } from './portal/portal.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { SystemModule } from './system/system.module';
 
+function resolveEnvFilePaths() {
+  const candidates = [resolve(process.cwd(), '.env'), resolve(process.cwd(), '..', '..', '.env')];
+  return candidates.filter((candidate) => existsSync(candidate));
+}
+
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      envFilePath: resolveEnvFilePaths(),
       validate: validateEnv,
     }),
     PrismaModule,

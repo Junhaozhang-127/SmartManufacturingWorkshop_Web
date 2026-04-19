@@ -33,3 +33,7 @@ prisma/dev.db-journal
 
 # Husky internal files
 .husky/_/
+
+# API runtime storage (uploads/tmp)
+apps/api/storage/tmp
+apps/api/storage/uploads/**/*

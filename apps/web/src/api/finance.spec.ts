@@ -22,11 +22,10 @@ describe('finance api', () => {
     const blob = new Blob(['attachment']);
     mockHttpGet.mockResolvedValueOnce(blob as never);
 
-    const result = await downloadFundAttachment('funds/2026/demo.pdf', 'demo.pdf');
+    const result = await downloadFundAttachment('1', 'demo.pdf');
 
-    expect(mockHttpGet).toHaveBeenCalledWith('/files/download', {
+    expect(mockHttpGet).toHaveBeenCalledWith('/attachments/1/download', {
       params: {
-        key: 'funds/2026/demo.pdf',
         name: 'demo.pdf',
       },
       responseType: 'blob',

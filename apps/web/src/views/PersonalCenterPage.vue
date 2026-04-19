@@ -106,7 +106,7 @@ async function submitProfileChange() {
     if (tempAvatarFile.value) {
       const uploadResponse = await uploadProfileAvatar(tempAvatarFile.value);
       avatarStorageKey = uploadResponse.data.storageKey;
-      avatarFileName = uploadResponse.data.fileName;
+      avatarFileName = uploadResponse.data.originalName;
     }
 
     await updatePersonalCenter({

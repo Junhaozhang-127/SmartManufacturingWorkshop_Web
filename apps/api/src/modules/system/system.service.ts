@@ -17,6 +17,7 @@ import {
   type SystemConfigPayload,
 } from '@smw/shared';
 
+import { AttachmentsService } from '../attachments/attachments.service';
 import { PrismaService } from '../prisma/prisma.service';
 import type { NotificationQueryDto } from './dto/notification-query.dto';
 import type { UpdatePersonalCenterDto } from './dto/update-personal-center.dto';
@@ -36,7 +37,10 @@ type NotificationRecord = Prisma.SysNotificationGetPayload<Record<string, never>
 
 @Injectable()
 export class SystemService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly attachmentsService: AttachmentsService,
+  ) {}
 
   private async collectOrgDescendantIds(rootOrgUnitId: string) {
     const units = await this.prisma.orgUnit.findMany({
@@ -101,7 +105,7 @@ export class SystemService {
       studentNo: user.studentNo ?? null,
       mobile: user.mobile,
       email: user.email,
-      avatarUrl: this.buildFileDownloadUrl(user.avatarStorageKey, user.avatarFileName),
+      avatarUrl: await this.buildAvatarPreviewUrl(currentUser, user.avatarStorageKey),
       statusCode: user.statusCode,
       lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
       passwordChangedAt: user.passwordChangedAt?.toISOString() ?? null,
@@ -130,16 +134,35 @@ export class SystemService {
     const avatarStorageKey = payload.avatarStorageKey?.trim() || null;
     const avatarFileName = payload.avatarFileName?.trim() || null;
 
-    await this.prisma.sysUser.update({
-      where: { id: this.toBigInt(currentUser.id) },
-      data: {
-        displayName,
-        mobile,
-        email,
-        studentNo,
-        avatarStorageKey,
-        avatarFileName,
-      },
+    await this.prisma.$transaction(async (tx) => {
+      await tx.sysUser.update({
+        where: { id: this.toBigInt(currentUser.id) },
+        data: {
+          displayName,
+          mobile,
+          email,
+          studentNo,
+          avatarStorageKey,
+          avatarFileName,
+        },
+      });
+
+      if (avatarStorageKey) {
+        const file = await tx.sysFile.findFirst({
+          where: { storageKey: avatarStorageKey },
+          select: { id: true },
+          orderBy: { id: 'desc' },
+        });
+
+        if (file) {
+          await this.attachmentsService.bindAttachmentsAsSystem(tx, currentUser, {
+            businessType: 'PROFILE_AVATAR',
+            businessId: currentUser.id,
+            usageType: 'AVATAR',
+            fileIds: [String(file.id)],
+          });
+        }
+      }
     });
 
     return this.getPersonalCenter(currentUser);
@@ -969,17 +992,32 @@ export class SystemService {
     return user;
   }
 
-  private buildFileDownloadUrl(storageKey: string | null | undefined, fileName: string | null | undefined) {
-    if (!storageKey) return null;
-    const baseUrl = process.env.APP_BASE_URL ?? `http://localhost:${process.env.APP_PORT ?? '3000'}`;
+  private buildAttachmentPreviewUrl(fileId: string) {
     const apiPrefix = process.env.API_PREFIX ?? 'api';
-    const query = new URLSearchParams({ key: storageKey });
+    return `/${apiPrefix}/attachments/${encodeURIComponent(fileId)}/preview`;
+  }
 
-    if (fileName) {
-      query.set('name', fileName);
-    }
+  private async buildAvatarPreviewUrl(currentUser: CurrentUserProfile, storageKey: string | null) {
+    const key = storageKey?.trim();
+    if (!key) return null;
 
-    return `${baseUrl.replace(/\/$/, '')}/${apiPrefix}/files/download?${query.toString()}`;
+    const file = await this.prisma.sysFile.findFirst({
+      where: { storageKey: key },
+      select: { id: true },
+      orderBy: { id: 'desc' },
+    });
+    if (!file) return null;
+
+    await this.prisma.$transaction(async (tx) => {
+      await this.attachmentsService.bindAttachmentsAsSystem(tx, currentUser, {
+        businessType: 'PROFILE_AVATAR',
+        businessId: currentUser.id,
+        usageType: 'AVATAR',
+        fileIds: [String(file.id)],
+      });
+    });
+
+    return this.buildAttachmentPreviewUrl(String(file.id));
   }
 
 

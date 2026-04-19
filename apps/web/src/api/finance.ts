@@ -6,6 +6,7 @@ import type {
   ProjectFundDetail,
 } from '@smw/shared';
 
+import { downloadAttachment, uploadAttachment } from './attachments';
 import { http } from './client';
 
 export interface TeacherFundAccountItem {
@@ -148,33 +149,9 @@ export async function fetchProjectFundDetail(projectId: string) {
 }
 
 export async function uploadFundAttachment(file: File) {
-  const formData = new FormData();
-  formData.append('file', file);
-
-  return http.post<
-    never,
-    {
-      data: {
-        storageKey: string;
-        fileName: string;
-        downloadUrl: string;
-        mimeType: string | null;
-        size: number | null;
-      };
-    }
-  >('/files/upload', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  });
+  return uploadAttachment(file);
 }
 
-export async function downloadFundAttachment(storageKey: string, fileName: string) {
-  return http.get<never, Blob>('/files/download', {
-    params: {
-      key: storageKey,
-      name: fileName,
-    },
-    responseType: 'blob',
-  });
+export async function downloadFundAttachment(fileId: string, fileName?: string) {
+  return downloadAttachment(fileId, fileName);
 }

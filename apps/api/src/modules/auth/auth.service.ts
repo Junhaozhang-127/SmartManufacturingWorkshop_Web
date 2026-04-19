@@ -9,6 +9,24 @@ import bcrypt from 'bcryptjs';
 
 import { AccessControlService } from './access-control.service';
 import { AccessTokenService } from './access-token.service';
+
+function assertStrongPassword(password: string) {
+  if (password.length < 12) {
+    throw new BadRequestException('密码长度至少 12 位');
+  }
+
+  const hasLetter = /[A-Za-z]/.test(password);
+  const hasDigit = /\d/.test(password);
+  if (!hasLetter || !hasDigit) {
+    throw new BadRequestException('密码需同时包含字母与数字');
+  }
+
+  const normalized = password.trim().toLowerCase();
+  const blocked = new Set(['123456', 'password', 'admin', 'qwerty']);
+  if (blocked.has(normalized)) {
+    throw new BadRequestException('密码强度过低，请更换');
+  }
+}
 @Injectable()
 export class AuthService {
   constructor(
@@ -59,6 +77,8 @@ export class AuthService {
     if (!username || !displayName || !payload.password) {
       throw new BadRequestException('Invalid register payload');
     }
+
+    assertStrongPassword(payload.password);
 
     const existingUser = await this.prisma.sysUser.findUnique({
       where: { username },
@@ -220,6 +240,8 @@ export class AuthService {
     if (payload.currentPassword === payload.newPassword) {
       throw new BadRequestException('新密码不能与当前密码相同');
     }
+
+    assertStrongPassword(payload.newPassword);
 
     await this.prisma.sysUser.update({
       where: { id: user.id },

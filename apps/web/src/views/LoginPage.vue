@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import IcpBeianFooter from '@web/components/layout/IcpBeianFooter.vue';
 import { useAuthStore } from '@web/stores/auth';
 import { ElMessage } from 'element-plus';
 import { reactive, ref } from 'vue';
@@ -10,31 +11,29 @@ const router = useRouter();
 const loading = ref(false);
 
 const form = reactive({
-  username: 'teacher01',
-  password: '123456',
+  username: '',
+  password: '',
 });
 
-const demoAccounts = [
-  { username: 'teacher01', label: '老师', org: '全局视图' },
-  { username: 'minister01', label: '部长', org: '研发部' },
-  { username: 'hybrid01', label: '部长 / 组长', org: '研发部 / 前端组' },
-  { username: 'member01', label: '成员', org: '前端组' },
-  { username: 'intern01', label: '实习生', org: '前端组' },
-];
-
 async function submit() {
+  if (!form.username.trim() || !form.password) {
+    ElMessage.error('请输入账号和密码');
+    return;
+  }
+
   try {
     loading.value = true;
 
     const user = await authStore.login({
-      username: form.username,
+      username: form.username.trim(),
       password: form.password,
     });
 
     ElMessage.success('登录成功');
 
     if (user.forcePasswordChange) {
-      await router.push('/change-password');
+      const redirect = route.query.redirect ? String(route.query.redirect) : undefined;
+      await router.push(redirect ? { path: '/change-password', query: { redirect } } : '/change-password');
       return;
     }
 
@@ -46,14 +45,11 @@ async function submit() {
   }
 }
 
-function useAccount(username: string) {
-  form.username = username;
-  form.password = '123456';
-}
 </script>
 
 <template>
-  <div class="login-page">
+  <div class="page-shell">
+    <div class="login-page page-shell__content">
     <section class="login-page__hero">
       <p class="login-page__eyebrow">智能制造工坊</p>
       <h1>工坊管理系统登录</h1>
@@ -72,18 +68,18 @@ function useAccount(username: string) {
       <div class="login-card__header">
         <h2>登录入口</h2>
         <p>
-          默认密码为 `123456`。首次登录的账号会自动跳转到修改密码页面。
+          请使用已分配的账号登录。如需开通账号，请联系管理员。
           <router-link to="/register">注册账号</router-link>
         </p>
       </div>
 
-      <el-form label-position="top" @submit.prevent="submit">
-        <el-form-item label="用户名">
-          <el-input v-model="form.username" placeholder="teacher01 / hybrid01 / member01 / intern01" />
+      <el-form label-position="top" autocomplete="off" @submit.prevent="submit">
+        <el-form-item label="账号">
+          <el-input v-model="form.username" autocomplete="off" name="username" placeholder="请输入账号" />
         </el-form-item>
 
         <el-form-item label="密码">
-          <el-input v-model="form.password" show-password type="password" />
+          <el-input v-model="form.password" autocomplete="off" name="password" show-password type="password" />
         </el-form-item>
 
         <el-button :loading="loading" class="login-card__submit" type="primary" @click="submit">
@@ -91,19 +87,8 @@ function useAccount(username: string) {
         </el-button>
       </el-form>
 
-      <div class="login-card__accounts">
-        <h3>示例账号</h3>
-        <button
-          v-for="item in demoAccounts"
-          :key="item.username"
-          class="account-chip"
-          type="button"
-          @click="useAccount(item.username)"
-        >
-          <strong>{{ item.username }}</strong>
-          <span>{{ item.label }} / {{ item.org }}</span>
-        </button>
-      </div>
     </section>
+    </div>
+    <IcpBeianFooter />
   </div>
 </template>

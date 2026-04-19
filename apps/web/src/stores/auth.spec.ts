@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import { DataScope, RoleCode } from '@smw/shared';
 import { createPinia, setActivePinia } from 'pinia';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -10,8 +12,8 @@ vi.mock('@web/api/auth', () => ({
       token: 'token-1',
       user: {
         id: '1',
-        username: 'teacher01',
-        displayName: '王老师',
+        username: 'user',
+        displayName: '用户',
         statusCode: 'ACTIVE',
         activeRole: { roleCode: RoleCode.TEACHER, roleName: '老师', dataScope: DataScope.ALL },
         roleOptions: [{ roleCode: RoleCode.TEACHER, roleName: '老师', dataScope: DataScope.ALL }],
@@ -46,8 +48,8 @@ vi.mock('@web/api/auth', () => ({
   fetchCurrentUser: vi.fn(() => ({
     data: {
       id: '1',
-      username: 'teacher01',
-      displayName: '王老师',
+      username: 'user',
+      displayName: '用户',
       statusCode: 'ACTIVE',
       activeRole: { roleCode: RoleCode.TEACHER, roleName: '老师', dataScope: DataScope.ALL },
       roleOptions: [{ roleCode: RoleCode.TEACHER, roleName: '老师', dataScope: DataScope.ALL }],
@@ -83,8 +85,8 @@ vi.mock('@web/api/auth', () => ({
       token: 'token-2',
       user: {
         id: '1',
-        username: 'teacher01',
-        displayName: '王老师',
+        username: 'user',
+        displayName: '用户',
         statusCode: 'ACTIVE',
         activeRole: {
           roleCode: RoleCode.GROUP_LEADER,
@@ -136,19 +138,19 @@ describe('useAuthStore', () => {
     const authStore = useAuthStore();
 
     await authStore.login({
-      username: 'teacher01',
-      password: '123456',
+      username: `user_${randomUUID().slice(0, 8)}`,
+      password: randomUUID(),
     });
 
     expect(authStore.token).toBe('token-1');
-    expect(authStore.displayName).toBe('王老师');
+    expect(authStore.displayName).toBe('用户');
   });
 
   it('updates active role after switching role', async () => {
     const authStore = useAuthStore();
     await authStore.login({
-      username: 'teacher01',
-      password: '123456',
+      username: `user_${randomUUID().slice(0, 8)}`,
+      password: randomUUID(),
     });
 
     await authStore.switchRole(RoleCode.GROUP_LEADER);
@@ -157,3 +159,4 @@ describe('useAuthStore', () => {
     expect(authStore.activeRoleCode).toBe(RoleCode.GROUP_LEADER);
   });
 });
+

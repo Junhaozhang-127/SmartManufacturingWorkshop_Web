@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { createReadStream } from 'node:fs';
-import { copyFile, mkdir, rename, stat, unlink } from 'node:fs/promises';
+import { copyFile, mkdir, readFile, rename, stat, unlink } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
@@ -43,6 +43,35 @@ export class AttachmentsService {
     if (fileName) query.set('name', fileName);
     const qs = query.toString();
     return `/${apiPrefix}/attachments/${encodeURIComponent(fileId)}/download${qs ? `?${qs}` : ''}`;
+  }
+
+  private buildPreviewUrl(fileId: string) {
+    const apiPrefix = process.env.API_PREFIX ?? 'api';
+    return `/${apiPrefix}/attachments/${encodeURIComponent(fileId)}/preview`;
+  }
+
+  private resolvePreviewContentType(file: { mimeType: string | null; fileExt: string }) {
+    const mime = file.mimeType?.trim();
+    if (mime) return mime;
+
+    const ext = (file.fileExt || '').toLowerCase().replace(/^\./, '');
+    switch (ext) {
+      case 'png':
+        return 'image/png';
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg';
+      case 'gif':
+        return 'image/gif';
+      case 'webp':
+        return 'image/webp';
+      case 'svg':
+        return 'image/svg+xml';
+      case 'pdf':
+        return 'application/pdf';
+      default:
+        return 'application/octet-stream';
+    }
   }
 
   async ensureTmpDir() {
@@ -92,10 +121,12 @@ export class AttachmentsService {
 
       return {
         fileId: String(created.id),
+        storageKey: created.storageKey,
         originalName: created.originalName,
         fileSize: Number(created.fileSize.toString()),
         fileCategory: created.fileCategory,
         downloadUrl: this.buildDownloadUrl(String(created.id), created.originalName),
+        previewUrl: category === 'IMAGE' ? this.buildPreviewUrl(String(created.id)) : null,
         mimeType: created.mimeType,
         fileExt: created.fileExt,
         createdAt: created.createdAt.toISOString(),
@@ -126,6 +157,7 @@ export class AttachmentsService {
 
     return links.map((link) => ({
       fileId: String(link.fileId),
+      storageKey: link.file.storageKey,
       originalName: link.file.originalName,
       fileExt: link.file.fileExt,
       mimeType: link.file.mimeType,
@@ -135,6 +167,7 @@ export class AttachmentsService {
       uploadedByName: link.file.uploader.displayName,
       createdAt: link.file.createdAt.toISOString(),
       downloadUrl: this.buildDownloadUrl(String(link.fileId), link.file.originalName),
+      previewUrl: link.file.fileCategory === 'IMAGE' ? this.buildPreviewUrl(String(link.fileId)) : null,
     }));
   }
 
@@ -218,6 +251,7 @@ export class AttachmentsService {
 
     return files.map((file) => ({
       fileId: String(file.id),
+      storageKey: file.storageKey,
       originalName: file.originalName,
       fileExt: file.fileExt,
       mimeType: file.mimeType,
@@ -226,6 +260,7 @@ export class AttachmentsService {
       expiresAt: file.expiresAt?.toISOString() ?? null,
       createdAt: file.createdAt.toISOString(),
       downloadUrl: this.buildDownloadUrl(String(file.id), file.originalName),
+      previewUrl: file.fileCategory === 'IMAGE' ? this.buildPreviewUrl(String(file.id)) : null,
     }));
   }
 
@@ -281,7 +316,7 @@ export class AttachmentsService {
   ) {
     const file = await this.prisma.sysFile.findUnique({
       where: { id: this.toBigInt(fileId) },
-      select: { id: true, storageKey: true, originalName: true, uploadedBy: true, isTemporary: true },
+      select: { id: true, storageKey: true, originalName: true, uploadedBy: true, isTemporary: true, fileExt: true, mimeType: true },
     });
     if (!file) throw new NotFoundException('附件不存在');
 
@@ -322,6 +357,54 @@ export class AttachmentsService {
     return {
       fileName: file.originalName,
       stream: createReadStream(filePath),
+    };
+  }
+
+  async getPreviewFile(currentUser: CurrentUserProfile, fileId: string) {
+    const file = await this.prisma.sysFile.findUnique({
+      where: { id: this.toBigInt(fileId) },
+      select: { id: true, storageKey: true, originalName: true, uploadedBy: true, isTemporary: true, fileExt: true, mimeType: true },
+    });
+    if (!file) throw new NotFoundException('Attachment not found.');
+
+    const links = await this.prisma.sysFileLink.findMany({
+      where: { fileId: file.id },
+      select: { businessType: true, businessId: true },
+      take: 10,
+    });
+
+    if (!links.length) {
+      this.authz.assertCanViewTempFile(currentUser, file);
+    } else {
+      let allowed = false;
+      for (const link of links) {
+        try {
+          await this.authz.assertCanViewBusiness(currentUser, { businessType: link.businessType, businessId: link.businessId });
+          allowed = true;
+          break;
+        } catch {
+          // keep trying other links
+        }
+      }
+      if (!allowed) {
+        throw new ForbiddenException('Not allowed to preview this attachment.');
+      }
+    }
+
+    const filePath = resolve(this.rootDir, file.storageKey);
+    if (!filePath.startsWith(this.rootDir)) {
+      throw new BadRequestException('闈炴硶鏂囦欢璺緞');
+    }
+    try {
+      await stat(filePath);
+    } catch {
+      throw new NotFoundException('File not found.');
+    }
+
+    const buffer = await readFile(filePath);
+    return {
+      contentType: this.resolvePreviewContentType(file),
+      buffer,
     };
   }
 

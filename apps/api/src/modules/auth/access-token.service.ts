@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
 import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import type { AccessTokenPayload } from '@smw/shared';
 
 interface AccessTokenPayloadInput {
@@ -13,8 +14,13 @@ interface AccessTokenPayloadInput {
 
 @Injectable()
 export class AccessTokenService {
-  private readonly secret = process.env.AUTH_TOKEN_SECRET ?? 'smw-lab-auth-secret';
-  private readonly ttlSeconds = Number(process.env.AUTH_TOKEN_TTL_SECONDS ?? 8 * 60 * 60);
+  private readonly secret: string;
+  private readonly ttlSeconds: number;
+
+  constructor(private readonly configService: ConfigService) {
+    this.secret = this.configService.getOrThrow<string>('AUTH_TOKEN_SECRET');
+    this.ttlSeconds = Number(this.configService.getOrThrow<string>('AUTH_TOKEN_TTL_SECONDS'));
+  }
 
   sign(payload: AccessTokenPayloadInput) {
     const fullPayload: AccessTokenPayload = {

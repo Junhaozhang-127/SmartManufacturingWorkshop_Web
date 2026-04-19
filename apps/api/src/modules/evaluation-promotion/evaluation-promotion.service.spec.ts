@@ -15,7 +15,7 @@ import { PromotionQualificationService } from './promotion-qualification.service
 describe('EvaluationPromotionService', () => {
   const currentUser: CurrentUserProfile = {
     id: '4',
-    username: 'minister01',
+    username: 'user',
     displayName: '审批人',
     statusCode: 'ACTIVE',
     activeRole: {

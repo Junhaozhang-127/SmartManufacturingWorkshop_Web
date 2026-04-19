@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ArrowRight } from '@element-plus/icons-vue';
 import { fetchPortalContact, fetchPortalContentDetail, fetchPortalHome, type PortalContactResponse, type PortalHomeResponse } from '@web/api/portal';
+import IcpBeianFooter from '@web/components/layout/IcpBeianFooter.vue';
 import RichTextViewer from '@web/components/RichTextViewer.vue';
 import { ElMessage } from 'element-plus';
 import { computed, nextTick, onMounted, ref } from 'vue';
@@ -123,7 +124,8 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="portal-page">
+  <div class="page-shell">
+    <div class="portal-page page-shell__content">
     <header class="topbar portal-topbar">
       <div class="portal-topbar__inner">
         <div class="portal-topbar__brand">
@@ -358,12 +360,14 @@ onMounted(() => {
         <el-button @click="detailVisible = false">关闭</el-button>
       </template>
     </el-dialog>
+    </div>
+    <IcpBeianFooter />
   </div>
 </template>
 
 <style scoped>
 .portal-page {
-  min-height: 100vh;
+  min-height: 0;
   overflow-x: hidden;
   background: #f4f7fb;
   --portal-max-width: 1280px;

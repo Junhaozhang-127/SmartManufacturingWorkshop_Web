@@ -15,7 +15,7 @@ import { InventoryService } from './inventory.service';
 describe('InventoryService', () => {
   const currentUser: CurrentUserProfile = {
     id: '5',
-    username: 'member01',
+    username: 'user',
     displayName: '成员A',
     statusCode: 'ACTIVE',
     activeRole: {

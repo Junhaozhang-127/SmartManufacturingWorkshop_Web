@@ -1,12 +1,13 @@
 import { type CurrentUserProfile,DataScope, RoleCode } from '@smw/shared';
 
+import type { AttachmentsService } from '../attachments/attachments.service';
 import type { PrismaService } from '../prisma/prisma.service';
 import { SystemService } from './system.service';
 
 describe('SystemService', () => {
   const currentUser: CurrentUserProfile = {
     id: '5',
-    username: 'member01',
+    username: 'user',
     displayName: '成员A',
     statusCode: 'ACTIVE',
     activeRole: {
@@ -133,10 +134,10 @@ describe('SystemService', () => {
       sysUser: {
         findUnique: jest.fn().mockResolvedValue({
           id: 5n,
-          username: 'member01',
+          username: 'user',
           displayName: '成员A',
           mobile: '13800000005',
-          email: 'member01@lab.local',
+          email: 'user@example.test',
           statusCode: 'ACTIVE',
           lastLoginAt: new Date('2026-04-07T08:00:00Z'),
           passwordChangedAt: new Date('2026-04-07T08:30:00Z'),
@@ -150,7 +151,7 @@ describe('SystemService', () => {
 
     return {
       prisma,
-      service: new SystemService(prisma as unknown as PrismaService),
+      service: new SystemService(prisma as unknown as PrismaService, {} as unknown as AttachmentsService),
     };
   }
 

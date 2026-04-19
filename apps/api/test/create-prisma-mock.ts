@@ -2,6 +2,19 @@ export function createPrismaMock() {
   return {
     $queryRaw: jest.fn(),
     $transaction: jest.fn(),
+    sysFile: {
+      create: jest.fn(),
+      findUnique: jest.fn(),
+      findFirst: jest.fn(),
+      findMany: jest.fn(),
+      delete: jest.fn(),
+    },
+    sysFileLink: {
+      createMany: jest.fn(),
+      findMany: jest.fn(),
+      findFirst: jest.fn(),
+      deleteMany: jest.fn(),
+    },
     sysUser: {
       findUnique: jest.fn(),
       findMany: jest.fn(),

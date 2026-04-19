@@ -25,6 +25,7 @@ import { useRoute, useRouter } from 'vue-router';
 
 import BreadcrumbBar from '../components/layout/BreadcrumbBar.vue';
 import GlobalDrawerHost from '../components/layout/GlobalDrawerHost.vue';
+import IcpBeianFooter from '../components/layout/IcpBeianFooter.vue';
 import TopBar from '../components/layout/TopBar.vue';
 import { adminMenu, type AppMenuItem,filterMenuByAccess } from '../router/menu';
 import { useAuthStore } from '../stores/auth';
@@ -145,6 +146,7 @@ async function navigate(path: string) {
           <router-view />
         </div>
       </div>
+      <IcpBeianFooter />
     </main>
     <GlobalDrawerHost />
   </div>

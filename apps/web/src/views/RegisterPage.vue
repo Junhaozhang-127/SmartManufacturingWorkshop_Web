@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { register } from '@web/api/auth';
+import IcpBeianFooter from '@web/components/layout/IcpBeianFooter.vue';
 import { ElMessage } from 'element-plus';
 import { reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
@@ -49,7 +50,8 @@ function backToLogin() {
 </script>
 
 <template>
-  <div class="login-page">
+  <div class="page-shell">
+    <div class="login-page page-shell__content">
     <section class="login-page__hero">
       <p class="login-page__eyebrow">智能制造工坊</p>
       <h1>账号注册</h1>
@@ -88,6 +90,7 @@ function backToLogin() {
         <el-button :disabled="loading" class="login-card__submit" plain @click="backToLogin">返回登录</el-button>
       </el-form>
     </section>
+    </div>
+    <IcpBeianFooter />
   </div>
 </template>
-

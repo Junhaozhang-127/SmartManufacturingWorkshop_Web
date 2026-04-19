@@ -1,3 +1,7 @@
+import { randomUUID } from 'node:crypto';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
+
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import bcrypt from 'bcryptjs';
@@ -8,6 +12,14 @@ import { PrismaService } from '../src/modules/prisma/prisma.service';
 import { HttpExceptionFilter } from '../src/shared/http-exception.filter';
 import { ResponseTransformInterceptor } from '../src/shared/response-transform.interceptor';
 import { createPrismaMock } from './create-prisma-mock';
+
+process.env.NODE_ENV = process.env.NODE_ENV?.trim() ? process.env.NODE_ENV : 'test';
+process.env.DATABASE_URL = process.env.DATABASE_URL?.trim()
+  ? process.env.DATABASE_URL
+  : 'mysql://test:test@127.0.0.1:3306/test';
+process.env.AUTH_TOKEN_SECRET = process.env.AUTH_TOKEN_SECRET?.trim()
+  ? process.env.AUTH_TOKEN_SECRET
+  : 'test-auth-token-secret-32-chars-minimum';
 
 type MockUser = {
   id: bigint;
@@ -84,7 +96,19 @@ type MemberWhere = {
 describe('App e2e', () => {
   let app: INestApplication;
   const prismaMock = createPrismaMock();
-  const passwordHash = bcrypt.hashSync('123456', 10);
+  const testPassword: string = randomUUID();
+  const passwordHash = bcrypt.hashSync(testPassword, 10);
+
+  const attachmentFixture = {
+    fileId: '9001',
+    storageKey: 'attachments/e2e/hello.txt',
+    originalName: 'hello.txt',
+    content: 'hello-e2e',
+    uploaderUserId: 4n,
+  } as const;
+
+  const attachmentFixtureDir = resolve(process.cwd(), 'storage', 'uploads', 'attachments', 'e2e');
+  const attachmentFixturePath = resolve(process.cwd(), 'storage', 'uploads', attachmentFixture.storageKey);
 
   const units = [
     { id: 10n, parentId: null, unitName: '智能制造实验室' },
@@ -93,9 +117,9 @@ describe('App e2e', () => {
   ];
 
   const users: Record<string, MockUser> = {
-    teacher01: {
+    teacher: {
       id: 1n,
-      username: 'teacher01',
+      username: `user_${randomUUID().slice(0, 8)}`,
       passwordHash,
       displayName: '王老师',
       statusCode: 'ACTIVE',
@@ -104,9 +128,9 @@ describe('App e2e', () => {
       userRoles: [{ role: { roleCode: 'TEACHER', roleName: '老师', dataScope: 'ALL', sortNo: 10 } }],
       member: null,
     },
-    hybrid01: {
+    hybrid: {
       id: 2n,
-      username: 'hybrid01',
+      username: `user_${randomUUID().slice(0, 8)}`,
       passwordHash,
       displayName: '钱双角色',
       statusCode: 'ACTIVE',
@@ -130,9 +154,9 @@ describe('App e2e', () => {
         },
       },
     },
-    minister01: {
+    minister: {
       id: 3n,
-      username: 'minister01',
+      username: `user_${randomUUID().slice(0, 8)}`,
       passwordHash,
       displayName: '周部长',
       statusCode: 'ACTIVE',
@@ -153,9 +177,9 @@ describe('App e2e', () => {
         },
       },
     },
-    member01: {
+    member: {
       id: 4n,
-      username: 'member01',
+      username: `user_${randomUUID().slice(0, 8)}`,
       passwordHash,
       displayName: '张成员',
       statusCode: 'ACTIVE',
@@ -192,7 +216,7 @@ describe('App e2e', () => {
       mentor: { displayName: '王老师' },
       user: {
         displayName: '周部长',
-        username: 'minister01',
+        username: users.minister.username,
         userRoles: [{ role: { roleName: '部长' } }],
       },
     },
@@ -209,7 +233,7 @@ describe('App e2e', () => {
       mentor: { displayName: '周部长' },
       user: {
         displayName: '钱双角色',
-        username: 'hybrid01',
+        username: users.hybrid.username,
         userRoles: [{ role: { roleName: '部长' } }, { role: { roleName: '组长' } }],
       },
     },
@@ -226,7 +250,7 @@ describe('App e2e', () => {
       mentor: { displayName: '钱双角色' },
       user: {
         displayName: '张成员',
-        username: 'member01',
+        username: users.member.username,
         userRoles: [{ role: { roleName: '成员' } }],
       },
     },
@@ -234,7 +258,7 @@ describe('App e2e', () => {
 
   function getUserByWhere(where: { username?: string; id?: bigint }) {
     if (where.username) {
-      return users[where.username] ?? null;
+      return Object.values(users).find((user) => user.username === where.username) ?? null;
     }
 
     if (where.id) {
@@ -341,13 +365,20 @@ describe('App e2e', () => {
     app.useGlobalFilters(new HttpExceptionFilter());
     app.useGlobalInterceptors(new ResponseTransformInterceptor());
     await app.init();
+
+    await mkdir(dirname(attachmentFixturePath), { recursive: true });
+    await writeFile(attachmentFixturePath, attachmentFixture.content, 'utf8');
   });
 
   afterAll(async () => {
-    await app.close();
+    try {
+      await app.close();
+    } finally {
+      await rm(attachmentFixtureDir, { recursive: true, force: true });
+    }
   });
 
-  async function loginAs(username: string, password = '123456') {
+  async function loginAs(username: string, password = testPassword) {
     return request(app.getHttpServer()).post('/api/auth/login').send({
       username,
       password,
@@ -362,7 +393,7 @@ describe('App e2e', () => {
   });
 
   it('logs in successfully with username and password', async () => {
-    const response = await loginAs('teacher01');
+    const response = await loginAs(users.teacher.username);
 
     expect(response.status).toBe(201);
     expect(response.body.data.token).toContain('.');
@@ -370,16 +401,16 @@ describe('App e2e', () => {
   });
 
   it('fails login with wrong password', async () => {
-    const response = await loginAs('teacher01', 'bad-password');
+    const response = await loginAs(users.teacher.username, 'bad-password');
 
     expect(response.status).toBe(401);
     expect(response.body.message).toContain('账号或密码错误');
   });
 
   it('blocks first-login users from protected business endpoints before password change', async () => {
-    users.member01.forcePasswordChange = true;
+    users.member.forcePasswordChange = true;
 
-    const loginResponse = await loginAs('member01');
+    const loginResponse = await loginAs(users.member.username);
     const response = await request(app.getHttpServer())
       .get('/api/members')
       .set('Authorization', `Bearer ${loginResponse.body.data.token}`);
@@ -387,11 +418,11 @@ describe('App e2e', () => {
     expect(response.status).toBe(403);
     expect(response.body.message).toContain('首次登录需先修改密码');
 
-    users.member01.forcePasswordChange = false;
+    users.member.forcePasswordChange = false;
   });
 
   it('returns self-scoped member data for member role', async () => {
-    const loginResponse = await loginAs('member01');
+    const loginResponse = await loginAs(users.member.username);
     const response = await request(app.getHttpServer())
       .get('/api/members')
       .set('Authorization', `Bearer ${loginResponse.body.data.token}`);
@@ -401,7 +432,7 @@ describe('App e2e', () => {
   });
 
   it('returns different data after switching role for a multi-role user', async () => {
-    const loginResponse = await loginAs('hybrid01');
+    const loginResponse = await loginAs(users.hybrid.username);
     const ministerToken = loginResponse.body.data.token as string;
 
     const ministerListResponse = await request(app.getHttpServer())
@@ -429,7 +460,7 @@ describe('App e2e', () => {
   });
 
   it('accepts memberStatus query alias for member list filtering', async () => {
-    const loginResponse = await loginAs('hybrid01');
+    const loginResponse = await loginAs(users.hybrid.username);
     const response = await request(app.getHttpServer())
       .get('/api/members')
       .query({ memberStatus: 'ACTIVE' })
@@ -437,5 +468,68 @@ describe('App e2e', () => {
 
     expect(response.status).toBe(200);
     expect(response.body.data.meta.total).toBe(3);
+  });
+
+  it('enforces attachment authorization for linked business (PROFILE_AVATAR)', async () => {
+    const parseBodyAsBuffer = (res: NodeJS.ReadableStream, callback: (err: Error | null, body?: unknown) => void) => {
+      const chunks: Buffer[] = [];
+      res.on('data', (chunk: Buffer) => chunks.push(chunk));
+      res.on('end', () => callback(null, Buffer.concat(chunks)));
+    };
+
+    prismaMock.sysFile.findUnique.mockImplementation(({ where }: { where: { id: bigint } }) => {
+      if (where?.id !== BigInt(attachmentFixture.fileId)) return Promise.resolve(null);
+      return Promise.resolve({
+        id: BigInt(attachmentFixture.fileId),
+        storageKey: attachmentFixture.storageKey,
+        originalName: attachmentFixture.originalName,
+        uploadedBy: attachmentFixture.uploaderUserId,
+        isTemporary: false,
+        fileExt: 'txt',
+        mimeType: 'text/plain',
+      });
+    });
+
+    prismaMock.sysFileLink.findMany.mockResolvedValue([{ businessType: 'PROFILE_AVATAR', businessId: '4' }]);
+
+    const memberLogin = await loginAs(users.member.username);
+    const okDownload = await request(app.getHttpServer())
+      .get(`/api/attachments/${attachmentFixture.fileId}/download`)
+      .set('Authorization', `Bearer ${memberLogin.body.data.token}`)
+      .buffer(true)
+      .parse(parseBodyAsBuffer);
+
+    expect(okDownload.status).toBe(200);
+    expect(okDownload.headers['content-disposition']).toContain('attachment');
+    expect(Buffer.isBuffer(okDownload.body)).toBe(true);
+    expect((okDownload.body as Buffer).toString('utf8')).toBe(attachmentFixture.content);
+
+    const okPreview = await request(app.getHttpServer())
+      .get(`/api/attachments/${attachmentFixture.fileId}/preview`)
+      .set('Authorization', `Bearer ${memberLogin.body.data.token}`)
+      .buffer(true)
+      .parse(parseBodyAsBuffer);
+
+    expect(okPreview.status).toBe(200);
+    expect(okPreview.headers['content-type']).toContain('text/plain');
+    expect((okPreview.body as Buffer).toString('utf8')).toBe(attachmentFixture.content);
+
+    const ministerLogin = await loginAs(users.minister.username);
+    const denied = await request(app.getHttpServer())
+      .get(`/api/attachments/${attachmentFixture.fileId}/download`)
+      .set('Authorization', `Bearer ${ministerLogin.body.data.token}`);
+
+    expect(denied.status).toBe(403);
+  });
+
+  it('blocks deprecated /api/files/download endpoint', async () => {
+    const loginResponse = await loginAs(users.teacher.username);
+    const response = await request(app.getHttpServer())
+      .get('/api/files/download')
+      .query({ key: 'anything' })
+      .set('Authorization', `Bearer ${loginResponse.body.data.token}`);
+
+    expect(response.status).toBe(403);
+    expect(String(response.body.message || '')).toContain('Deprecated');
   });
 });

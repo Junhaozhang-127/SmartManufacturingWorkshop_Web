@@ -6,19 +6,21 @@ import { AuthGuard } from '@api/modules/auth/auth.guard';
 import {
   BadRequestException,
   Controller,
+  ForbiddenException,
   Get,
   Post,
   Query,
-  Res,
   UploadedFile,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import type { Response } from 'express';
+import type { CurrentUserProfile } from '@smw/shared';
+import { RoleCode } from '@smw/shared';
 import { diskStorage } from 'multer';
 
 import { ARCHIVE_MAX_BYTES } from '../attachments/attachments.constants';
+import { CurrentUser } from '../auth/auth.decorators';
 import { FileService } from './file.service';
 
 function buildTmpStorage() {
@@ -53,6 +55,7 @@ export class FileController {
   )
   async upload(
     @Query('bucket') bucket: string | undefined,
+    @CurrentUser() currentUser: CurrentUserProfile,
     @UploadedFile()
     file?: {
       originalname: string;
@@ -74,14 +77,18 @@ export class FileController {
       throw new BadRequestException('bucket 仅支持 funds / portal');
     }
 
+    if (targetBucket === 'portal') {
+      const roleCode = currentUser.activeRole.roleCode;
+      if (roleCode !== RoleCode.TEACHER && roleCode !== RoleCode.MINISTER) {
+        throw new ForbiddenException('浠呰€佸笀/閮ㄩ暱鍙笂浼?portal 璧勬簮');
+      }
+    }
+
     return this.fileService.saveUploadedDiskFile(file, targetBucket);
   }
 
   @Get('download')
-  async download(@Query('key') key: string, @Query('name') name: string | undefined, @Res() response: Response) {
-    const { stream, ensureExists } = this.fileService.createDownloadStream(key);
-    await ensureExists();
-    response.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(name || 'attachment')}`);
-    stream.pipe(response);
+  download() {
+    throw new ForbiddenException('Deprecated: use /attachments/:fileId/download');
   }
 }

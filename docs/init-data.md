@@ -1,47 +1,20 @@
-# 初始化数据与权限账号
+# 初始化数据（生产建议）
 
 ## 初始化步骤
 
 ```bash
 corepack pnpm db:generate
-corepack pnpm db:migrate:dev
+corepack pnpm db:migrate:deploy
 corepack pnpm db:seed
 ```
 
-## 种子数据内容
+## 首次管理员账号
 
-- 组织架构与基础角色
-- RBAC 权限与菜单
-- 审批模板
-- 示例成员、设备、耗材、经费账户、成果与考核方案
-- 演示通知与审批数据
+本项目不提供任何默认账号/默认密码。首次管理员账号由 `db:seed` 通过环境变量创建：
 
-## 默认账号
+- `SEED_ADMIN_USERNAME`：必填
+- `SEED_ADMIN_PASSWORD`：必填（至少 12 位）
+- `SEED_ADMIN_DISPLAY_NAME`：可选
+- `SEED_ADMIN_FORCE_PASSWORD_CHANGE`：可选（默认 `true`，首次登录强制改密）
 
-- `teacher01 / 123456`
-  角色：老师
-  范围：全局
-- `minister01 / 123456`
-  角色：部长
-  范围：部门级
-- `hybrid01 / 123456`
-  角色：部长、组长
-  用途：验证同一用户切换角色后的菜单、列表和待办差异
-- `member01 / 123456`
-  角色：成员
-  范围：本人参与
-- `intern01 / 123456`
-  角色：实习生
-  说明：首次登录后需修改密码
-
-## 权限验证建议
-
-- `teacher01`：验证老师查看组织架构、通知、晋升审批与经费总览
-- `hybrid01`：验证部长与组长角色切换后的数据范围差异
-- `member01`：验证最小权限与本人数据范围
-- `intern01`：验证首次登录改密流程
-
-## 注意
-
-- 以上账号仅用于开发测试环境
-- 若重置数据库，需要重新执行 `pnpm db:seed`
+建议在生产环境通过密钥管理系统注入上述变量，不要写入仓库或镜像层。

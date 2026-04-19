@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import { mount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { defineComponent, h } from 'vue';
@@ -108,27 +110,35 @@ describe('LoginPage', () => {
   });
 
   it('submits username and password and redirects to dashboard', async () => {
+    const username = `user_${randomUUID().slice(0, 8)}`;
+    const password = randomUUID();
+
     storeLogin.mockResolvedValue({
       forcePasswordChange: false,
     });
 
     const wrapper = mountPage();
-    await wrapper.findAll('input')[0]?.setValue('teacher01');
-    await wrapper.findAll('input')[1]?.setValue('123456');
+    await wrapper.findAll('input')[0]?.setValue(username);
+    await wrapper.findAll('input')[1]?.setValue(password);
     await wrapper.find('.login-card__submit').trigger('click');
 
     expect(storeLogin).toHaveBeenCalledWith({
-      username: 'teacher01',
-      password: '123456',
+      username,
+      password,
     });
     expect(messageSuccess).toHaveBeenCalledWith('登录成功');
     expect(routerPush).toHaveBeenCalledWith('/');
   });
 
   it('shows an error when login fails', async () => {
+    const username = `user_${randomUUID().slice(0, 8)}`;
+    const password = randomUUID();
+
     storeLogin.mockRejectedValue(new Error('Request failed with status code 500'));
 
     const wrapper = mountPage();
+    await wrapper.findAll('input')[0]?.setValue(username);
+    await wrapper.findAll('input')[1]?.setValue(password);
     await wrapper.find('.login-card__submit').trigger('click');
 
     expect(messageError).toHaveBeenCalledWith('Request failed with status code 500');

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { fetchPortalContentDetail, fetchPortalContentList, type PortalContentType } from '@web/api/portal';
+import IcpBeianFooter from '@web/components/layout/IcpBeianFooter.vue';
 import RichTextViewer from '@web/components/RichTextViewer.vue';
 import { ElMessage } from 'element-plus';
 import { computed, onMounted, reactive, ref, watch } from 'vue';
@@ -71,7 +72,8 @@ onMounted(load);
 </script>
 
 <template>
-  <div class="portal-showcase-page">
+  <div class="page-shell">
+    <div class="portal-showcase-page page-shell__content">
     <header class="portal-showcase-page__top">
       <div class="portal-showcase-page__top-inner">
         <div>
@@ -120,12 +122,14 @@ onMounted(load);
         <el-button @click="detailVisible = false">关闭</el-button>
       </template>
     </el-dialog>
+    </div>
+    <IcpBeianFooter />
   </div>
 </template>
 
 <style scoped>
 .portal-showcase-page {
-  min-height: 100vh;
+  min-height: 0;
   background: #f4f7fb;
 }
 

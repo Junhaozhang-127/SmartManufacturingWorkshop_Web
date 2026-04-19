@@ -64,11 +64,16 @@ async function main() {
     assert(health?.data?.dependencies?.database?.status === 'up', 'Database dependency is not up');
     console.log(`  database=${health.data.dependencies.database.status}`);
 
-    console.log('[2/7] Login with seed account teacher01');
+    const smokeUsername = process.env.SMOKE_LOGIN_USERNAME;
+    const smokePassword = process.env.SMOKE_LOGIN_PASSWORD;
+    assert(smokeUsername && smokeUsername.trim(), 'SMOKE_LOGIN_USERNAME is required for smoke login');
+    assert(smokePassword && smokePassword.trim(), 'SMOKE_LOGIN_PASSWORD is required for smoke login');
+
+    console.log('[2/7] Login with provided smoke credentials');
     const login = await requestJson(`${apiBaseUrl}/auth/login`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ username: 'teacher01', password: '123456' }),
+      body: JSON.stringify({ username: smokeUsername.trim(), password: smokePassword }),
     });
     const token = login?.data?.token;
     assert(token, 'Login did not return token');

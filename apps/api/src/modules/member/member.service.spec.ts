@@ -9,7 +9,7 @@ import { MemberService } from './member.service';
 describe('MemberService', () => {
   const currentUser: CurrentUserProfile = {
     id: '5',
-    username: 'member01',
+    username: 'user',
     displayName: '成员A',
     statusCode: 'ACTIVE',
     activeRole: {
@@ -67,7 +67,7 @@ describe('MemberService', () => {
       user: {
         id: 5n,
         displayName: '成员A',
-        username: 'member01',
+        username: 'user',
         userRoles: [],
       },
       orgUnit: {

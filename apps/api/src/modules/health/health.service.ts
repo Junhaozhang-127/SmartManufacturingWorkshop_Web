@@ -7,13 +7,18 @@ export class HealthService {
 
   async getHealth() {
     let databaseStatus: 'up' | 'down' = 'up';
-    let databaseMessage = 'Connected';
+    let databaseMessage: string | null = 'Connected';
 
     try {
       await this.prisma.$queryRaw`SELECT 1`;
     } catch (error) {
       databaseStatus = 'down';
       databaseMessage = error instanceof Error ? error.message : 'Unknown error';
+    }
+
+    const exposeDetails = process.env.NODE_ENV !== 'production' && process.env.HEALTH_EXPOSE_DETAILS === 'true';
+    if (!exposeDetails) {
+      databaseMessage = databaseStatus === 'up' ? 'Connected' : 'Unavailable';
     }
 
     return {
@@ -29,12 +34,9 @@ export class HealthService {
         },
         redis: {
           configured: Boolean(process.env.REDIS_HOST),
-          host: process.env.REDIS_HOST ?? null,
         },
         minio: {
           configured: Boolean(process.env.MINIO_ENDPOINT),
-          endpoint: process.env.MINIO_ENDPOINT ?? null,
-          bucket: process.env.MINIO_BUCKET ?? null,
         },
       },
     };

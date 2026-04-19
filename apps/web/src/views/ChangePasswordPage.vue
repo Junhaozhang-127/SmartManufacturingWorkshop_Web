@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import IcpBeianFooter from '@web/components/layout/IcpBeianFooter.vue';
 import { useAuthStore } from '@web/stores/auth';
 import { ElMessage } from 'element-plus';
 import { reactive, ref } from 'vue';
@@ -10,7 +11,7 @@ const router = useRouter();
 const loading = ref(false);
 
 const form = reactive({
-  currentPassword: '123456',
+  currentPassword: '',
   newPassword: '',
   confirmPassword: '',
 });
@@ -39,7 +40,8 @@ async function submit() {
 </script>
 
 <template>
-  <div class="password-page">
+  <div class="page-shell">
+    <div class="password-page page-shell__content">
     <section class="password-card">
       <p class="login-page__eyebrow">First Login Security</p>
       <h1>修改登录密码</h1>
@@ -47,20 +49,22 @@ async function submit() {
         {{ authStore.forcePasswordChange ? '当前账号为首次登录，修改密码后才可进入系统。' : '您可以在此更新登录密码。' }}
       </p>
 
-      <el-form label-position="top" @submit.prevent="submit">
+      <el-form label-position="top" autocomplete="off" @submit.prevent="submit">
         <el-form-item label="当前密码">
-          <el-input v-model="form.currentPassword" show-password type="password" />
+          <el-input v-model="form.currentPassword" autocomplete="off" name="current-password" show-password type="password" />
         </el-form-item>
         <el-form-item label="新密码">
-          <el-input v-model="form.newPassword" show-password type="password" />
+          <el-input v-model="form.newPassword" autocomplete="off" name="new-password" show-password type="password" />
         </el-form-item>
         <el-form-item label="确认新密码">
-          <el-input v-model="form.confirmPassword" show-password type="password" />
+          <el-input v-model="form.confirmPassword" autocomplete="off" name="confirm-password" show-password type="password" />
         </el-form-item>
         <el-button :loading="loading" class="login-card__submit" type="primary" @click="submit">
           提交修改
         </el-button>
       </el-form>
     </section>
+    </div>
+    <IcpBeianFooter />
   </div>
 </template>
