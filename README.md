@@ -64,6 +64,8 @@ pnpm build
 pnpm db:generate
 pnpm db:migrate:dev
 pnpm db:seed
+pnpm db:clear
+pnpm db:reset
 ```
 
 ## 默认测试账号

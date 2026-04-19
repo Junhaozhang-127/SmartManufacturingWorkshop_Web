@@ -6,6 +6,9 @@
   "engines": {
     "node": ">=22.0.0"
   },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
   "scripts": {
     "dev": "concurrently -k -n shared,ui,api,web -c cyan,magenta,yellow,green \"corepack pnpm --filter @smw/shared dev\" \"corepack pnpm --filter @smw/ui dev\" \"corepack pnpm --filter @smw/api dev\" \"corepack pnpm --filter @smw/web dev\"",
     "build": "corepack pnpm run build:packages && corepack pnpm --filter @smw/api build && corepack pnpm --filter @smw/web build",
@@ -18,6 +21,8 @@
     "db:generate": "prisma generate --schema ./prisma/schema.prisma",
     "db:migrate:dev": "prisma migrate dev --schema ./prisma/schema.prisma",
     "db:migrate:deploy": "prisma migrate deploy --schema ./prisma/schema.prisma",
+    "db:clear": "prisma migrate reset --schema ./prisma/schema.prisma --force --skip-seed",
+    "db:reset": "prisma migrate reset --schema ./prisma/schema.prisma --force",
     "db:seed": "tsx prisma/seed.ts",
     "prepare": "husky"
   },
