@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 import { PrismaService } from '@api/modules/prisma/prisma.service';
 import {
   BadRequestException,
@@ -9,6 +11,18 @@ import bcrypt from 'bcryptjs';
 
 import { AccessControlService } from './access-control.service';
 import { AccessTokenService } from './access-token.service';
+
+function isBcryptHash(value: string) {
+  return /^\$2[aby]\$/.test(value);
+}
+
+function isSha256Hex(value: string) {
+  return /^[a-f0-9]{64}$/i.test(value);
+}
+
+function sha256Hex(text: string) {
+  return createHash('sha256').update(text).digest('hex');
+}
 
 function assertStrongPassword(password: string) {
   if (password.length < 12) {
@@ -42,7 +56,20 @@ export class AuthService {
       throw new UnauthorizedException('账号不存在或已停用');
     }
 
-    const matched = await bcrypt.compare(payload.password, user.passwordHash);
+    const storedHash = String(user.passwordHash ?? '');
+    let matched = false;
+    let upgradedPasswordHash: string | null = null;
+
+    if (isBcryptHash(storedHash)) {
+      matched = await bcrypt.compare(payload.password, storedHash);
+    } else if (isSha256Hex(storedHash)) {
+      matched = sha256Hex(payload.password).toLowerCase() === storedHash.toLowerCase();
+      if (matched) {
+        upgradedPasswordHash = await bcrypt.hash(payload.password, 10);
+      }
+    } else {
+      matched = await bcrypt.compare(payload.password, storedHash);
+    }
 
     if (!matched) {
       throw new UnauthorizedException('账号或密码错误');
@@ -55,6 +82,7 @@ export class AuthService {
       where: { id: user.id },
       data: {
         lastLoginAt: new Date(),
+        ...(upgradedPasswordHash ? { passwordHash: upgradedPasswordHash } : {}),
       },
     });
 

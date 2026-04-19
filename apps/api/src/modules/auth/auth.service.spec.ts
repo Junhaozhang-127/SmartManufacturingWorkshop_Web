@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { type CurrentUserProfile, DataScope, MemberStatus, RoleCode } from '@smw/shared';
@@ -243,6 +243,32 @@ describe('AuthService', () => {
       token: 'signed-token',
       user: builtProfile,
     });
+  });
+
+  it('logs in with sha256 imported password hash and upgrades to bcrypt', async () => {
+    const sha256Hash = createHash('sha256').update(samplePassword).digest('hex');
+    const { service, prisma } = createService({
+      loginUser: createUser({ passwordHash: sha256Hash }),
+    });
+
+    const compareSpy = jest.spyOn(bcrypt, 'compare');
+    jest.spyOn(bcrypt, 'hash').mockImplementation(() => Promise.resolve('upgraded-hash'));
+
+    await service.login({
+      username: sampleUsername,
+      password: samplePassword,
+    });
+
+    expect(compareSpy).not.toHaveBeenCalled();
+    expect(prisma.sysUser.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 1n },
+        data: expect.objectContaining({
+          lastLoginAt: expect.any(Date),
+          passwordHash: 'upgraded-hash',
+        }),
+      }),
+    );
   });
 
   it('falls back to MEMBER when the user has no roles during login', async () => {
