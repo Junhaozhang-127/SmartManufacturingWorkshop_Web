@@ -1,4 +1,5 @@
 export enum RoleCode {
+  SUPER_ADMIN = 'SUPER_ADMIN',
   TEACHER = 'TEACHER',
   MINISTER = 'MINISTER',
   GROUP_LEADER = 'GROUP_LEADER',
@@ -154,6 +155,7 @@ const groupLeaderManagementPermissions: PermissionCode[] = managementPermissions
 );
 
 export const RolePermissionMap: Record<RoleCode, PermissionCode[]> = {
+  [RoleCode.SUPER_ADMIN]: Object.values(PermissionCodes) as PermissionCode[],
   [RoleCode.TEACHER]: [
     PermissionCodes.authLogin,
     PermissionCodes.authSwitchRole,
@@ -263,6 +265,7 @@ export const RolePermissionMap: Record<RoleCode, PermissionCode[]> = {
 };
 
 export const RoleDataScopeMap: Record<RoleCode, DataScope> = {
+  [RoleCode.SUPER_ADMIN]: DataScope.ALL,
   [RoleCode.TEACHER]: DataScope.ALL,
   [RoleCode.MINISTER]: DataScope.DEPT_PROJECT,
   [RoleCode.GROUP_LEADER]: DataScope.GROUP_PROJECT,

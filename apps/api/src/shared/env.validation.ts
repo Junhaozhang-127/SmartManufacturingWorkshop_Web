@@ -6,7 +6,12 @@ const envSchema = z.object({
   APP_PORT: z.coerce.number().default(3000),
   APP_BASE_URL: z.string().default('http://localhost:3000'),
   API_PREFIX: z.string().default('api'),
-  DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
+  DATABASE_URL: z
+    .string()
+    .min(1, 'DATABASE_URL is required')
+    .refine((value) => !value.includes('<user>') && !value.includes('<password>') && !value.includes('<database>'), {
+      message: 'DATABASE_URL contains placeholders; please replace <user>/<password>/<database> in .env',
+    }),
   AUTH_TOKEN_SECRET: z.string().min(16, 'AUTH_TOKEN_SECRET must be at least 16 chars'),
   AUTH_TOKEN_TTL_SECONDS: z.coerce.number().default(28800),
   CORS_ALLOWED_ORIGINS: z.string().optional(),

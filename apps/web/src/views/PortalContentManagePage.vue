@@ -24,7 +24,7 @@ type ManageTab = 'CAROUSEL' | PortalContentType | 'CONTACT';
 
 const authStore = useAuthStore();
 const router = useRouter();
-const canManage = computed(() => [RoleCode.TEACHER, RoleCode.MINISTER].includes(authStore.activeRoleCode ?? RoleCode.MEMBER));
+const canManage = computed(() => [RoleCode.SUPER_ADMIN, RoleCode.TEACHER, RoleCode.MINISTER].includes(authStore.activeRoleCode ?? RoleCode.MEMBER));
 
 const activeTab = ref<ManageTab>('CAROUSEL');
 

@@ -131,6 +131,7 @@ export class SystemService {
     const email = payload.email?.trim() || null;
     const studentNo = payload.studentNo?.trim() || null;
 
+    const shouldUpdateAvatar = payload.avatarStorageKey !== undefined || payload.avatarFileName !== undefined;
     const avatarStorageKey = payload.avatarStorageKey?.trim() || null;
     const avatarFileName = payload.avatarFileName?.trim() || null;
 
@@ -142,12 +143,11 @@ export class SystemService {
           mobile,
           email,
           studentNo,
-          avatarStorageKey,
-          avatarFileName,
+          ...(shouldUpdateAvatar ? { avatarStorageKey, avatarFileName } : {}),
         },
       });
 
-      if (avatarStorageKey) {
+      if (shouldUpdateAvatar && avatarStorageKey) {
         const file = await tx.sysFile.findFirst({
           where: { storageKey: avatarStorageKey },
           select: { id: true },

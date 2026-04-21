@@ -28,6 +28,7 @@ export function resolveAuthNavigation(
   const meta = readMeta(to as RouteLocationNormalized);
   const requiresAuth = meta.requiresAuth !== false;
   const needsPasswordBypass = meta.allowFirstLoginBypass === true;
+  const isSuperAdmin = auth.activeRoleCode === 'SUPER_ADMIN';
 
   if (!requiresAuth) {
     if (to.path === '/login' && auth.isAuthenticated && !auth.forcePasswordChange) {
@@ -59,11 +60,11 @@ export function resolveAuthNavigation(
     };
   }
 
-  if (meta.roles?.length && (!auth.activeRoleCode || !meta.roles.includes(auth.activeRoleCode))) {
+  if (!isSuperAdmin && meta.roles?.length && (!auth.activeRoleCode || !meta.roles.includes(auth.activeRoleCode))) {
     return { path: '/' };
   }
 
-  if (meta.permissions?.length && !meta.permissions.every((permission) => auth.permissions.includes(permission))) {
+  if (!isSuperAdmin && meta.permissions?.length && !meta.permissions.every((permission) => auth.permissions.includes(permission))) {
     return { path: '/' };
   }
 

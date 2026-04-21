@@ -20,7 +20,8 @@ import {
   User,
   UserFilled,
 } from '@element-plus/icons-vue';
-import { computed } from 'vue';
+import { useHomeNavigation } from '@web/composables/useHomeNavigation';
+import { computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import BreadcrumbBar from '../components/layout/BreadcrumbBar.vue';
@@ -33,6 +34,8 @@ import { useAuthStore } from '../stores/auth';
 const authStore = useAuthStore();
 const route = useRoute();
 const router = useRouter();
+const { goHome } = useHomeNavigation();
+const mobileMenuOpen = ref(false);
 
 const iconMap = {
   Bell,
@@ -83,19 +86,20 @@ const defaultOpeneds = computed(() => findOpenKeys(menuItems.value, activeMenuPa
 
 async function navigate(path: string) {
   await router.push(path);
+  mobileMenuOpen.value = false;
 }
 </script>
 
 <template>
   <div class="admin-layout">
     <aside class="sidebar">
-      <div class="sidebar__brand">
+      <button type="button" class="sidebar__brand sidebar__brand-button" @click="goHome">
         <span class="sidebar__brand-mark">SMW</span>
         <div>
           <strong>Lab Admin</strong>
           <p>{{ authStore.activeRole?.roleName || '未登录' }}</p>
         </div>
-      </div>
+      </button>
       <el-menu
         :key="activeMenuPath"
         :default-active="activeMenuPath"
@@ -137,7 +141,7 @@ async function navigate(path: string) {
       </el-menu>
     </aside>
     <main class="main-shell">
-      <TopBar />
+      <TopBar @toggle-menu="mobileMenuOpen = true" />
       <div class="content-shell">
         <div class="content-shell__header">
           <BreadcrumbBar />
@@ -148,6 +152,55 @@ async function navigate(path: string) {
       </div>
       <IcpBeianFooter />
     </main>
+    <el-drawer
+      v-model="mobileMenuOpen"
+      :with-header="false"
+      direction="ltr"
+      size="78%"
+      class="mobile-menu-drawer"
+    >
+      <button type="button" class="mobile-menu__brand" @click="mobileMenuOpen = false; goHome()">
+        <span class="sidebar__brand-mark">SMW</span>
+        <div class="mobile-menu__brand-text">
+          <strong>Lab Admin</strong>
+          <p>{{ authStore.activeRole?.roleName || '未登录' }}</p>
+        </div>
+      </button>
+      <el-menu
+        :key="activeMenuPath"
+        :default-active="activeMenuPath"
+        :default-openeds="defaultOpeneds"
+        class="mobile-menu__menu"
+      >
+        <template v-for="item in menuItems" :key="item.key">
+          <el-sub-menu v-if="item.children?.length" :index="item.key">
+            <template #title>
+              <el-icon v-if="item.icon">
+                <component :is="iconMap[item.icon as keyof typeof iconMap]" />
+              </el-icon>
+              <span>{{ item.label }}</span>
+            </template>
+            <el-menu-item
+              v-for="child in item.children"
+              :key="child.key"
+              :index="child.path"
+              @click="navigate(child.path)"
+            >
+              <el-icon v-if="child.icon">
+                <component :is="iconMap[child.icon as keyof typeof iconMap]" />
+              </el-icon>
+              <span>{{ child.label }}</span>
+            </el-menu-item>
+          </el-sub-menu>
+          <el-menu-item v-else :key="item.key" :index="item.path" @click="navigate(item.path)">
+            <el-icon v-if="item.icon">
+              <component :is="iconMap[item.icon as keyof typeof iconMap]" />
+            </el-icon>
+            <span>{{ item.label }}</span>
+          </el-menu-item>
+        </template>
+      </el-menu>
+    </el-drawer>
     <GlobalDrawerHost />
   </div>
 </template>

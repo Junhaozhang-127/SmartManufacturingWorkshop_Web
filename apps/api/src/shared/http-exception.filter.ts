@@ -29,26 +29,38 @@ export class HttpExceptionFilter implements ExceptionFilter {
         ? HttpStatus.SERVICE_UNAVAILABLE
         : HttpStatus.INTERNAL_SERVER_ERROR;
 
-    const message = exception instanceof HttpException
-      ? exception.message
-      : isDatabaseUnavailable
-        ? '数据库连接失败，请确认 MySQL 服务已启动且 DATABASE_URL 配置正确'
-        : isDatabaseRequestError || isDatabaseValidationError
-          ? '数据库请求失败，请检查初始化数据和表结构'
-          : 'Internal server error';
+    const message = (() => {
+      if (exception instanceof HttpException) {
+        const payload = exception.getResponse();
+        if (typeof payload === 'string') return payload;
+        if (payload && typeof payload === 'object' && 'message' in payload) {
+          const maybeMessage = (payload as { message?: unknown }).message;
+          if (Array.isArray(maybeMessage)) return maybeMessage.join('；');
+          if (typeof maybeMessage === 'string' && maybeMessage.trim()) return maybeMessage;
+        }
+        return exception.message;
+      }
 
-    const code =
-      status === HttpStatus.UNAUTHORIZED
-        ? StatusCode.UNAUTHORIZED
-        : status === HttpStatus.FORBIDDEN
-          ? StatusCode.FORBIDDEN
-          : status === HttpStatus.NOT_FOUND
-            ? StatusCode.NOT_FOUND
-            : status === HttpStatus.BAD_REQUEST
-              ? StatusCode.BAD_REQUEST
-              : status === HttpStatus.SERVICE_UNAVAILABLE
-                ? StatusCode.INTERNAL_ERROR
-                : StatusCode.INTERNAL_ERROR;
+      if (isDatabaseUnavailable) {
+        return '数据库连接失败，请确认 MySQL 服务已启动且 DATABASE_URL 配置正确';
+      }
+
+      if (isDatabaseRequestError || isDatabaseValidationError) {
+        return '数据库请求失败，请检查初始化数据和表结构';
+      }
+
+      return 'Internal server error';
+    })();
+
+    const code = (() => {
+      if (status === HttpStatus.UNAUTHORIZED) return StatusCode.UNAUTHORIZED;
+      if (status === HttpStatus.FORBIDDEN) return StatusCode.FORBIDDEN;
+      if (status === HttpStatus.NOT_FOUND) return StatusCode.NOT_FOUND;
+      if (status === HttpStatus.BAD_REQUEST) return StatusCode.BAD_REQUEST;
+      if (status === HttpStatus.UNPROCESSABLE_ENTITY) return StatusCode.VALIDATION_ERROR;
+      if (status === HttpStatus.SERVICE_UNAVAILABLE) return StatusCode.SERVICE_UNAVAILABLE;
+      return StatusCode.INTERNAL_ERROR;
+    })();
 
     response.status(status);
     response.json({

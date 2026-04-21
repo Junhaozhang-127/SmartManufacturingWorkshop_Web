@@ -18,8 +18,8 @@ import {
 import AttachmentUploader from '@web/components/attachments/AttachmentUploader.vue';
 import RichTextEditor from '@web/components/RichTextEditor.vue';
 import { ElMessage, ElMessageBox, type UploadRequestOptions } from 'element-plus';
-import { computed, nextTick, onMounted, reactive, ref } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
+import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router';
 
 const router = useRouter();
 const route = useRoute();
@@ -33,6 +33,8 @@ const bodyTextLength = ref(0);
 const contentId = ref<string | null>(null);
 const detail = ref<Awaited<ReturnType<typeof fetchCreationDetail>>['data'] | null>(null);
 const attachments = ref<AttachmentItem[]>([]);
+const createdDraftHere = ref(false);
+const lastSavedSnapshot = ref('');
 
 const CREATION_ATTACHMENT_USAGE_TYPE = 'CREATION_ATTACHMENT';
 const CREATION_BUSINESS_TYPE = 'CREATION_CONTENT';
@@ -98,6 +100,47 @@ function getBodyTextLength(value: string) {
     .length;
 }
 
+function buildSnapshot() {
+  return JSON.stringify({
+    title: form.title,
+    summary: form.summary,
+    body: form.body,
+    coverStorageKey: form.coverStorageKey,
+    coverFileName: form.coverFileName,
+    coverUrl: form.coverUrl,
+    attachmentIds: attachments.value.map((item) => item.fileId).sort(),
+    statusCode: detail.value?.statusCode ?? null,
+  });
+}
+
+function markSnapshotSaved() {
+  lastSavedSnapshot.value = buildSnapshot();
+}
+
+function markCoverSaved() {
+  try {
+    const snapshot = JSON.parse(lastSavedSnapshot.value || '{}') as Record<string, unknown>;
+    snapshot.coverStorageKey = form.coverStorageKey;
+    snapshot.coverFileName = form.coverFileName;
+    snapshot.coverUrl = form.coverUrl;
+    lastSavedSnapshot.value = JSON.stringify(snapshot);
+  } catch {
+    markSnapshotSaved();
+  }
+}
+
+function markAttachmentsSaved() {
+  try {
+    const snapshot = JSON.parse(lastSavedSnapshot.value || '{}') as Record<string, unknown>;
+    snapshot.attachmentIds = attachments.value.map((item) => item.fileId).sort();
+    lastSavedSnapshot.value = JSON.stringify(snapshot);
+  } catch {
+    markSnapshotSaved();
+  }
+}
+
+const isDirty = computed(() => lastSavedSnapshot.value !== buildSnapshot());
+
 function statusLabel(status: string | null | undefined) {
   switch (status) {
     case 'DRAFT':
@@ -138,6 +181,7 @@ async function load(id: string) {
       usageType: CREATION_ATTACHMENT_USAGE_TYPE,
     });
     attachments.value = attachmentResponse.data;
+    markSnapshotSaved();
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '内容加载失败');
     attachments.value = [];
@@ -150,6 +194,7 @@ async function ensureDraft() {
   const idParam = route.params.id;
   const id = typeof idParam === 'string' ? idParam : null;
   if (id) {
+    createdDraftHere.value = false;
     await load(id);
     return;
   }
@@ -157,8 +202,12 @@ async function ensureDraft() {
   loading.value = true;
   try {
     const response = await createCreationDraft();
+    const createdId = response.data.id;
+    contentId.value = createdId;
+    createdDraftHere.value = true;
     await nextTick();
-    await router.replace(`/creation/${response.data.id}/edit`);
+    await router.replace(`/creation/${createdId}/edit`);
+    await load(createdId);
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '新建草稿失败');
   } finally {
@@ -214,8 +263,10 @@ async function submit() {
 }
 
 async function handleUpload(option: UploadRequestOptions) {
-  if (!contentId.value) {
-    ElMessage.error('Please save the draft before uploading the cover.');
+  const id = contentId.value;
+  if (!id) {
+    ElMessage.error('草稿尚未就绪，请稍后再上传封面');
+    option.onError?.(Object.assign(new Error('Draft not ready'), { status: 400, method: 'POST', url: '/creation/cover' }));
     return;
   }
   try {
@@ -223,9 +274,23 @@ async function handleUpload(option: UploadRequestOptions) {
     form.coverStorageKey = response.data.storageKey || '';
     form.coverFileName = response.data.originalName || '';
     form.coverUrl = response.data.previewUrl || response.data.downloadUrl || '';
-    ElMessage.success('封面已上传');
+
+    await updateCreationContent(id, {
+      coverStorageKey: form.coverStorageKey || undefined,
+      coverFileName: form.coverFileName || undefined,
+    });
+    markCoverSaved();
+    ElMessage.success('封面已上传并保存');
+    option.onSuccess?.(response.data);
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '封面上传失败');
+    option.onError?.(
+      Object.assign(error instanceof Error ? error : new Error('Upload failed'), {
+        status: 500,
+        method: 'POST',
+        url: '/creation/cover',
+      }),
+    );
   }
 }
 
@@ -319,6 +384,66 @@ async function removeDraft() {
     deleting.value = false;
   }
 }
+
+function isEffectivelyEmptyDraft() {
+  const title = (form.title ?? '').trim();
+  const summary = (form.summary ?? '').trim();
+  const bodyLen = getBodyTextLength(form.body ?? '');
+  const hasCover = Boolean(form.coverStorageKey?.trim());
+  const hasAttachments = attachments.value.length > 0;
+
+  const titleIsDefault = !title || title === '未命名';
+  return titleIsDefault && !summary && bodyLen === 0 && !hasCover && !hasAttachments;
+}
+
+onBeforeRouteLeave(async () => {
+  const id = contentId.value;
+  if (!id) return true;
+
+  if (!isDirty.value) {
+    if (createdDraftHere.value && isEffectivelyEmptyDraft()) {
+      await deleteCreationDraft(id).catch(() => undefined);
+    }
+    return true;
+  }
+
+  try {
+    await ElMessageBox.confirm('草稿尚未保存，是否保存后离开？', '离开提示', {
+      type: 'warning',
+      confirmButtonText: '保存并离开',
+      cancelButtonText: '不保存离开',
+      distinguishCancelAndClose: true,
+    });
+
+    await save();
+    return !isDirty.value;
+  } catch (action) {
+    if (action === 'cancel') {
+      if (createdDraftHere.value) {
+        await deleteCreationDraft(id).catch(() => undefined);
+      }
+      return true;
+    }
+    return false;
+  }
+});
+
+watch(
+  () => attachments.value.map((item) => item.fileId).join(','),
+  () => {
+    if (!contentId.value) return;
+    markAttachmentsSaved();
+  },
+);
+
+watch(
+  () => route.params.id,
+  (nextId) => {
+    if (typeof nextId === 'string' && nextId && nextId !== contentId.value) {
+      void load(nextId);
+    }
+  },
+);
 
 onMounted(() => {
   void ensureDraft();
@@ -430,6 +555,17 @@ onMounted(() => {
 
 .attachment-help {
   margin: 8px 0 0;
+}
+
+@media (max-width: 640px) {
+  .upload-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .upload-preview {
+    width: min(100%, 240px);
+  }
 }
 </style>
 

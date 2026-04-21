@@ -471,7 +471,10 @@ describe('App e2e', () => {
   });
 
   it('enforces attachment authorization for linked business (PROFILE_AVATAR)', async () => {
-    const parseBodyAsBuffer = (res: NodeJS.ReadableStream, callback: (err: Error | null, body?: unknown) => void) => {
+    const parseBodyAsBuffer = (
+      res: NodeJS.ReadableStream,
+      callback: (err: Error | null, body?: Buffer) => void,
+    ) => {
       const chunks: Buffer[] = [];
       res.on('data', (chunk: Buffer) => chunks.push(chunk));
       res.on('end', () => callback(null, Buffer.concat(chunks)));

@@ -1,11 +1,18 @@
 <script setup lang="ts">
+import { Menu } from '@element-plus/icons-vue';
 import { fetchNotifications } from '@web/api/system';
+import { useHomeNavigation } from '@web/composables/useHomeNavigation';
 import { useAuthStore } from '@web/stores/auth';
 import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
+const emit = defineEmits<{
+  'toggle-menu': [];
+}>();
+
 const authStore = useAuthStore();
 const router = useRouter();
+const { goHome } = useHomeNavigation();
 const unreadCount = ref(0);
 
 async function goNotifications() {
@@ -33,9 +40,19 @@ onMounted(() => {
 
 <template>
   <header class="topbar">
-    <div>
-      <p class="topbar__eyebrow">智能制造工坊</p>
-      <h1 class="topbar__title">实验室管理系统</h1>
+    <div class="topbar__left">
+      <el-button
+        class="topbar__menu-btn"
+        circle
+        plain
+        :icon="Menu"
+        aria-label="打开菜单"
+        @click="emit('toggle-menu')"
+      />
+      <button type="button" class="topbar__brand" @click="goHome">
+        <p class="topbar__eyebrow">智能制造工坊</p>
+        <h1 class="topbar__title">实验室管理系统</h1>
+      </button>
     </div>
     <div class="topbar__actions">
       <div class="topbar__identity">

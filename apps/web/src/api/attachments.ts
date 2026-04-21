@@ -24,11 +24,8 @@ export async function uploadAttachment(file: File) {
   const formData = new FormData();
   formData.append('file', file);
 
-  return http.post<never, { data: AttachmentItem }>('/attachments/upload', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  });
+  // Let the browser/axios set the multipart boundary automatically.
+  return http.post<never, { data: AttachmentItem }>('/attachments/upload', formData);
 }
 
 export async function uploadAttachmentWithProgress(
@@ -41,9 +38,6 @@ export async function uploadAttachmentWithProgress(
   formData.append('file', file);
 
   return http.post<never, { data: AttachmentItem }>('/attachments/upload', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
     onUploadProgress: options?.onUploadProgress,
   });
 }

@@ -3,6 +3,7 @@ import { ArrowRight } from '@element-plus/icons-vue';
 import { fetchPortalContact, fetchPortalContentDetail, fetchPortalHome, type PortalContactResponse, type PortalHomeResponse } from '@web/api/portal';
 import IcpBeianFooter from '@web/components/layout/IcpBeianFooter.vue';
 import RichTextViewer from '@web/components/RichTextViewer.vue';
+import { useHomeNavigation } from '@web/composables/useHomeNavigation';
 import { ElMessage } from 'element-plus';
 import { computed, nextTick, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
@@ -10,6 +11,7 @@ import { useRouter } from 'vue-router';
 type PortalNavKey = 'achievements' | 'competitions' | 'members' | 'contact';
 
 const router = useRouter();
+const { goHome } = useHomeNavigation();
 const activeNav = ref<PortalNavKey>('achievements');
 
 const navItems: Array<{ key: PortalNavKey; label: string; anchor: string }> = [
@@ -43,6 +45,24 @@ const detail = ref<Awaited<ReturnType<typeof fetchPortalContentDetail>>['data'] 
 const canScrollSmoothly = computed(
   () => typeof window !== 'undefined' && 'scrollBehavior' in document.documentElement.style,
 );
+
+const lastErrorToast = {
+  message: '',
+  timestamp: 0,
+};
+
+function toastError(error: unknown, fallbackMessage: string) {
+  const message = error instanceof Error ? error.message : fallbackMessage;
+  const now = Date.now();
+
+  if (message && message === lastErrorToast.message && now - lastErrorToast.timestamp < 2000) {
+    return;
+  }
+
+  lastErrorToast.message = message;
+  lastErrorToast.timestamp = now;
+  ElMessage.error(message);
+}
 
 function goLogin() {
   router.push('/login');
@@ -86,7 +106,7 @@ async function openContentDetail(id: string) {
     const response = await fetchPortalContentDetail(id);
     detail.value = response.data;
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '内容加载失败');
+    toastError(error, '内容加载失败');
     detailVisible.value = false;
   } finally {
     detailLoading.value = false;
@@ -99,7 +119,7 @@ async function loadHome() {
     const response = await fetchPortalHome();
     homeData.value = response.data;
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '首页数据加载失败');
+    toastError(error, '首页数据加载失败');
   } finally {
     loadingHome.value = false;
   }
@@ -111,7 +131,7 @@ async function loadContact() {
     const response = await fetchPortalContact();
     contactData.value = response.data;
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '联系我们信息加载失败');
+    toastError(error, '联系我们信息加载失败');
   } finally {
     loadingContact.value = false;
   }
@@ -128,10 +148,10 @@ onMounted(() => {
     <div class="portal-page page-shell__content">
     <header class="topbar portal-topbar">
       <div class="portal-topbar__inner">
-        <div class="portal-topbar__brand">
+        <button type="button" class="portal-topbar__brand portal-topbar__brand-button" @click="goHome">
           <p class="topbar__eyebrow">智能制造工作坊</p>
           <h1 class="topbar__title">门户首页</h1>
-        </div>
+        </button>
 
         <div class="portal-topbar__actions">
           <el-button type="primary" @click="goLogin">登录</el-button>
@@ -441,6 +461,22 @@ onMounted(() => {
   gap: 0.75rem;
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+
+.portal-topbar__brand-button {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.portal-topbar__brand-button:focus-visible {
+  outline: 2px solid rgba(15, 76, 129, 0.55);
+  outline-offset: 6px;
+  border-radius: 0.75rem;
 }
 
 .portal-nav {
