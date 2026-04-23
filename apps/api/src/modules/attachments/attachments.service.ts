@@ -37,6 +37,33 @@ export class AttachmentsService {
     return BigInt(value);
   }
 
+  private async appendOperationLog(
+    tx: Prisma.TransactionClient,
+    payload: {
+      fileId: bigint;
+      actionType: string;
+      businessType?: string | null;
+      businessId?: string | null;
+      usageType?: string | null;
+      operatorUserId?: bigint | null;
+      description?: string | null;
+      extraData?: Prisma.InputJsonValue;
+    },
+  ) {
+    await tx.sysFileOperationLog.create({
+      data: {
+        fileId: payload.fileId,
+        actionType: payload.actionType,
+        businessType: payload.businessType ?? null,
+        businessId: payload.businessId ?? null,
+        usageType: payload.usageType ?? null,
+        operatorUserId: payload.operatorUserId ?? null,
+        description: payload.description ?? null,
+        extraData: payload.extraData ?? undefined,
+      },
+    });
+  }
+
   private buildDownloadUrl(fileId: string, fileName?: string | null) {
     const apiPrefix = process.env.API_PREFIX ?? 'api';
     const query = new URLSearchParams();
@@ -48,6 +75,44 @@ export class AttachmentsService {
   private buildPreviewUrl(fileId: string) {
     const apiPrefix = process.env.API_PREFIX ?? 'api';
     return `/${apiPrefix}/attachments/${encodeURIComponent(fileId)}/preview`;
+  }
+
+  private normalizeNamePart(value: string) {
+    const normalized = value.trim().replace(/[^\w\u4e00-\u9fa5]+/g, '_');
+    return (normalized || '附件').slice(0, 60);
+  }
+
+  private formatDownloadTimestamp(date: Date) {
+    return date
+      .toISOString()
+      .replaceAll('-', '')
+      .replaceAll(':', '')
+      .replace('T', '')
+      .replace('Z', '')
+      .slice(0, 14);
+  }
+
+  private buildNormalizedDownloadName(params: {
+    businessType: string;
+    businessName: string;
+    createdAt: Date;
+    ext: string;
+  }) {
+    const name = this.normalizeNamePart(params.businessName);
+    const time = this.formatDownloadTimestamp(params.createdAt);
+    const ext = params.ext ? `.${params.ext}` : '';
+    return `${params.businessType}_${name}_${time}${ext}`.slice(0, 200);
+  }
+
+  private async resolveBusinessNameForDownload(businessType: string, businessId: string) {
+    if (businessType === 'COMPETITION') {
+      const record = await this.prisma.compCompetition.findFirst({
+        where: { id: this.toBigInt(businessId), isDeleted: false },
+        select: { name: true },
+      });
+      return record?.name ?? null;
+    }
+    return null;
   }
 
   private resolvePreviewContentType(file: { mimeType: string | null; fileExt: string }) {
@@ -143,8 +208,14 @@ export class AttachmentsService {
   ) {
     await this.authz.assertCanViewBusiness(currentUser, { businessType: params.businessType, businessId: params.businessId });
 
+    const businessName = await this.resolveBusinessNameForDownload(params.businessType, params.businessId);
     const links = await this.prisma.sysFileLink.findMany({
-      where: { businessType: params.businessType, businessId: params.businessId, usageType: params.usageType },
+      where: {
+        businessType: params.businessType,
+        businessId: params.businessId,
+        usageType: params.usageType,
+        file: { isDeleted: false },
+      },
       include: {
         file: {
           include: {
@@ -166,7 +237,21 @@ export class AttachmentsService {
       uploadedBy: String(link.file.uploadedBy),
       uploadedByName: link.file.uploader.displayName,
       createdAt: link.file.createdAt.toISOString(),
-      downloadUrl: this.buildDownloadUrl(String(link.fileId), link.file.originalName),
+      downloadName: this.buildNormalizedDownloadName({
+        businessType: params.businessType,
+        businessName: businessName ?? link.file.originalName.replace(/\.[^.]+$/, ''),
+        createdAt: link.createdAt,
+        ext: link.file.fileExt || normalizeExt(link.file.originalName),
+      }),
+      downloadUrl: this.buildDownloadUrl(
+        String(link.fileId),
+        this.buildNormalizedDownloadName({
+          businessType: params.businessType,
+          businessName: businessName ?? link.file.originalName.replace(/\.[^.]+$/, ''),
+          createdAt: link.createdAt,
+          ext: link.file.fileExt || normalizeExt(link.file.originalName),
+        }),
+      ),
       previewUrl: link.file.fileCategory === 'IMAGE' ? this.buildPreviewUrl(String(link.fileId)) : null,
     }));
   }
@@ -183,7 +268,7 @@ export class AttachmentsService {
     }
 
     const files = await this.prisma.sysFile.findMany({
-      where: { id: { in: normalizedFileIds.map((id) => this.toBigInt(id)) } },
+      where: { id: { in: normalizedFileIds.map((id) => this.toBigInt(id)) }, isDeleted: false },
       select: { id: true, uploadedBy: true, isTemporary: true },
     });
 
@@ -227,13 +312,37 @@ export class AttachmentsService {
   ) {
     await this.authz.assertCanEditBusinessAttachments(currentUser, { businessType: params.businessType, businessId: params.businessId });
 
-    await this.prisma.sysFileLink.deleteMany({
-      where: {
+    const fileIdBigInt = this.toBigInt(params.fileId);
+    await this.prisma.$transaction(async (tx) => {
+      await tx.sysFileLink.deleteMany({
+        where: {
+          businessType: params.businessType,
+          businessId: params.businessId,
+          usageType: params.usageType,
+          fileId: fileIdBigInt,
+        },
+      });
+
+      await this.appendOperationLog(tx, {
+        fileId: fileIdBigInt,
+        actionType: 'DELETE',
         businessType: params.businessType,
         businessId: params.businessId,
         usageType: params.usageType,
-        fileId: this.toBigInt(params.fileId),
-      },
+        operatorUserId: this.toBigInt(currentUser.id),
+      });
+
+      const remaining = await tx.sysFileLink.count({ where: { fileId: fileIdBigInt } });
+      if (remaining === 0) {
+        await tx.sysFile.updateMany({
+          where: { id: fileIdBigInt, isDeleted: false },
+          data: {
+            isDeleted: true,
+            deletedAt: new Date(),
+            deletedBy: this.toBigInt(currentUser.id),
+          },
+        });
+      }
     });
 
     return null;
@@ -244,6 +353,7 @@ export class AttachmentsService {
       where: {
         uploadedBy: this.toBigInt(currentUser.id),
         isTemporary: true,
+        isDeleted: false,
       },
       orderBy: { createdAt: 'desc' },
       take: 50,
@@ -267,9 +377,9 @@ export class AttachmentsService {
   async deleteMyTempFile(currentUser: CurrentUserProfile, fileId: string) {
     const file = await this.prisma.sysFile.findUnique({
       where: { id: this.toBigInt(fileId) },
-      select: { id: true, storageKey: true, uploadedBy: true, isTemporary: true },
+      select: { id: true, uploadedBy: true, isTemporary: true, isDeleted: true },
     });
-    if (!file) throw new NotFoundException('临时文件不存在');
+    if (!file || file.isDeleted) throw new NotFoundException('临时文件不存在');
     this.authz.assertCanViewTempFile(currentUser, file);
 
     const link = await this.prisma.sysFileLink.findFirst({
@@ -280,8 +390,23 @@ export class AttachmentsService {
       throw new BadRequestException('文件已绑定业务，不能删除');
     }
 
-    await this.prisma.sysFile.delete({ where: { id: file.id } });
-    await this.removePhysicalFile(file.storageKey);
+    await this.prisma.$transaction(async (tx) => {
+      await tx.sysFile.update({
+        where: { id: file.id },
+        data: {
+          isDeleted: true,
+          deletedAt: new Date(),
+          deletedBy: this.toBigInt(currentUser.id),
+        },
+      });
+
+      await this.appendOperationLog(tx, {
+        fileId: file.id,
+        actionType: 'DELETE',
+        operatorUserId: this.toBigInt(currentUser.id),
+        description: 'Delete temp file (move to recycle bin).',
+      });
+    });
     return null;
   }
 
@@ -292,8 +417,8 @@ export class AttachmentsService {
 
     const now = new Date();
     const files = await this.prisma.sysFile.findMany({
-      where: { isTemporary: true, expiresAt: { lt: now } },
-      select: { id: true, storageKey: true },
+      where: { isTemporary: true, expiresAt: { lt: now }, isDeleted: false },
+      select: { id: true },
       take: 200,
     });
 
@@ -302,8 +427,23 @@ export class AttachmentsService {
       const link = await this.prisma.sysFileLink.findFirst({ where: { fileId: file.id }, select: { id: true } });
       if (link) continue;
 
-      await this.prisma.sysFile.delete({ where: { id: file.id } });
-      await this.removePhysicalFile(file.storageKey);
+      await this.prisma.$transaction(async (tx) => {
+        await tx.sysFile.update({
+          where: { id: file.id },
+          data: {
+            isDeleted: true,
+            deletedAt: new Date(),
+            deletedBy: this.toBigInt(currentUser.id),
+          },
+        });
+
+        await this.appendOperationLog(tx, {
+          fileId: file.id,
+          actionType: 'DELETE',
+          operatorUserId: this.toBigInt(currentUser.id),
+          description: 'Cleanup expired temp file (move to recycle bin).',
+        });
+      });
       deletedCount += 1;
     }
 
@@ -316,16 +456,27 @@ export class AttachmentsService {
   ) {
     const file = await this.prisma.sysFile.findUnique({
       where: { id: this.toBigInt(fileId) },
-      select: { id: true, storageKey: true, originalName: true, uploadedBy: true, isTemporary: true, fileExt: true, mimeType: true },
+      select: {
+        id: true,
+        storageKey: true,
+        originalName: true,
+        uploadedBy: true,
+        isTemporary: true,
+        isDeleted: true,
+        fileExt: true,
+        mimeType: true,
+        createdAt: true,
+      },
     });
-    if (!file) throw new NotFoundException('附件不存在');
+    if (!file || file.isDeleted) throw new NotFoundException('附件不存在');
 
     const links = await this.prisma.sysFileLink.findMany({
       where: { fileId: file.id },
-      select: { businessType: true, businessId: true },
+      select: { businessType: true, businessId: true, createdAt: true },
       take: 10,
     });
 
+    let allowedLink: { businessType: string; businessId: string; createdAt: Date } | null = null;
     if (!links.length) {
       this.authz.assertCanViewTempFile(currentUser, file);
     } else {
@@ -335,6 +486,7 @@ export class AttachmentsService {
         try {
           await this.authz.assertCanViewBusiness(currentUser, { businessType: link.businessType, businessId: link.businessId });
           allowed = true;
+          allowedLink = link;
           break;
         } catch {
           // keep trying other links
@@ -354,8 +506,22 @@ export class AttachmentsService {
     } catch {
       throw new NotFoundException('文件不存在');
     }
+    let downloadName: string | undefined;
+    if (allowedLink) {
+      const businessName =
+        (await this.resolveBusinessNameForDownload(allowedLink.businessType, allowedLink.businessId)) ??
+        file.originalName.replace(/\.[^.]+$/, '');
+      downloadName = this.buildNormalizedDownloadName({
+        businessType: allowedLink.businessType,
+        businessName,
+        createdAt: allowedLink.createdAt,
+        ext: file.fileExt || normalizeExt(file.originalName),
+      });
+    }
+
     return {
       fileName: file.originalName,
+      downloadName,
       stream: createReadStream(filePath),
     };
   }
@@ -363,9 +529,9 @@ export class AttachmentsService {
   async getPreviewFile(currentUser: CurrentUserProfile, fileId: string) {
     const file = await this.prisma.sysFile.findUnique({
       where: { id: this.toBigInt(fileId) },
-      select: { id: true, storageKey: true, originalName: true, uploadedBy: true, isTemporary: true, fileExt: true, mimeType: true },
+      select: { id: true, storageKey: true, originalName: true, uploadedBy: true, isTemporary: true, isDeleted: true, fileExt: true, mimeType: true },
     });
-    if (!file) throw new NotFoundException('Attachment not found.');
+    if (!file || file.isDeleted) throw new NotFoundException('Attachment not found.');
 
     const links = await this.prisma.sysFileLink.findMany({
       where: { fileId: file.id },
@@ -427,7 +593,7 @@ export class AttachmentsService {
     if (!normalizedFileIds.length) return;
 
     const files = await tx.sysFile.findMany({
-      where: { id: { in: normalizedFileIds.map((id) => this.toBigInt(id)) } },
+      where: { id: { in: normalizedFileIds.map((id) => this.toBigInt(id)) }, isDeleted: false },
       select: { id: true, uploadedBy: true, isTemporary: true },
     });
     const fileMap = new Map(files.map((item) => [String(item.id), item]));

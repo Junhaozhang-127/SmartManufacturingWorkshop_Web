@@ -55,6 +55,7 @@ export interface PersonalCenterData {
   studentNo?: string | null;
   mobile: string | null;
   email: string | null;
+  bio: string | null;
   avatarUrl?: string | null;
   statusCode: string;
   lastLoginAt: string | null;

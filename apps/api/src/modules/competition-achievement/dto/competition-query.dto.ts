@@ -31,4 +31,8 @@ export class CompetitionQueryDto {
   @IsOptional()
   @IsString()
   competitionLevel?: string;
+
+  @IsOptional()
+  @IsString()
+  involvedField?: string;
 }

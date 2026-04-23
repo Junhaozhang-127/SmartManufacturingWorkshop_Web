@@ -36,6 +36,12 @@ export class SystemController {
     return this.systemService.updatePersonalCenter(currentUser, payload);
   }
 
+  @Get('profile/me/funds')
+  @RequirePermissions(PermissionCodes.profileView)
+  listMyFunds(@CurrentUser() currentUser: CurrentUserProfile) {
+    return this.systemService.listMyFunds(currentUser);
+  }
+
   @Get('notifications')
   @RequirePermissions(PermissionCodes.notificationView)
   listNotifications(@CurrentUser() currentUser: CurrentUserProfile, @Query() query: NotificationQueryDto) {

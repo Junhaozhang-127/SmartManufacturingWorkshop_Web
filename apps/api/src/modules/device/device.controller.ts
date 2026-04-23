@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { type CurrentUserProfile, type DataScopeContext, PermissionCodes } from '@smw/shared';
 
 import {
@@ -15,6 +15,7 @@ import { AssignDeviceRepairDto } from './dto/assign-device-repair.dto';
 import { ConfirmDeviceRepairDto } from './dto/confirm-device-repair.dto';
 import { CreateDeviceDto } from './dto/create-device.dto';
 import { CreateDeviceRepairDto } from './dto/create-device-repair.dto';
+import { DeviceActionDto } from './dto/device-action.dto';
 import { DeviceLedgerQueryDto } from './dto/device-ledger-query.dto';
 import { DeviceRepairQueryDto } from './dto/device-repair-query.dto';
 import { ResolveDeviceRepairDto } from './dto/resolve-device-repair.dto';
@@ -55,6 +56,41 @@ export class DeviceController {
     @DataScopeContextParam() dataScopeContext: DataScopeContext,
   ) {
     return this.deviceService.createDevice(currentUser, payload, dataScopeContext);
+  }
+
+  @Post('devices/:id/disable')
+  @RequirePermissions(PermissionCodes.deviceLedgerCreate)
+  @RequireDataScope()
+  disableDevice(
+    @CurrentUser() currentUser: CurrentUserProfile,
+    @Param('id') id: string,
+    @Body() payload: DeviceActionDto,
+    @DataScopeContextParam() dataScopeContext: DataScopeContext,
+  ) {
+    return this.deviceService.disableDevice(currentUser, id, payload, dataScopeContext);
+  }
+
+  @Post('devices/:id/scrap')
+  @RequirePermissions(PermissionCodes.deviceLedgerCreate)
+  @RequireDataScope()
+  scrapDevice(
+    @CurrentUser() currentUser: CurrentUserProfile,
+    @Param('id') id: string,
+    @Body() payload: DeviceActionDto,
+    @DataScopeContextParam() dataScopeContext: DataScopeContext,
+  ) {
+    return this.deviceService.scrapDevice(currentUser, id, payload, dataScopeContext);
+  }
+
+  @Delete('devices/:id')
+  @RequirePermissions(PermissionCodes.deviceLedgerCreate)
+  @RequireDataScope()
+  deleteDevice(
+    @CurrentUser() currentUser: CurrentUserProfile,
+    @Param('id') id: string,
+    @DataScopeContextParam() dataScopeContext: DataScopeContext,
+  ) {
+    return this.deviceService.deleteDevice(currentUser, id, dataScopeContext);
   }
 
   @Get('device-repairs')

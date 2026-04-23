@@ -49,11 +49,11 @@ function formatBytes(bytes: number | undefined) {
 
 async function triggerDownload(item: AttachmentItem) {
   try {
-    const blob = await downloadAttachment(item.fileId, item.originalName);
+    const blob = await downloadAttachment(item.fileId, item.downloadName || item.originalName);
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = item.originalName || 'attachment';
+    link.download = item.downloadName || item.originalName || 'attachment';
     document.body.append(link);
     link.click();
     link.remove();
@@ -68,7 +68,7 @@ async function loadImagePreviews(items: AttachmentItem[]) {
   for (const item of items) {
     if (nextUrls[item.fileId]) continue;
     try {
-      const blob = await downloadAttachment(item.fileId, item.originalName);
+      const blob = await downloadAttachment(item.fileId, item.downloadName || item.originalName);
       nextUrls[item.fileId] = window.URL.createObjectURL(blob);
     } catch {
       // ignore: image preview is best-effort

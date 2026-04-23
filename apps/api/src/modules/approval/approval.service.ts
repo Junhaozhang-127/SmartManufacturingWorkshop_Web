@@ -428,6 +428,8 @@ export class ApprovalService {
   }
 
   async transfer(currentUser: CurrentUserProfile, instanceId: string, payload: ApprovalTransferDto) {
+    throw new BadRequestException('转交已禁用，请在统一审批中心直接处理审核动作');
+
     return this.prisma.$transaction(async (tx) => {
       const instance = await this.loadActionableInstance(tx, instanceId);
       this.ensurePending(instance);
@@ -1081,7 +1083,7 @@ export class ApprovalService {
     const canHandle = await this.canHandleInstance(currentUser, record.id);
 
     if (canHandle && currentUser.permissions.includes(PermissionCodes.approvalApprove)) {
-      actions.push('approve', 'reject', 'transfer', 'comment');
+      actions.push('approve', 'reject', 'comment');
     }
 
     if (isApplicant) {
@@ -1125,6 +1127,24 @@ export class ApprovalService {
       extraData?: Record<string, unknown>;
     },
   ) {
+    const shouldAttachResultStatus = [
+      ApprovalActionType.SUBMIT,
+      ApprovalActionType.APPROVE,
+      ApprovalActionType.REJECT,
+      ApprovalActionType.WITHDRAW,
+    ].includes(payload.actionType);
+
+    let extraData = payload.extraData
+      ? { ...payload.extraData }
+      : undefined;
+
+    if (shouldAttachResultStatus) {
+      const hasResultStatus = Boolean(extraData && 'resultStatus' in extraData);
+      if (!hasResultStatus) {
+        extraData = { ...(extraData ?? {}), resultStatus: 'SUCCESS' };
+      }
+    }
+
     await tx.wfApprovalNodeLog.create({
       data: {
         instanceId: payload.instanceId,
@@ -1135,7 +1155,7 @@ export class ApprovalService {
         actorRoleCode: payload.actorRoleCode ?? null,
         targetUserId: payload.targetUserId ?? null,
         comment: payload.comment?.trim() || null,
-        extraData: payload.extraData as Prisma.InputJsonValue | undefined,
+        extraData: extraData as Prisma.InputJsonValue | undefined,
       },
     });
   }
@@ -1269,6 +1289,68 @@ export class ApprovalService {
     actor?: CurrentUserProfile,
   ) {
     switch (businessType as ApprovalBusinessType) {
+      case ApprovalBusinessType.LABOR_APPLICATION: {
+        const record = await tx.fundLaborApplication.findUnique({
+          where: { id: this.toBigInt(businessId) },
+          select: { id: true },
+        });
+
+        if (!record) return;
+
+        const statusCodeMap: Record<ApprovalStatus, string> = {
+          [ApprovalStatus.PENDING]: 'PENDING_APPROVAL',
+          [ApprovalStatus.APPROVED]: 'APPROVED',
+          [ApprovalStatus.REJECTED]: 'REJECTED',
+          [ApprovalStatus.WITHDRAWN]: 'WITHDRAWN',
+        };
+
+        await tx.fundLaborApplication.update({
+          where: { id: record.id },
+          data: {
+            statusCode: statusCodeMap[status],
+            latestResult:
+              status === ApprovalStatus.PENDING
+                ? null
+                : status === ApprovalStatus.APPROVED
+                  ? '审批通过'
+                  : status === ApprovalStatus.REJECTED
+                    ? '审批驳回'
+                    : '已撤回',
+          },
+        });
+        return;
+      }
+      case ApprovalBusinessType.REIMBURSEMENT_APPLICATION: {
+        const record = await tx.fundReimbursementApplication.findUnique({
+          where: { id: this.toBigInt(businessId) },
+          select: { id: true },
+        });
+
+        if (!record) return;
+
+        const statusCodeMap: Record<ApprovalStatus, string> = {
+          [ApprovalStatus.PENDING]: 'PENDING_APPROVAL',
+          [ApprovalStatus.APPROVED]: 'APPROVED',
+          [ApprovalStatus.REJECTED]: 'REJECTED',
+          [ApprovalStatus.WITHDRAWN]: 'WITHDRAWN',
+        };
+
+        await tx.fundReimbursementApplication.update({
+          where: { id: record.id },
+          data: {
+            statusCode: statusCodeMap[status],
+            latestResult:
+              status === ApprovalStatus.PENDING
+                ? null
+                : status === ApprovalStatus.APPROVED
+                  ? '审批通过'
+                  : status === ApprovalStatus.REJECTED
+                    ? '审批驳回'
+                    : '已撤回',
+          },
+        });
+        return;
+      }
       case ApprovalBusinessType.DEMO_REQUEST: {
         const statusCodeMap: Record<ApprovalStatus, string> = {
           [ApprovalStatus.PENDING]: 'IN_APPROVAL',
@@ -1922,6 +2004,33 @@ export class ApprovalService {
 
   private async loadBusinessSnapshot(businessType: string, businessId: string) {
     switch (businessType as ApprovalBusinessType) {
+      case ApprovalBusinessType.LABOR_APPLICATION: {
+        const record = await this.prisma.fundLaborApplication.findUnique({
+          where: { id: this.toBigInt(businessId) },
+        });
+        if (!record) return null;
+        return {
+          laborNo: record.laborNo,
+          title: record.title,
+          reason: record.reason,
+          amount: Number(record.amount.toString()),
+          statusCode: record.statusCode,
+        };
+      }
+      case ApprovalBusinessType.REIMBURSEMENT_APPLICATION: {
+        const record = await this.prisma.fundReimbursementApplication.findUnique({
+          where: { id: this.toBigInt(businessId) },
+        });
+        if (!record) return null;
+        return {
+          reimbursementNo: record.reimbursementNo,
+          title: record.title,
+          purchasePlatform: record.purchasePlatform,
+          purpose: record.purpose,
+          amount: Number(record.amount.toString()),
+          statusCode: record.statusCode,
+        };
+      }
       case ApprovalBusinessType.DEMO_REQUEST: {
         const form = await this.prisma.demoApprovalForm.findUnique({
           where: { id: this.toBigInt(businessId) },

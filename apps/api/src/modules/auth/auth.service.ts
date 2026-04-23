@@ -92,7 +92,7 @@ export class AuthService {
         username: user.username,
         activeRoleCode,
         roleCodes,
-        scopeVersion: 1,
+        scopeVersion: user.passwordChangedAt ? user.passwordChangedAt.getTime() : 0,
       }),
       user: await this.accessControlService.buildCurrentUserProfile(user, activeRoleCode),
     };
@@ -192,12 +192,16 @@ export class AuthService {
   }
 
   async getCurrentUser(userId: string, activeRoleCode: RoleCode) {
+    const user = await this.prisma.sysUser.findUnique({
+      where: { id: BigInt(userId) },
+      select: { passwordChangedAt: true },
+    });
     return this.accessControlService.loadCurrentUser({
       sub: userId,
       username: '',
       activeRoleCode,
       roleCodes: [],
-      scopeVersion: 1,
+      scopeVersion: user?.passwordChangedAt ? user.passwordChangedAt.getTime() : 0,
       exp: Number.MAX_SAFE_INTEGER,
     });
   }
@@ -244,7 +248,7 @@ export class AuthService {
         username: user.username,
         activeRoleCode: roleCode,
         roleCodes,
-        scopeVersion: 1,
+        scopeVersion: user.passwordChangedAt ? user.passwordChangedAt.getTime() : 0,
       }),
       user: await this.accessControlService.buildCurrentUserProfile(user, roleCode),
     };

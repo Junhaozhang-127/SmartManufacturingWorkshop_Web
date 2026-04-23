@@ -8,6 +8,7 @@ export interface AttachmentItem {
   fileId: string;
   storageKey?: string;
   originalName: string;
+  downloadName?: string;
   fileExt?: string;
   mimeType?: string | null;
   fileSize?: number;

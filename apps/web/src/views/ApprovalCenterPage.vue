@@ -6,17 +6,17 @@ import {
   commentApproval,
   fetchApprovalDetail,
   fetchApprovalList,
-  fetchTransferCandidates,
   rejectApproval,
-  transferApproval,
   withdrawApproval,
 } from '@web/api/approval';
+import { useIsMobile } from '@web/composables/useIsMobile';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 const route = useRoute();
 const router = useRouter();
+const { isMobile } = useIsMobile();
 const loading = ref(false);
 const detailLoading = ref(false);
 const submitting = ref(false);
@@ -24,7 +24,6 @@ const drawerVisible = ref(false);
 const rows = ref<ApprovalListItem[]>([]);
 const total = ref(0);
 const selectedDetail = ref<ApprovalDetail | null>(null);
-const transferCandidates = ref<Array<{ id: string; username: string; displayName: string }>>([]);
 
 const query = reactive({
   tab: ApprovalCenterTabEnum.PENDING as ApprovalCenterTab,
@@ -35,12 +34,11 @@ const query = reactive({
 
 const opinionForm = reactive({
   comment: '',
-  transferUserId: '',
 });
 
 const tabOptions = [
-  { label: '待审批', value: ApprovalCenterTabEnum.PENDING },
-  { label: '已审批', value: ApprovalCenterTabEnum.PROCESSED },
+  { label: '待我审核', value: ApprovalCenterTabEnum.PENDING },
+  { label: '我已审核', value: ApprovalCenterTabEnum.PROCESSED },
   { label: '退回记录', value: ApprovalCenterTabEnum.RETURNED },
 ];
 
@@ -61,7 +59,7 @@ async function load() {
     rows.value = response.data.items;
     total.value = response.data.meta.total;
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '审批列表加载失败');
+    ElMessage.error(error instanceof Error ? error.message : '审核列表加载失败');
   } finally {
     loading.value = false;
   }
@@ -71,37 +69,25 @@ async function openDetail(row: ApprovalListItem) {
   drawerVisible.value = true;
   detailLoading.value = true;
   opinionForm.comment = '';
-  opinionForm.transferUserId = '';
-  transferCandidates.value = [];
 
   try {
     const response = await fetchApprovalDetail(row.id);
     selectedDetail.value = response.data;
-
-    if (response.data.availableActions.includes('transfer')) {
-      const transferResponse = await fetchTransferCandidates(row.id);
-      transferCandidates.value = transferResponse.data;
-    }
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '审批详情加载失败');
+    ElMessage.error(error instanceof Error ? error.message : '审核详情加载失败');
     drawerVisible.value = false;
   } finally {
     detailLoading.value = false;
   }
 }
 
-async function submitAction(action: 'approve' | 'reject' | 'transfer' | 'comment' | 'withdraw') {
+async function submitAction(action: 'approve' | 'reject' | 'comment' | 'withdraw') {
   if (!selectedDetail.value) {
     return;
   }
 
   if (action === 'reject' && !opinionForm.comment.trim()) {
     ElMessage.warning('驳回时必须填写审批意见');
-    return;
-  }
-
-  if (action === 'transfer' && !opinionForm.transferUserId) {
-    ElMessage.warning('请选择转交对象');
     return;
   }
 
@@ -125,9 +111,6 @@ async function submitAction(action: 'approve' | 'reject' | 'transfer' | 'comment
       case 'reject':
         await rejectApproval(selectedDetail.value.id, opinionForm.comment);
         break;
-      case 'transfer':
-        await transferApproval(selectedDetail.value.id, opinionForm.transferUserId, opinionForm.comment);
-        break;
       case 'comment':
         await commentApproval(selectedDetail.value.id, opinionForm.comment);
         break;
@@ -136,12 +119,12 @@ async function submitAction(action: 'approve' | 'reject' | 'transfer' | 'comment
         break;
     }
 
-    ElMessage.success('审批动作已提交');
+    ElMessage.success('审核动作已提交');
     await openDetail(selectedDetail.value);
     await load();
   } catch (error) {
     if (error !== 'cancel') {
-      ElMessage.error(error instanceof Error ? error.message : '审批动作执行失败');
+      ElMessage.error(error instanceof Error ? error.message : '审核动作执行失败');
     }
   } finally {
     submitting.value = false;
@@ -150,7 +133,7 @@ async function submitAction(action: 'approve' | 'reject' | 'transfer' | 'comment
 
 function formatStatus(status: string) {
   const map: Record<string, string> = {
-    PENDING: '审批中',
+    PENDING: '审核中',
     APPROVED: '已通过',
     REJECTED: '已驳回',
     WITHDRAWN: '已撤回',
@@ -188,10 +171,10 @@ watch(
 <template>
   <section class="page-grid">
     <div class="hero-card">
-      <p class="hero-card__eyebrow">审批中心</p>
+      <p class="hero-card__eyebrow">审核中心</p>
       <h2>统一审批中心</h2>
       <p>
-        所有业务单据通过统一的 `businessType + businessId` 进入审批中心。当前首版已打通待审批、已审批、退回记录、轨迹查看和意见处理。
+        所有业务单据通过统一的 `businessType + businessId` 进入统一审批中心，支持待我审核、我已审核、退回记录、轨迹查看和意见处理。
       </p>
       <div class="hero-card__actions">
         <el-button-group>
@@ -205,7 +188,7 @@ watch(
       <div class="panel-card__header">
         <div>
           <p class="panel-card__eyebrow">流程队列</p>
-          <h2>审批工作台</h2>
+          <h2>审核工作台</h2>
         </div>
       </div>
 
@@ -222,30 +205,32 @@ watch(
         </div>
       </div>
 
-      <el-table v-loading="loading" :data="rows" border stripe>
-        <el-table-column label="单据标题" prop="title" min-width="220" />
-        <el-table-column label="业务类型" prop="businessType" min-width="140" />
-        <el-table-column label="申请人" prop="applicantName" min-width="120" />
-        <el-table-column label="当前节点" prop="currentNodeName" min-width="140" />
-        <el-table-column label="状态" min-width="120">
-          <template #default="{ row }">
-            <el-tag :type="row.status === 'APPROVED' ? 'success' : row.status === 'REJECTED' ? 'danger' : 'warning'">
-              {{ formatStatus(row.status) }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="最近意见" prop="latestComment" min-width="180" show-overflow-tooltip />
-        <el-table-column label="更新时间" min-width="180">
-          <template #default="{ row }">
-            {{ new Date(row.updatedAt).toLocaleString() }}
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="120" fixed="right">
-          <template #default="{ row }">
-            <el-button link type="primary" @click="openDetail(row)">详情</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+      <div class="table-scroll">
+        <el-table v-loading="loading" :data="rows" border stripe>
+          <el-table-column label="单据标题" prop="title" min-width="220" />
+          <el-table-column label="业务类型" prop="businessType" min-width="140" />
+          <el-table-column label="申请人" prop="applicantName" min-width="120" />
+          <el-table-column label="当前节点" prop="currentNodeName" min-width="140" />
+          <el-table-column label="状态" min-width="120">
+            <template #default="{ row }">
+              <el-tag :type="row.status === 'APPROVED' ? 'success' : row.status === 'REJECTED' ? 'danger' : 'warning'">
+                {{ formatStatus(row.status) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="最近意见" prop="latestComment" min-width="180" show-overflow-tooltip />
+          <el-table-column label="更新时间" min-width="180">
+            <template #default="{ row }">
+              {{ new Date(row.updatedAt).toLocaleString() }}
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="120" fixed="right">
+            <template #default="{ row }">
+              <el-button link type="primary" @click="openDetail(row)">详情</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
 
       <div class="pagination-row">
         <el-pagination
@@ -260,10 +245,10 @@ watch(
       </div>
     </div>
 
-    <el-drawer v-model="drawerVisible" size="52%" destroy-on-close>
+    <el-drawer v-model="drawerVisible" :size="isMobile ? '100%' : '52%'" destroy-on-close>
       <template #header>
         <div>
-          <strong>{{ selectedDetail?.title || '审批详情' }}</strong>
+          <strong>{{ selectedDetail?.title || '审核详情' }}</strong>
           <p class="drawer-caption">{{ selectedDetail?.businessType }}</p>
         </div>
       </template>
@@ -291,8 +276,8 @@ watch(
 
           <div class="approval-detail__section">
             <div class="approval-detail__section-header">
-              <h3>审批意见</h3>
-              <span>支持通过、驳回、转交、补充说明、撤回</span>
+              <h3>审核意见</h3>
+              <span>支持通过、驳回、补充说明、撤回</span>
             </div>
             <el-form label-position="top">
               <el-form-item label="意见说明">
@@ -302,18 +287,8 @@ watch(
                   :rows="4"
                   maxlength="500"
                   show-word-limit
-                  placeholder="请输入审批意见或补充说明"
+                  placeholder="请输入审核意见或补充说明"
                 />
-              </el-form-item>
-              <el-form-item v-if="actionButtons.includes('transfer')" label="转交对象">
-                <el-select v-model="opinionForm.transferUserId" placeholder="请选择可转交人员" style="width: 100%">
-                  <el-option
-                    v-for="candidate in transferCandidates"
-                    :key="candidate.id"
-                    :label="`${candidate.displayName} (${candidate.username})`"
-                    :value="candidate.id"
-                  />
-                </el-select>
               </el-form-item>
             </el-form>
 
@@ -335,13 +310,6 @@ watch(
                 驳回
               </el-button>
               <el-button
-                v-if="actionButtons.includes('transfer')"
-                :loading="submitting"
-                @click="submitAction('transfer')"
-              >
-                转交
-              </el-button>
-              <el-button
                 v-if="actionButtons.includes('comment')"
                 :loading="submitting"
                 @click="submitAction('comment')"
@@ -361,7 +329,7 @@ watch(
           </div>
 
           <div class="approval-detail__section">
-            <h3>审批轨迹</h3>
+            <h3>审核轨迹</h3>
             <el-timeline>
               <el-timeline-item
                 v-for="log in selectedDetail.logs"
@@ -386,5 +354,43 @@ watch(
 <style scoped>
 .hero-card__actions {
   margin-top: 0.75rem;
+}
+
+.table-scroll {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.table-scroll :deep(.el-table) {
+  min-width: 940px;
+}
+
+@media (max-width: 768px) {
+  .approval-toolbar {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .approval-toolbar__search {
+    width: 100%;
+  }
+
+  .table-scroll :deep(.el-table) {
+    min-width: 860px;
+  }
+
+  .approval-detail__snapshot {
+    max-width: 100%;
+    overflow: auto;
+  }
+
+  :deep(.approval-detail__actions) {
+    flex-wrap: wrap;
+  }
+
+  :deep(.approval-detail__actions .el-button) {
+    flex: 1 1 auto;
+    min-width: 120px;
+  }
 }
 </style>

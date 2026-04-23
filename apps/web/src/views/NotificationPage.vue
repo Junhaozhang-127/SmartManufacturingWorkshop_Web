@@ -2,6 +2,7 @@
 import { RoleCode } from '@smw/shared';
 import { fetchOrgOverview } from '@web/api/member';
 import { fetchNotifications, markAllNotificationsAsRead, markNotificationAsRead, publishNotification } from '@web/api/system';
+import { useIsMobile } from '@web/composables/useIsMobile';
 import { useAuthStore } from '@web/stores/auth';
 import { ElMessage } from 'element-plus';
 import { computed, onMounted, reactive, ref } from 'vue';
@@ -9,6 +10,7 @@ import { useRouter } from 'vue-router';
 
 const authStore = useAuthStore();
 const router = useRouter();
+const { isMobile } = useIsMobile();
 const loading = ref(false);
 const rows = ref<Awaited<ReturnType<typeof fetchNotifications>>['data']['items']>([]);
 const total = ref(0);
@@ -165,34 +167,36 @@ onMounted(() => {
         <el-tag type="warning">未读 {{ unreadCount }}</el-tag>
       </div>
 
-      <el-table v-loading="loading" :data="rows" border stripe>
-        <el-table-column label="标题" prop="title" min-width="220" />
-        <el-table-column label="分类" prop="categoryCode" width="140" />
-        <el-table-column label="级别" prop="levelCode" width="120" />
-        <el-table-column label="内容" prop="content" min-width="280" show-overflow-tooltip />
-        <el-table-column label="状态" width="120">
-          <template #default="{ row }">
-            <el-tag :type="row.read ? 'info' : 'danger'">{{ row.read ? '已读' : '未读' }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="时间" min-width="180">
-          <template #default="{ row }">{{ new Date(row.createdAt).toLocaleString() }}</template>
-        </el-table-column>
-        <el-table-column label="操作" width="180" fixed="right">
-          <template #default="{ row }">
-            <el-button link type="primary" @click="openNotification(row.id, row.routePath, row.routeQuery)">
-              查看业务
-            </el-button>
-            <el-button
-              v-if="!row.read"
-              link
-              @click="openNotification(row.id, row.routePath || '/notifications', row.routeQuery)"
-            >
-              标记已读
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+      <div class="table-scroll">
+        <el-table v-loading="loading" :data="rows" border stripe>
+          <el-table-column label="标题" prop="title" min-width="220" />
+          <el-table-column label="分类" prop="categoryCode" width="140" />
+          <el-table-column label="级别" prop="levelCode" width="120" />
+          <el-table-column label="内容" prop="content" min-width="280" show-overflow-tooltip />
+          <el-table-column label="状态" width="120">
+            <template #default="{ row }">
+              <el-tag :type="row.read ? 'info' : 'danger'">{{ row.read ? '已读' : '未读' }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="时间" min-width="180">
+            <template #default="{ row }">{{ new Date(row.createdAt).toLocaleString() }}</template>
+          </el-table-column>
+          <el-table-column label="操作" width="180" fixed="right">
+            <template #default="{ row }">
+              <el-button link type="primary" @click="openNotification(row.id, row.routePath, row.routeQuery)">
+                查看业务
+              </el-button>
+              <el-button
+                v-if="!row.read"
+                link
+                @click="openNotification(row.id, row.routePath || '/notifications', row.routeQuery)"
+              >
+                标记已读
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
 
       <div class="pagination-row">
         <el-pagination
@@ -207,7 +211,7 @@ onMounted(() => {
       </div>
     </div>
 
-    <el-dialog v-model="publishVisible" title="发布通知" width="640px" destroy-on-close>
+    <el-dialog v-model="publishVisible" title="发布通知" :width="isMobile ? '92%' : '640px'" destroy-on-close>
       <el-form label-width="110px">
         <el-form-item label="标题">
           <el-input v-model="publishForm.title" maxlength="128" show-word-limit />
@@ -246,3 +250,29 @@ onMounted(() => {
     </el-dialog>
   </section>
 </template>
+
+<style scoped>
+.table-scroll {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.table-scroll :deep(.el-table) {
+  min-width: 1040px;
+}
+
+@media (max-width: 768px) {
+  .toolbar-row {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .toolbar-row :deep(.el-select) {
+    width: 100% !important;
+  }
+
+  .table-scroll :deep(.el-table) {
+    min-width: 980px;
+  }
+}
+</style>

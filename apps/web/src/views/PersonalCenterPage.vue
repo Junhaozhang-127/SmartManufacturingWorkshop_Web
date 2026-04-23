@@ -1,5 +1,8 @@
 <script setup lang="ts">
+import type { MyFundItem } from '@smw/shared';
+import { fetchMyFunds } from '@web/api/finance';
 import { fetchPersonalCenter, updatePersonalCenter, uploadProfileAvatar } from '@web/api/system';
+import { useIsMobile } from '@web/composables/useIsMobile';
 import { useAuthStore } from '@web/stores/auth';
 import type { FormInstance } from 'element-plus';
 import { ElMessage } from 'element-plus';
@@ -8,19 +11,22 @@ import { useRouter } from 'vue-router';
 
 const authStore = useAuthStore();
 const router = useRouter();
+const { isMobile } = useIsMobile();
 const loading = ref(false);
 const savingPassword = ref(false);
 const passwordFormRef = ref<FormInstance>();
 const profile = ref<Awaited<ReturnType<typeof fetchPersonalCenter>>['data'] | null>(null);
+const myFundsLoading = ref(false);
+const myFunds = ref<MyFundItem[]>([]);
 
 const editingProfile = ref(false);
 const savingProfile = ref(false);
 const profileFormRef = ref<FormInstance>();
 const profileForm = reactive({
   displayName: '',
-  studentNo: '',
   mobile: '',
   email: '',
+  bio: '',
 });
 
 const localAvatarUrl = ref('');
@@ -29,12 +35,15 @@ const tempAvatarFile = ref<File | null>(null);
 
 const avatarHeaderUrl = computed(() => localAvatarUrl.value || profile.value?.avatarUrl || '');
 const avatarEditorPreviewUrl = computed(() => tempAvatarUrl.value || localAvatarUrl.value || profile.value?.avatarUrl || '');
-const studentNoDisplay = computed(() => profile.value?.studentNo || '-');
 
 const avatarText = computed(() => {
   const name = profile.value?.displayName || authStore.displayName || authStore.username || '';
   return name.trim().slice(0, 1) || 'U';
 });
+
+function formatMoney(amount: number) {
+  return Number.isFinite(amount) ? amount.toFixed(2) : '-';
+}
 
 const passwordForm = reactive({
   currentPassword: '',
@@ -48,6 +57,7 @@ async function load() {
     const response = await fetchPersonalCenter();
     profile.value = response.data;
     localAvatarUrl.value = '';
+    profileForm.bio = response.data.bio || '';
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '个人中心加载失败');
   } finally {
@@ -55,12 +65,25 @@ async function load() {
   }
 }
 
+async function loadMyFunds() {
+  myFundsLoading.value = true;
+  try {
+    const response = await fetchMyFunds();
+    myFunds.value = response.data;
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '我的资金加载失败');
+    myFunds.value = [];
+  } finally {
+    myFundsLoading.value = false;
+  }
+}
+
 function openProfileEditor() {
   if (!profile.value) return;
   profileForm.displayName = profile.value.displayName || '';
-  profileForm.studentNo = profile.value.studentNo || '';
   profileForm.mobile = profile.value.mobile || '';
   profileForm.email = profile.value.email || '';
+  profileForm.bio = profile.value.bio || '';
   editingProfile.value = true;
   void nextTick(() => {
     profileFormRef.value?.clearValidate();
@@ -111,9 +134,9 @@ async function submitProfileChange() {
 
     await updatePersonalCenter({
       displayName: profileForm.displayName.trim(),
-      studentNo: profileForm.studentNo.trim() || undefined,
-      mobile: profileForm.mobile.trim() || undefined,
-      email: profileForm.email.trim() || undefined,
+      mobile: profileForm.mobile.trim(),
+      email: profileForm.email.trim(),
+      bio: profileForm.bio.trim(),
       avatarStorageKey,
       avatarFileName,
     });
@@ -134,10 +157,6 @@ async function submitProfileChange() {
   }
 }
 
-async function navigate(path: string, query?: Record<string, string>) {
-  await router.push({ path, query });
-}
-
 async function submitPasswordChange() {
   if (!passwordFormRef.value) return;
   await passwordFormRef.value.validate();
@@ -153,12 +172,12 @@ async function submitPasswordChange() {
       currentPassword: passwordForm.currentPassword,
       newPassword: passwordForm.newPassword,
     });
-    await authStore.fetchMe();
-    ElMessage.success('密码修改成功');
+    authStore.logout();
+    ElMessage.success('密码修改成功，请重新登录');
     passwordForm.currentPassword = '';
     passwordForm.newPassword = '';
     passwordForm.confirmPassword = '';
-    await load();
+    await router.replace('/login');
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '密码修改失败');
   } finally {
@@ -167,27 +186,12 @@ async function submitPasswordChange() {
 }
 
 onMounted(() => {
-  void load();
+  void Promise.all([load(), loadMyFunds()]);
 });
 </script>
 
 <template>
   <section v-loading="loading" class="page-grid">
-    <div class="stat-grid dashboard-stat-grid page-top-stats">
-      <article class="stat-card stat-card--action" @click="navigate('/notifications')">
-        <span>未读消息</span>
-        <strong>{{ profile?.stats.unreadNotificationCount || 0 }}</strong>
-      </article>
-      <article class="stat-card stat-card--action" @click="navigate('/workflow/approval-center')">
-        <span>我的待办</span>
-        <strong>{{ profile?.stats.pendingApprovalCount || 0 }}</strong>
-      </article>
-      <article class="stat-card stat-card--action" @click="navigate('/workflow/approval-center')">
-        <span>我的申请</span>
-        <strong>{{ profile?.stats.myApplicationCount || 0 }}</strong>
-      </article>
-    </div>
-
     <div class="panel-card personal-center-card">
       <div class="panel-card__header personal-center-card__header">
         <div class="personal-center-card__user">
@@ -199,140 +203,90 @@ onMounted(() => {
         </div>
         <el-button type="primary" :disabled="!profile" @click="openProfileEditor">信息修改</el-button>
       </div>
+    </div>
 
+    <div class="panel-card">
+      <div class="panel-card__header">
+        <div>
+          <p class="panel-card__eyebrow">角色信息</p>
+          <h2>角色信息</h2>
+        </div>
+      </div>
+      <el-descriptions v-if="profile" :column="3" border>
+        <el-descriptions-item label="当前角色">{{ profile.activeRole.roleName }}</el-descriptions-item>
+        <el-descriptions-item label="所属组织">{{ profile.orgProfile.orgUnitName || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="岗位/职位">{{ profile.orgProfile.positionCode || '-' }}</el-descriptions-item>
+      </el-descriptions>
+      <el-empty v-else description="暂无角色信息" />
+    </div>
+
+    <div class="panel-card">
       <div class="personal-center-card__content">
         <div class="personal-center-card__section">
           <div class="personal-center-card__sectionHeader">
-            <p class="panel-card__eyebrow">个人资料</p>
+            <p class="panel-card__eyebrow">基本信息</p>
             <h3 class="personal-center-card__sectionTitle">基本信息</h3>
           </div>
           <el-descriptions v-if="profile" :column="2" border>
             <el-descriptions-item label="姓名">{{ profile.displayName }}</el-descriptions-item>
-            <el-descriptions-item label="学号">{{ studentNoDisplay }}</el-descriptions-item>
             <el-descriptions-item label="手机号">{{ profile.mobile || '-' }}</el-descriptions-item>
             <el-descriptions-item label="邮箱">{{ profile.email || '-' }}</el-descriptions-item>
-            <el-descriptions-item label="当前组织">{{ profile.orgProfile.orgUnitName || '-' }}</el-descriptions-item>
-            <el-descriptions-item label="当前岗位">{{ profile.orgProfile.positionCode || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="个人简介" :span="2">{{ profile.bio || '-' }}</el-descriptions-item>
           </el-descriptions>
+          <el-empty v-else description="暂无个人信息" />
         </div>
 
         <div class="personal-center-card__section">
           <div class="personal-center-card__sectionHeader">
-            <p class="panel-card__eyebrow">角色信息</p>
-            <h3 class="personal-center-card__sectionTitle">角色列表</h3>
+            <p class="panel-card__eyebrow">我的资金</p>
+            <h3 class="personal-center-card__sectionTitle">我的资金</h3>
           </div>
-          <div class="role-chip-grid">
-            <div
-              v-for="role in profile?.roles || []"
-              :key="role.roleCode"
-              class="sub-card"
-              :class="{ 'sub-card--active': role.roleCode === profile?.activeRole.roleCode }"
-            >
-              <strong>{{ role.roleName }}</strong>
-              <p>{{ role.roleCode }}</p>
-              <p>数据范围：{{ role.dataScope }}</p>
-            </div>
+          <el-empty v-if="!myFunds.length && !myFundsLoading" description="暂无资金记录" />
+          <div v-else class="table-scroll">
+            <el-table v-loading="myFundsLoading" :data="myFunds" border stripe>
+              <el-table-column prop="amount" label="金额" width="120">
+                <template #default="{ row }">{{ formatMoney(row.amount) }}</template>
+              </el-table-column>
+              <el-table-column prop="statusCode" label="当前状态" width="140" />
+              <el-table-column label="申请时间" width="180">
+                <template #default="{ row }">{{ new Date(row.appliedAt).toLocaleString() }}</template>
+              </el-table-column>
+              <el-table-column label="审批时间" width="180">
+                <template #default="{ row }">
+                  {{ row.approvedAt ? new Date(row.approvedAt).toLocaleString() : '-' }}
+                </template>
+              </el-table-column>
+            </el-table>
           </div>
         </div>
       </div>
     </div>
 
-    <div class="dashboard-approval-grid">
-      <div class="panel-card">
-        <div class="panel-card__header">
-          <div>
-            <p class="panel-card__eyebrow">我的待办</p>
-            <h2>我的待办</h2>
-          </div>
+    <div class="panel-card">
+      <div class="panel-card__header">
+        <div>
+          <p class="panel-card__eyebrow">密码设置</p>
+          <h2>密码修改</h2>
         </div>
-        <div v-if="profile?.pendingApprovals.length" class="dashboard-list">
-          <button
-            v-for="item in profile.pendingApprovals"
-            :key="item.id"
-            class="dashboard-list__item"
-            type="button"
-            @click="navigate('/workflow/approval-center', { focus: item.id })"
-          >
-            <strong>{{ item.title }}</strong>
-            <span>{{ item.currentNodeName || '待处理' }}</span>
-          </button>
-        </div>
-        <el-empty v-else description="暂无待办" />
       </div>
-
-      <div class="panel-card">
-        <div class="panel-card__header">
-          <div>
-            <p class="panel-card__eyebrow">我的申请</p>
-            <h2>我的申请</h2>
-          </div>
-        </div>
-        <div v-if="profile?.myApplications.length" class="dashboard-list">
-          <button
-            v-for="item in profile.myApplications"
-            :key="item.id"
-            class="dashboard-list__item"
-            type="button"
-            @click="navigate('/workflow/approval-center', { focus: item.id })"
-          >
-            <strong>{{ item.title }}</strong>
-            <span>{{ item.status }}</span>
-          </button>
-        </div>
-        <el-empty v-else description="暂无申请记录" />
-      </div>
-    </div>
-
-    <div class="dashboard-approval-grid">
-      <div class="panel-card">
-        <div class="panel-card__header">
-          <div>
-            <p class="panel-card__eyebrow">近期消息</p>
-            <h2>最近消息</h2>
-          </div>
-          <el-button link type="primary" @click="navigate('/notifications')">消息中心</el-button>
-        </div>
-        <div v-if="profile?.recentNotifications.length" class="dashboard-list">
-          <button
-            v-for="item in profile.recentNotifications"
-            :key="item.id"
-            class="dashboard-list__item"
-            type="button"
-            @click="navigate(item.routePath || '/notifications', item.routeQuery || undefined)"
-          >
-            <strong>{{ item.title }}</strong>
-            <span>{{ item.categoryCode }} / {{ item.read ? '已读' : '未读' }}</span>
-          </button>
-        </div>
-        <el-empty v-else description="暂无消息" />
-      </div>
-
-      <div class="panel-card">
-        <div class="panel-card__header">
-          <div>
-            <p class="panel-card__eyebrow">密码设置</p>
-            <h2>密码修改</h2>
-          </div>
-        </div>
-        <el-form ref="passwordFormRef" :model="passwordForm" label-position="top">
-          <el-form-item label="当前密码" :rules="[{ required: true, message: '请输入当前密码' }]">
-            <el-input v-model="passwordForm.currentPassword" show-password type="password" />
-          </el-form-item>
-          <el-form-item label="新密码" :rules="[{ required: true, message: '请输入新密码' }]">
-            <el-input v-model="passwordForm.newPassword" show-password type="password" />
-          </el-form-item>
-          <el-form-item label="确认新密码" :rules="[{ required: true, message: '请再次输入新密码' }]">
-            <el-input v-model="passwordForm.confirmPassword" show-password type="password" />
-          </el-form-item>
-          <el-button type="primary" :loading="savingPassword" @click="submitPasswordChange">更新密码</el-button>
-        </el-form>
-      </div>
+      <el-form ref="passwordFormRef" :model="passwordForm" label-position="top">
+        <el-form-item label="当前密码" :rules="[{ required: true, message: '请输入当前密码' }]">
+          <el-input v-model="passwordForm.currentPassword" show-password type="password" />
+        </el-form-item>
+        <el-form-item label="新密码" :rules="[{ required: true, message: '请输入新密码' }]">
+          <el-input v-model="passwordForm.newPassword" show-password type="password" />
+        </el-form-item>
+        <el-form-item label="确认新密码" :rules="[{ required: true, message: '请再次输入新密码' }]">
+          <el-input v-model="passwordForm.confirmPassword" show-password type="password" />
+        </el-form-item>
+        <el-button type="primary" :loading="savingPassword" @click="submitPasswordChange">更新密码</el-button>
+      </el-form>
     </div>
 
     <el-dialog
       v-model="editingProfile"
       title="统一编辑个人信息"
-      width="560px"
+      :width="isMobile ? '92%' : '560px'"
       :close-on-click-modal="false"
       @close="closeProfileEditor"
     >
@@ -356,9 +310,6 @@ onMounted(() => {
         >
           <el-input v-model="profileForm.displayName" maxlength="50" show-word-limit />
         </el-form-item>
-        <el-form-item label="学号" prop="studentNo">
-          <el-input v-model="profileForm.studentNo" maxlength="32" />
-        </el-form-item>
         <el-form-item label="手机号" prop="mobile">
           <el-input v-model="profileForm.mobile" maxlength="11" />
           <p class="profile-editor__tip">手机号建议填写中国大陆常用手机号</p>
@@ -367,11 +318,8 @@ onMounted(() => {
           <el-input v-model="profileForm.email" maxlength="100" />
           <p class="profile-editor__tip">邮箱建议填写常用邮箱地址</p>
         </el-form-item>
-        <el-form-item label="当前组织">
-          <el-input :model-value="profile?.orgProfile.orgUnitName || '-'" disabled />
-        </el-form-item>
-        <el-form-item label="当前岗位">
-          <el-input :model-value="profile?.orgProfile.positionCode || '-'" disabled />
+        <el-form-item label="个人简介" prop="bio">
+          <el-input v-model="profileForm.bio" type="textarea" :rows="4" maxlength="500" show-word-limit />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -383,8 +331,14 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.page-top-stats {
-  margin-top: 4px;
+
+.table-scroll {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.table-scroll :deep(.el-table) {
+  min-width: 620px;
 }
 
 .personal-center-card__header {
@@ -406,6 +360,7 @@ onMounted(() => {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 16px;
+  width: 100%;
 }
 
 .personal-center-card :deep(.el-descriptions) {
@@ -460,17 +415,4 @@ onMounted(() => {
   line-height: 1.4;
 }
 
-.role-chip-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 16px;
-}
-
-.sub-card--active {
-  border-color: var(--el-color-primary);
-}
-
-.stat-card--action {
-  cursor: pointer;
-}
 </style>

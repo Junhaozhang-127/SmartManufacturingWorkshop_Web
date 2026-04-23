@@ -124,7 +124,7 @@ export class AttachmentsController {
     @Res() response: Response,
   ) {
     const file = await this.attachmentsService.getDownloadStream(currentUser, fileId);
-    const fileName = name?.trim() || file.fileName || 'attachment';
+    const fileName = file.downloadName || name?.trim() || file.fileName || 'attachment';
     response.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`);
     file.stream.pipe(response);
   }

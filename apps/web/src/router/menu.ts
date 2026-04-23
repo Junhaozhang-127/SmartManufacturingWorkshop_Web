@@ -119,14 +119,6 @@ export const adminMenu: AppMenuItem[] = [
         permissions: [PermissionCodes.deviceRepairView],
       },
       {
-        key: 'fund-overview',
-        label: '经费总览',
-        path: '/funds/overview',
-        icon: 'Money',
-        permissions: [PermissionCodes.fundView],
-        roles: [RoleCodeEnum.TEACHER],
-      },
-      {
         key: 'fund-application',
         label: '经费申请与审批',
         path: '/funds/applications',

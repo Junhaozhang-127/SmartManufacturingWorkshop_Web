@@ -3,18 +3,13 @@ import { IsDateString, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class
 export class UpsertCompetitionDto {
   @IsString()
   @IsNotEmpty()
-  @MaxLength(64)
-  competitionCode!: string;
-
-  @IsString()
-  @IsNotEmpty()
   @MaxLength(255)
   name!: string;
 
   @IsString()
   @IsNotEmpty()
   @MaxLength(255)
-  organizer!: string;
+  location!: string;
 
   @IsString()
   @IsNotEmpty()
@@ -24,12 +19,7 @@ export class UpsertCompetitionDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(64)
-  competitionCategory!: string;
-
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(20)
-  statusCode!: string;
+  involvedField!: string;
 
   @IsOptional()
   @IsDateString()

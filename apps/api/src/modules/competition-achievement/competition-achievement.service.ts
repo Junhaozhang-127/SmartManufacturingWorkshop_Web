@@ -1,4 +1,4 @@
-import { ApprovalService } from '@api/modules/approval/approval.service';
+﻿import { ApprovalService } from '@api/modules/approval/approval.service';
 import { AttachmentsService } from '@api/modules/attachments/attachments.service';
 import { buildMemberProfileWhere } from '@api/modules/auth/data-scope-prisma';
 import { PrismaService } from '@api/modules/prisma/prisma.service';
@@ -14,10 +14,12 @@ import {
   AchievementType,
   ApprovalBusinessType,
   CompetitionRegistrationStatus,
+  CompetitionStatus,
   type CurrentUserProfile,
   type DataScopeContext,
   normalizePagination,
   PermissionCodes,
+  RoleCode,
 } from '@smw/shared';
 
 import { AchievementRecognitionService } from './achievement-recognition.service';
@@ -42,6 +44,15 @@ type AchievementRecord = Prisma.AchvAchievementGetPayload<{
   };
 }>;
 
+type CompetitionStatusLog = {
+  actionType: string;
+  operatorUserId: string | null;
+  operatorName: string | null;
+  resultStatus: string | null;
+  comment: string | null;
+  createdAt: string;
+};
+
 @Injectable()
 export class CompetitionAchievementService {
   constructor(
@@ -55,34 +66,35 @@ export class CompetitionAchievementService {
     const pagination = normalizePagination(query);
     const clauses: Prisma.CompCompetitionWhereInput[] = [{ isDeleted: false }];
 
-    if (query.statusCode) {
-      clauses.push({ statusCode: query.statusCode });
-    }
     if (query.competitionLevel) {
       clauses.push({ competitionLevel: query.competitionLevel });
+    }
+    if (query.involvedField) {
+      clauses.push({ involvedField: query.involvedField });
     }
     if (pagination.keyword) {
       clauses.push({
         OR: [
-          { competitionCode: { contains: pagination.keyword } },
           { name: { contains: pagination.keyword } },
-          { organizer: { contains: pagination.keyword } },
+          { location: { contains: pagination.keyword } },
+          { involvedField: { contains: pagination.keyword } },
         ],
       });
     }
     const where = { AND: clauses } satisfies Prisma.CompCompetitionWhereInput;
-    const [items, total] = await this.prisma.$transaction([
-      this.prisma.compCompetition.findMany({
-        where,
-        orderBy: [{ statusCode: 'asc' }, { registrationEndDate: 'asc' }, { createdAt: 'desc' }],
-        skip: (pagination.page - 1) * pagination.pageSize,
-        take: pagination.pageSize,
-      }),
-      this.prisma.compCompetition.count({ where }),
-    ]);
+
+    const items = await this.prisma.compCompetition.findMany({
+      where,
+      orderBy: [{ createdAt: 'desc' }, { registrationEndDate: 'asc' }],
+    });
+
+    const mapped = items.map((item) => this.mapCompetition(item));
+    const filtered = query.statusCode ? mapped.filter((item) => item.statusCode === query.statusCode) : mapped;
+    const total = filtered.length;
+    const paged = filtered.slice((pagination.page - 1) * pagination.pageSize, pagination.page * pagination.pageSize);
 
     return {
-      items: items.map((item) => this.mapCompetition(item)),
+      items: paged,
       meta: {
         page: pagination.page,
         pageSize: pagination.pageSize,
@@ -123,33 +135,67 @@ export class CompetitionAchievementService {
   }
 
   async upsertCompetition(currentUser: CurrentUserProfile, id: string | null, payload: UpsertCompetitionDto) {
+    const involvedField = payload.involvedField.trim();
     const data = {
-      competitionCode: payload.competitionCode.trim(),
       name: payload.name.trim(),
-      organizer: payload.organizer.trim(),
+      location: payload.location.trim(),
       competitionLevel: payload.competitionLevel.trim(),
-      competitionCategory: payload.competitionCategory.trim(),
-      statusCode: payload.statusCode.trim(),
+      involvedField,
+      // Backward compatibility: keep old column populated but do not expose/use it in API.
+      competitionCategory: involvedField,
       registrationStartDate: this.toDateOrNull(payload.registrationStartDate),
       registrationEndDate: this.toDateOrNull(payload.registrationEndDate),
       eventStartDate: this.toDateOrNull(payload.eventStartDate),
       eventEndDate: this.toDateOrNull(payload.eventEndDate),
       description: payload.description?.trim() || null,
-    } satisfies Prisma.CompCompetitionUncheckedCreateInput;
+    } satisfies Prisma.CompCompetitionUncheckedUpdateInput;
 
     if (!id) {
-      const created = await this.prisma.compCompetition.create({
-        data: {
-          ...data,
-          createdBy: this.toBigInt(currentUser.id),
-        },
-      });
-      return this.mapCompetition(created);
+      const createdBy = this.toBigInt(currentUser.id);
+
+      for (let attempt = 0; attempt < 5; attempt++) {
+        try {
+          const created = await this.prisma.compCompetition.create({
+            data: {
+              competitionCode: this.generateCompetitionCode(),
+              organizer: 'N/A',
+              statusCode: CompetitionStatus.DRAFT,
+              publishedAt: null,
+              archivedAt: null,
+              name: data.name,
+              location: data.location,
+              competitionLevel: data.competitionLevel,
+              involvedField: data.involvedField,
+              competitionCategory: data.competitionCategory,
+              registrationStartDate: data.registrationStartDate,
+              registrationEndDate: data.registrationEndDate,
+              eventStartDate: data.eventStartDate,
+              eventEndDate: data.eventEndDate,
+              description: data.description,
+              statusLogs: this.appendCompetitionStatusLog(null, {
+                actionType: 'COMPETITION_CREATED',
+                operatorUserId: currentUser.id,
+                operatorName: currentUser.displayName,
+                resultStatus: 'SUCCESS',
+                comment: '赛事已创建',
+              }),
+              createdBy,
+            },
+          });
+          return this.mapCompetition(created);
+        } catch (error) {
+          const known = error as { code?: string } | null;
+          if (known?.code === 'P2002') continue;
+          throw error;
+        }
+      }
+
+      throw new BadRequestException('赛事创建失败，请重试');
     }
 
     const exists = await this.prisma.compCompetition.findUnique({
       where: { id: this.toBigInt(id) },
-      select: { id: true, isDeleted: true },
+      select: { id: true, isDeleted: true, statusLogs: true },
     });
 
     if (!exists || exists.isDeleted) {
@@ -158,10 +204,111 @@ export class CompetitionAchievementService {
 
     const updated = await this.prisma.compCompetition.update({
       where: { id: exists.id },
-      data,
+      data: {
+        ...data,
+        statusLogs: this.appendCompetitionStatusLog(exists.statusLogs, {
+          actionType: 'COMPETITION_UPDATED',
+          operatorUserId: currentUser.id,
+          operatorName: currentUser.displayName,
+          resultStatus: 'SUCCESS',
+          comment: '赛事已编辑',
+        }),
+      },
     });
 
     return this.mapCompetition(updated);
+  }
+
+  async publishCompetition(currentUser: CurrentUserProfile, id: string) {
+    void currentUser;
+
+    const record = await this.prisma.compCompetition.findUnique({
+      where: { id: this.toBigInt(id) },
+      select: {
+        id: true,
+        isDeleted: true,
+        name: true,
+        location: true,
+        competitionLevel: true,
+        involvedField: true,
+        registrationStartDate: true,
+        registrationEndDate: true,
+        eventStartDate: true,
+        eventEndDate: true,
+        publishedAt: true,
+        archivedAt: true,
+        statusLogs: true,
+      },
+    });
+
+    if (!record || record.isDeleted) {
+      throw new NotFoundException('赛事不存在');
+    }
+    if (record.archivedAt) {
+      throw new BadRequestException('赛事已归档，无法发布');
+    }
+
+    this.assertCompetitionPublishable(record);
+
+    const updated = await this.prisma.compCompetition.update({
+      where: { id: record.id },
+      data: {
+        publishedAt: record.publishedAt ?? new Date(),
+        statusLogs: this.appendCompetitionStatusLog(record.statusLogs, {
+          actionType: 'COMPETITION_PUBLISHED',
+          operatorUserId: currentUser.id,
+          operatorName: currentUser.displayName,
+          resultStatus: 'SUCCESS',
+          comment: '赛事已发布',
+        }),
+      },
+    });
+
+    return this.mapCompetition(updated);
+  }
+
+  async deleteCompetition(currentUser: CurrentUserProfile, id: string) {
+    const record = await this.prisma.compCompetition.findUnique({
+      where: { id: this.toBigInt(id) },
+      select: {
+        id: true,
+        isDeleted: true,
+        createdBy: true,
+        statusLogs: true,
+        teams: {
+          where: { isDeleted: false },
+          select: { id: true },
+        },
+      },
+    });
+
+    if (!record || record.isDeleted) {
+      throw new NotFoundException('赛事不存在');
+    }
+
+    const hasTeams = record.teams.length > 0;
+    const isOwner = record.createdBy ? String(record.createdBy) === currentUser.id : false;
+    const isTeacherOrMinister = [RoleCode.TEACHER, RoleCode.MINISTER].includes(currentUser.activeRole.roleCode);
+
+    if (hasTeams && !isTeacherOrMinister && !isOwner) {
+      throw new ForbiddenException('该赛事已有报名记录，仅老师/负责人可删除');
+    }
+
+    await this.prisma.compCompetition.update({
+      where: { id: record.id },
+      data: {
+        isDeleted: true,
+        statusLogs: this.appendCompetitionStatusLog(record.statusLogs, {
+          actionType: 'COMPETITION_DELETED',
+          operatorUserId: currentUser.id,
+          operatorName: currentUser.displayName,
+          resultStatus: 'SUCCESS',
+          comment: '赛事已删除',
+        }),
+      },
+    });
+
+    return { ok: true };
   }
 
   async registerCompetitionTeam(
@@ -286,6 +433,110 @@ export class CompetitionAchievementService {
     });
   }
 
+  async updateCompetitionTeam(
+    currentUser: CurrentUserProfile,
+    competitionId: string,
+    teamId: string,
+    payload: RegisterCompetitionTeamDto,
+  ) {
+    const competition = await this.prisma.compCompetition.findUnique({
+      where: { id: this.toBigInt(competitionId) },
+      select: { id: true, name: true, isDeleted: true },
+    });
+
+    if (!competition || competition.isDeleted) {
+      throw new NotFoundException('赛事不存在');
+    }
+
+    const team = await this.prisma.compTeam.findUnique({
+      where: { id: this.toBigInt(teamId) },
+      include: { teamLeader: true, advisor: true },
+    });
+
+    if (!team || team.isDeleted || team.competitionId !== competition.id) {
+      throw new NotFoundException('队伍报名记录不存在');
+    }
+
+    if (![CompetitionRegistrationStatus.DRAFT, CompetitionRegistrationStatus.IN_APPROVAL].includes(team.statusCode as never)) {
+      throw new BadRequestException('当前报名流程已结束，无法修改队伍信息');
+    }
+
+    const userId = this.toBigInt(currentUser.id);
+    if (!this.isTeamVisibleToUserId(team, userId)) {
+      throw new ForbiddenException('无权修改该队伍信息');
+    }
+
+    const memberIds = [...new Set(payload.members.map((item) => item.userId.trim()).filter(Boolean))];
+    if (!memberIds.length) {
+      throw new BadRequestException('至少选择一名队伍成员');
+    }
+    if (!memberIds.includes(payload.teamLeaderUserId)) {
+      memberIds.unshift(payload.teamLeaderUserId);
+    }
+
+    const users = await this.prisma.sysUser.findMany({
+      where: {
+        id: {
+          in: [...memberIds, payload.advisorUserId].filter(Boolean).map((item) => this.toBigInt(item!)),
+        },
+        isDeleted: false,
+      },
+    });
+
+    const userMap = new Map(users.map((item) => [String(item.id), item]));
+    const leader = userMap.get(payload.teamLeaderUserId);
+    if (!leader) {
+      throw new BadRequestException('队长不存在');
+    }
+
+    const advisor = payload.advisorUserId ? userMap.get(payload.advisorUserId) : null;
+    if (payload.advisorUserId && !advisor) {
+      throw new BadRequestException('指导老师不存在');
+    }
+
+    const existingActiveTeam = await this.prisma.compTeam.findFirst({
+      where: {
+        competitionId: competition.id,
+        isDeleted: false,
+        id: { not: team.id },
+        OR: [{ teamLeaderUserId: leader.id }, { teamName: payload.teamName.trim() }],
+        statusCode: {
+          in: [CompetitionRegistrationStatus.DRAFT, CompetitionRegistrationStatus.IN_APPROVAL],
+        },
+      },
+      select: { id: true },
+    });
+
+    if (existingActiveTeam) {
+      throw new BadRequestException('同一赛事下已存在进行中的报名申请，请先完成当前流程');
+    }
+
+    const memberNames = memberIds.map((id) => {
+      const user = userMap.get(id);
+      if (!user) {
+        throw new BadRequestException(`成员 ${id} 不存在`);
+      }
+      return user.displayName;
+    });
+
+    const updated = await this.prisma.compTeam.update({
+      where: { id: team.id },
+      data: {
+        teamName: payload.teamName.trim(),
+        teamLeaderUserId: leader.id,
+        advisorUserId: advisor?.id ?? null,
+        memberUserIds: this.serializeIdList(memberIds),
+        memberNames: memberNames.join('、'),
+        projectId: payload.projectId?.trim() || null,
+        projectName: payload.projectName?.trim() || null,
+        applicationReason: payload.applicationReason?.trim() || null,
+        latestResult: '队伍信息已更新',
+      },
+      include: { teamLeader: true, advisor: true },
+    });
+
+    return this.mapCompetitionTeam(updated, competition.name);
+  }
   async listUserOptions() {
     const items = await this.prisma.sysUser.findMany({
       where: {
@@ -762,14 +1013,31 @@ export class CompetitionAchievementService {
     );
   }
 
+  private appendCompetitionStatusLog(
+    raw: Prisma.JsonValue | null,
+    entry: Omit<CompetitionStatusLog, 'createdAt'>,
+  ): Prisma.InputJsonValue {
+    const list = this.readCompetitionStatusLogs(raw);
+    list.push({ ...entry, createdAt: new Date().toISOString() });
+    return list as Prisma.InputJsonValue;
+  }
+
+  private readCompetitionStatusLogs(raw: Prisma.JsonValue | null) {
+    if (!Array.isArray(raw)) {
+      return [] as CompetitionStatusLog[];
+    }
+    return raw.filter((item): item is CompetitionStatusLog => typeof item === 'object' && item !== null);
+  }
+
   private mapCompetition(item: {
     id: bigint;
-    competitionCode: string;
     name: string;
-    organizer: string;
+    location: string | null;
     competitionLevel: string;
-    competitionCategory: string;
+    involvedField: string | null;
     statusCode: string;
+    publishedAt: Date | null;
+    archivedAt: Date | null;
     registrationStartDate: Date | null;
     registrationEndDate: Date | null;
     eventStartDate: Date | null;
@@ -777,18 +1045,18 @@ export class CompetitionAchievementService {
     description: string | null;
     createdAt: Date;
   }) {
+    const statusCode = this.resolveCompetitionStatus(item);
     return {
       id: String(item.id),
-      competitionCode: item.competitionCode,
       name: item.name,
-      organizer: item.organizer,
+      location: item.location,
       competitionLevel: item.competitionLevel,
-      competitionCategory: item.competitionCategory,
-      statusCode: item.statusCode,
-      registrationStartDate: this.toDateString(item.registrationStartDate),
-      registrationEndDate: this.toDateString(item.registrationEndDate),
-      eventStartDate: this.toDateString(item.eventStartDate),
-      eventEndDate: this.toDateString(item.eventEndDate),
+      involvedField: item.involvedField,
+      statusCode,
+      registrationStartDate: this.toDateTimeString(item.registrationStartDate),
+      registrationEndDate: this.toDateTimeString(item.registrationEndDate),
+      eventStartDate: this.toDateTimeString(item.eventStartDate),
+      eventEndDate: this.toDateTimeString(item.eventEndDate),
       description: item.description,
       createdAt: item.createdAt.toISOString(),
     };
@@ -913,8 +1181,90 @@ export class CompetitionAchievementService {
     return value ? new Date(value) : null;
   }
 
+  private toDateTimeString(value?: Date | null) {
+    if (!value) return null;
+    return value.toISOString().replace(/\.\d{3}Z$/, 'Z');
+  }
+
   private toDateString(value?: Date | null) {
     return value ? value.toISOString().slice(0, 10) : null;
+  }
+
+  private generateCompetitionCode() {
+    const now = Date.now();
+    const rand = Math.random().toString(16).slice(2, 6).toUpperCase();
+    return `COMP-${now}-${rand}`;
+  }
+
+  private isCompetitionPublished(item: { publishedAt: Date | null; statusCode: string }) {
+    if (item.publishedAt) return true;
+    // Backward compatibility for old data.
+    return ['OPEN', 'CLOSED', 'PUBLISHED'].includes(String(item.statusCode));
+  }
+
+  private resolveCompetitionStatus(item: {
+    statusCode: string;
+    publishedAt: Date | null;
+    archivedAt: Date | null;
+    registrationStartDate: Date | null;
+    registrationEndDate: Date | null;
+    eventStartDate: Date | null;
+    eventEndDate: Date | null;
+  }) {
+    if (item.archivedAt || String(item.statusCode) === CompetitionStatus.ARCHIVED) {
+      return CompetitionStatus.ARCHIVED;
+    }
+
+    if (!this.isCompetitionPublished(item)) {
+      return CompetitionStatus.DRAFT;
+    }
+
+    const registrationStartDate = item.registrationStartDate;
+    const registrationEndDate = item.registrationEndDate;
+    const eventStartDate = item.eventStartDate;
+    const eventEndDate = item.eventEndDate;
+
+    if (!registrationStartDate || !registrationEndDate || !eventStartDate || !eventEndDate) {
+      return CompetitionStatus.DRAFT;
+    }
+    if (registrationStartDate > registrationEndDate || eventStartDate > eventEndDate || registrationEndDate > eventStartDate) {
+      return CompetitionStatus.DRAFT;
+    }
+
+    const now = new Date();
+    if (now < registrationStartDate) return CompetitionStatus.NOT_STARTED;
+    if (now <= registrationEndDate) return CompetitionStatus.REGISTRATION_OPEN;
+    if (now < eventStartDate) return CompetitionStatus.REGISTRATION_CLOSED;
+    if (now <= eventEndDate) return CompetitionStatus.IN_PROGRESS;
+    return CompetitionStatus.ENDED;
+  }
+
+  private assertCompetitionPublishable(record: {
+    name: string;
+    location: string | null;
+    competitionLevel: string;
+    involvedField: string | null;
+    registrationStartDate: Date | null;
+    registrationEndDate: Date | null;
+    eventStartDate: Date | null;
+    eventEndDate: Date | null;
+  }) {
+    if (!record.name?.trim()) throw new BadRequestException('赛事名称不能为空');
+    if (!record.competitionLevel?.trim()) throw new BadRequestException('赛事级别不能为空');
+    if (!record.location?.trim()) throw new BadRequestException('赛事地点不能为空');
+    if (!record.involvedField?.trim()) throw new BadRequestException('涉及领域不能为空');
+
+    const registrationStartDate = record.registrationStartDate;
+    const registrationEndDate = record.registrationEndDate;
+    const eventStartDate = record.eventStartDate;
+    const eventEndDate = record.eventEndDate;
+
+    if (!registrationStartDate || !registrationEndDate || !eventStartDate || !eventEndDate) {
+      throw new BadRequestException('时间信息不完整，无法发布');
+    }
+    if (registrationStartDate > registrationEndDate) throw new BadRequestException('报名开始时间不能晚于报名截止时间');
+    if (eventStartDate > eventEndDate) throw new BadRequestException('赛事开始时间不能晚于赛事结束时间');
+    if (registrationEndDate > eventStartDate) throw new BadRequestException('报名截止时间不能晚于赛事开始时间');
   }
 
   private toObject(value: Prisma.JsonValue | null) {
@@ -923,3 +1273,4 @@ export class CompetitionAchievementService {
       : null;
   }
 }
+

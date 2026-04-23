@@ -1,4 +1,4 @@
-import { Body, Controller, ForbiddenException, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, ForbiddenException, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { type CurrentUserProfile, type DataScopeContext, PermissionCodes, RoleCode } from '@smw/shared';
 
 import {
@@ -61,6 +61,21 @@ export class CompetitionAchievementController {
     return this.competitionAchievementService.upsertCompetition(currentUser, id, payload);
   }
 
+  @Post('competitions/:id/publish')
+  @RequirePermissions(PermissionCodes.competitionUpdate)
+  publishCompetition(@CurrentUser() currentUser: CurrentUserProfile, @Param('id') id: string) {
+    if (![RoleCode.TEACHER, RoleCode.MINISTER].includes(currentUser.activeRole.roleCode)) {
+      throw new ForbiddenException('仅老师可发布赛事');
+    }
+    return this.competitionAchievementService.publishCompetition(currentUser, id);
+  }
+
+  @Delete('competitions/:id')
+  @RequirePermissions(PermissionCodes.competitionUpdate)
+  deleteCompetition(@CurrentUser() currentUser: CurrentUserProfile, @Param('id') id: string) {
+    return this.competitionAchievementService.deleteCompetition(currentUser, id);
+  }
+
   @Post('competitions/:id/teams')
   @RequirePermissions(PermissionCodes.competitionRegistrationCreate)
   @RequireDataScope()
@@ -70,6 +85,18 @@ export class CompetitionAchievementController {
     @Body() payload: RegisterCompetitionTeamDto,
   ) {
     return this.competitionAchievementService.registerCompetitionTeam(currentUser, id, payload);
+  }
+
+  @Patch('competitions/:competitionId/teams/:teamId')
+  @RequirePermissions(PermissionCodes.competitionRegistrationUpdate)
+  @RequireDataScope()
+  updateCompetitionTeam(
+    @CurrentUser() currentUser: CurrentUserProfile,
+    @Param('competitionId') competitionId: string,
+    @Param('teamId') teamId: string,
+    @Body() payload: RegisterCompetitionTeamDto,
+  ) {
+    return this.competitionAchievementService.updateCompetitionTeam(currentUser, competitionId, teamId, payload);
   }
 
   @Get('achievement-users/options')

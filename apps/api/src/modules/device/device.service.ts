@@ -18,6 +18,7 @@ import type { AssignDeviceRepairDto } from './dto/assign-device-repair.dto';
 import type { ConfirmDeviceRepairDto } from './dto/confirm-device-repair.dto';
 import type { CreateDeviceDto } from './dto/create-device.dto';
 import type { CreateDeviceRepairDto } from './dto/create-device-repair.dto';
+import type { DeviceActionDto } from './dto/device-action.dto';
 import type { DeviceRepairQueryDto } from './dto/device-repair-query.dto';
 import type { ResolveDeviceRepairDto } from './dto/resolve-device-repair.dto';
 
@@ -46,6 +47,7 @@ type StatusLog = {
   toStatus: string | null;
   operatorUserId: string | null;
   operatorName: string | null;
+  resultStatus?: string | null;
   comment: string | null;
   createdAt: string;
 };
@@ -238,6 +240,143 @@ export class DeviceService {
     return this.getDeviceDetail(String(record.id), dataScopeContext);
   }
 
+  async disableDevice(
+    currentUser: CurrentUserProfile,
+    id: string,
+    payload: DeviceActionDto,
+    dataScopeContext: DataScopeContext,
+  ) {
+    const record = await this.prisma.assetDevice.findUnique({
+      where: { id: this.toBigInt(id) },
+      include: {
+        repairOrders: {
+          where: { isDeleted: false },
+          select: { applicantUserId: true, handlerUserId: true },
+        },
+      },
+    });
+
+    if (!record || record.isDeleted) {
+      throw new NotFoundException('设备不存在');
+    }
+
+    this.ensureDeviceVisible(record, dataScopeContext);
+
+    if (record.statusCode === DeviceStatus.SCRAPPED) {
+      throw new BadRequestException('设备已报废，不能停用');
+    }
+
+    await this.prisma.assetDevice.update({
+      where: { id: record.id },
+      data: {
+        statusCode: DeviceStatus.SCRAP_PENDING,
+        statusChangedAt: new Date(),
+        statusLogs: this.appendStatusLog(record.statusLogs, {
+          actionType: 'DEVICE_DISABLED',
+          fromStatus: record.statusCode,
+          toStatus: DeviceStatus.SCRAP_PENDING,
+          operatorUserId: currentUser.id,
+          operatorName: currentUser.displayName,
+          resultStatus: 'SUCCESS',
+          comment: payload.comment?.trim() || '设备已停用',
+        }),
+      },
+    });
+
+    return this.getDeviceDetail(id, dataScopeContext);
+  }
+
+  async scrapDevice(
+    currentUser: CurrentUserProfile,
+    id: string,
+    payload: DeviceActionDto,
+    dataScopeContext: DataScopeContext,
+  ) {
+    const record = await this.prisma.assetDevice.findUnique({
+      where: { id: this.toBigInt(id) },
+      include: {
+        repairOrders: {
+          where: { isDeleted: false },
+          select: { applicantUserId: true, handlerUserId: true },
+        },
+      },
+    });
+
+    if (!record || record.isDeleted) {
+      throw new NotFoundException('设备不存在');
+    }
+
+    this.ensureDeviceVisible(record, dataScopeContext);
+
+    const activeRepair = await this.prisma.assetDeviceRepair.findFirst({
+      where: { deviceId: record.id, isDeleted: false, statusCode: { in: ACTIVE_REPAIR_STATUSES } },
+      select: { id: true },
+    });
+    if (activeRepair) {
+      throw new BadRequestException('设备存在进行中的维修工单，不能报废');
+    }
+
+    await this.prisma.assetDevice.update({
+      where: { id: record.id },
+      data: {
+        statusCode: DeviceStatus.SCRAPPED,
+        statusChangedAt: new Date(),
+        statusLogs: this.appendStatusLog(record.statusLogs, {
+          actionType: 'DEVICE_SCRAPPED',
+          fromStatus: record.statusCode,
+          toStatus: DeviceStatus.SCRAPPED,
+          operatorUserId: currentUser.id,
+          operatorName: currentUser.displayName,
+          resultStatus: 'SUCCESS',
+          comment: payload.comment?.trim() || '设备已报废',
+        }),
+      },
+    });
+
+    return this.getDeviceDetail(id, dataScopeContext);
+  }
+
+  async deleteDevice(currentUser: CurrentUserProfile, id: string, dataScopeContext: DataScopeContext) {
+    const record = await this.prisma.assetDevice.findUnique({
+      where: { id: this.toBigInt(id) },
+      include: {
+        repairOrders: {
+          where: { isDeleted: false },
+          select: { id: true, applicantUserId: true, handlerUserId: true },
+        },
+      },
+    });
+
+    if (!record || record.isDeleted) {
+      throw new NotFoundException('设备不存在');
+    }
+
+    this.ensureDeviceVisible(record, dataScopeContext);
+
+    if (record.repairOrders.length > 0) {
+      throw new BadRequestException('设备已有维修记录，不允许删除，只能停用或报废');
+    }
+
+    await this.prisma.assetDevice.update({
+      where: { id: record.id },
+      data: {
+        isDeleted: true,
+        statusChangedAt: new Date(),
+        statusLogs: this.appendStatusLog(record.statusLogs, {
+          actionType: 'DEVICE_DELETED',
+          fromStatus: record.statusCode,
+          toStatus: null,
+          operatorUserId: currentUser.id,
+          operatorName: currentUser.displayName,
+          resultStatus: 'SUCCESS',
+          comment: '设备已删除',
+        }),
+      },
+    });
+
+    return { ok: true };
+  }
+
   async listRepairs(query: DeviceRepairQueryDto, dataScopeContext: DataScopeContext) {
     const pagination = normalizePagination(query);
     const clauses: Prisma.AssetDeviceRepairWhereInput[] = [{ isDeleted: false }, this.buildRepairScopeWhere(dataScopeContext)];
@@ -358,7 +497,7 @@ export class DeviceService {
 
     const handlerUserId = payload.handlerUserId ? this.toBigInt(payload.handlerUserId) : null;
     if (handlerUserId) {
-      await this.ensureUserActive(handlerUserId, '澶勭悊浜轰笉瀛樺湪鎴栧凡鍋滅敤');
+      await this.ensureUserActive(handlerUserId, '处理人不存在或已停用');
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -402,7 +541,7 @@ export class DeviceService {
       const approval = await this.approvalService.startBusinessApproval(tx, {
         businessType: ApprovalBusinessType.REPAIR_ORDER,
         businessId: String(repair.id),
-        title: `璁惧鎶ヤ慨 - ${device.deviceName}`,
+        title: `设备报修 - ${device.deviceName}`,
         applicantUserId: this.toBigInt(currentUser.id),
         applicantRoleCode: currentUser.activeRole.roleCode,
         formData: {

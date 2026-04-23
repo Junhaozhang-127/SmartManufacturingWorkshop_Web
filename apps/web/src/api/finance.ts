@@ -3,6 +3,7 @@ import type {
   FundApplicationDetail,
   FundApplicationListResult,
   FundOverviewSummary,
+  MyFundItem,
   ProjectFundDetail,
 } from '@smw/shared';
 
@@ -146,6 +147,10 @@ export async function markFundApplicationPaid(id: string, payload: { paymentRema
 
 export async function fetchProjectFundDetail(projectId: string) {
   return http.get<never, { data: ProjectFundDetail }>(`/funds/projects/${projectId}`);
+}
+
+export async function fetchMyFunds() {
+  return http.get<never, { data: MyFundItem[] }>('/profile/me/funds');
 }
 
 export async function uploadFundAttachment(file: File) {

@@ -1,4 +1,4 @@
-import { createReadStream, createWriteStream } from 'node:fs';
+﻿import { createReadStream, createWriteStream } from 'node:fs';
 import { mkdir, rename, stat, unlink } from 'node:fs/promises';
 import { basename, dirname, extname, resolve } from 'node:path';
 
@@ -9,6 +9,7 @@ import {
   ARCHIVE_MAX_BYTES,
   DOCUMENT_EXTS,
   DOCUMENT_MAX_BYTES,
+  IMAGE_MAX_BYTES,
 } from './attachments.constants';
 import type { FileCategory } from './attachments.types';
 
@@ -28,6 +29,9 @@ export function resolveFileCategory(ext: string, mimeType?: string | null): File
 }
 
 export function assertSizeLimit(fileSize: number, category: FileCategory) {
+  if (category === 'IMAGE' && fileSize > IMAGE_MAX_BYTES) {
+    throw new BadRequestException(`图片文件大小不能超过 ${IMAGE_MAX_BYTES} bytes`);
+  }
   if (category === 'DOCUMENT' && fileSize > DOCUMENT_MAX_BYTES) {
     throw new BadRequestException(`文档类文件大小不能超过 ${DOCUMENT_MAX_BYTES} bytes`);
   }
@@ -36,7 +40,7 @@ export function assertSizeLimit(fileSize: number, category: FileCategory) {
   }
 
   // For other categories, apply document limit as a conservative default
-  if ((category === 'IMAGE' || category === 'OTHER') && fileSize > DOCUMENT_MAX_BYTES) {
+  if (category === 'OTHER' && fileSize > DOCUMENT_MAX_BYTES) {
     throw new BadRequestException(`文件大小不能超过 ${DOCUMENT_MAX_BYTES} bytes`);
   }
 }

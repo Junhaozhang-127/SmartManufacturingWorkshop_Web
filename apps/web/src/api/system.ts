@@ -21,6 +21,7 @@ export async function updatePersonalCenter(payload: {
   studentNo?: string;
   mobile?: string;
   email?: string;
+  bio?: string;
   avatarStorageKey?: string;
   avatarFileName?: string;
 }) {

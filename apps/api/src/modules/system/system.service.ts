@@ -10,6 +10,7 @@ import {
   type CurrentUserProfile,
   DataScope,
   type HomeDashboardData,
+  type MyFundItem,
   normalizePagination,
   type NotificationListResult,
   type PersonalCenterData,
@@ -105,6 +106,7 @@ export class SystemService {
       studentNo: user.studentNo ?? null,
       mobile: user.mobile,
       email: user.email,
+      bio: user.bio ?? null,
       avatarUrl: await this.buildAvatarPreviewUrl(currentUser, user.avatarStorageKey),
       statusCode: user.statusCode,
       lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
@@ -127,24 +129,24 @@ export class SystemService {
   async updatePersonalCenter(currentUser: CurrentUserProfile, payload: UpdatePersonalCenterDto) {
     const displayName = payload.displayName.trim();
 
-    const mobile = payload.mobile?.trim() || null;
-    const email = payload.email?.trim() || null;
-    const studentNo = payload.studentNo?.trim() || null;
-
     const shouldUpdateAvatar = payload.avatarStorageKey !== undefined || payload.avatarFileName !== undefined;
     const avatarStorageKey = payload.avatarStorageKey?.trim() || null;
     const avatarFileName = payload.avatarFileName?.trim() || null;
 
     await this.prisma.$transaction(async (tx) => {
+      const data: Prisma.SysUserUpdateInput = { displayName };
+      if (payload.mobile !== undefined) data.mobile = payload.mobile.trim() || null;
+      if (payload.email !== undefined) data.email = payload.email.trim() || null;
+      if (payload.studentNo !== undefined) data.studentNo = payload.studentNo.trim() || null;
+      if (payload.bio !== undefined) data.bio = payload.bio.trim() || null;
+      if (shouldUpdateAvatar) {
+        data.avatarStorageKey = avatarStorageKey;
+        data.avatarFileName = avatarFileName;
+      }
+
       await tx.sysUser.update({
         where: { id: this.toBigInt(currentUser.id) },
-        data: {
-          displayName,
-          mobile,
-          email,
-          studentNo,
-          ...(shouldUpdateAvatar ? { avatarStorageKey, avatarFileName } : {}),
-        },
+        data,
       });
 
       if (shouldUpdateAvatar && avatarStorageKey) {
@@ -166,6 +168,31 @@ export class SystemService {
     });
 
     return this.getPersonalCenter(currentUser);
+  }
+
+  async listMyFunds(currentUser: CurrentUserProfile): Promise<MyFundItem[]> {
+    const userId = this.toBigInt(currentUser.id);
+    const records = await this.prisma.fundApplication.findMany({
+      where: { applicantUserId: userId },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+      select: {
+        id: true,
+        amount: true,
+        statusCode: true,
+        submittedAt: true,
+        completedAt: true,
+        createdAt: true,
+      },
+    });
+
+    return records.map((item) => ({
+      id: String(item.id),
+      amount: Number(item.amount.toString()),
+      statusCode: item.statusCode,
+      appliedAt: (item.submittedAt ?? item.createdAt).toISOString(),
+      approvedAt: item.completedAt?.toISOString() ?? null,
+    }));
   }
 
   async listNotifications(

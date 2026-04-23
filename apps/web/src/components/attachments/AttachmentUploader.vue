@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import {
   type AttachmentItem,
   deleteMyTempAttachment,
@@ -46,7 +46,8 @@ const props = withDefaults(
           onProgress?.(percent);
         },
       }),
-    downloadRequest: (attachment: AttachmentItem) => downloadAttachment(attachment.fileId, attachment.originalName),
+    downloadRequest: (attachment: AttachmentItem) =>
+      downloadAttachment(attachment.fileId, attachment.downloadName || attachment.originalName),
     removeRequest: (attachment: AttachmentItem) => deleteMyTempAttachment(attachment.fileId).then(() => undefined),
   },
 );
@@ -163,7 +164,7 @@ async function handleDownload(item: AttachmentItem) {
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = item.originalName || 'attachment';
+    link.download = item.downloadName || item.originalName || 'attachment';
     document.body.append(link);
     link.click();
     link.remove();
@@ -301,5 +302,18 @@ async function retryPendingUpload(uid: PendingUploadItem['uid']) {
   align-items: center;
   gap: 8px;
   flex: 0 0 auto;
+}
+
+@media (max-width: 768px) {
+  .attachment-list__item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .attachment-list__actions {
+    width: 100%;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
 }
 </style>

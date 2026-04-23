@@ -14,6 +14,7 @@ export async function fetchCompetitionList(params: {
   keyword?: string;
   statusCode?: string;
   competitionLevel?: string;
+  involvedField?: string;
 }) {
   return http.get<never, { data: CompetitionListResult }>('/competitions', {
     params: {
@@ -21,6 +22,7 @@ export async function fetchCompetitionList(params: {
       keyword: params.keyword || undefined,
       statusCode: params.statusCode || undefined,
       competitionLevel: params.competitionLevel || undefined,
+      involvedField: params.involvedField || undefined,
     },
   });
 }
@@ -30,12 +32,10 @@ export async function fetchCompetitionDetail(id: string) {
 }
 
 export async function createCompetition(payload: {
-  competitionCode: string;
   name: string;
-  organizer: string;
+  location: string;
   competitionLevel: string;
-  competitionCategory: string;
-  statusCode: string;
+  involvedField: string;
   registrationStartDate?: string;
   registrationEndDate?: string;
   eventStartDate?: string;
@@ -48,12 +48,10 @@ export async function createCompetition(payload: {
 export async function updateCompetition(
   id: string,
   payload: {
-    competitionCode: string;
     name: string;
-    organizer: string;
+    location: string;
     competitionLevel: string;
-    competitionCategory: string;
-    statusCode: string;
+    involvedField: string;
     registrationStartDate?: string;
     registrationEndDate?: string;
     eventStartDate?: string;
@@ -62,6 +60,14 @@ export async function updateCompetition(
   },
 ) {
   return http.patch<never, { data: CompetitionWithTeams }>(`/competitions/${id}`, payload);
+}
+
+export async function publishCompetition(id: string) {
+  return http.post<never, { data: CompetitionWithTeams }>(`/competitions/${id}/publish`);
+}
+
+export async function deleteCompetition(id: string) {
+  return http.delete<never, { data: { ok: true } }>(`/competitions/${id}`);
 }
 
 export async function registerCompetitionTeam(
@@ -77,6 +83,22 @@ export async function registerCompetitionTeam(
   },
 ) {
   return http.post<never, { data: unknown }>(`/competitions/${competitionId}/teams`, payload);
+}
+
+export async function updateCompetitionTeam(
+  competitionId: string,
+  teamId: string,
+  payload: {
+    teamName: string;
+    teamLeaderUserId: string;
+    advisorUserId?: string;
+    members: Array<{ userId: string }>;
+    projectId?: string;
+    projectName?: string;
+    applicationReason?: string;
+  },
+) {
+  return http.patch<never, { data: unknown }>(`/competitions/${competitionId}/teams/${teamId}`, payload);
 }
 
 export async function fetchCompetitionOptions() {

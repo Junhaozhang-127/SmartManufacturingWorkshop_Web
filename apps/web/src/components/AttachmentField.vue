@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { type AttachmentItem, downloadAttachment, uploadAttachment } from '@web/api/attachments';
 import type { UploadRequestOptions } from 'element-plus';
 import { ElMessage } from 'element-plus';
@@ -52,10 +52,10 @@ async function handleUpload(option: UploadRequestOptions) {
   try {
     const response = await uploadAttachment(option.file as File);
     attachments.value = [...attachments.value, response.data];
-    ElMessage.success('附件上传成功');
+    ElMessage.success('闄勪欢涓婁紶鎴愬姛');
     option.onSuccess?.(response.data);
   } catch (error) {
-    const message = error instanceof Error ? error.message : '附件上传失败';
+    const message = error instanceof Error ? error.message : '闄勪欢涓婁紶澶辫触';
     ElMessage.error(message);
     option.onError?.(Object.assign(new Error(message), { status: 500, method: 'POST', url: '/attachments/upload' }));
   }
@@ -69,17 +69,17 @@ function removeAttachment(index: number) {
 
 async function handleDownload(item: AttachmentItem) {
   try {
-    const blob = await downloadAttachment(item.fileId, item.originalName);
+    const blob = await downloadAttachment(item.fileId, item.downloadName || item.originalName);
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = item.originalName || 'attachment';
+    link.download = item.downloadName || item.originalName || 'attachment';
     document.body.append(link);
     link.click();
     link.remove();
     window.URL.revokeObjectURL(url);
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '附件下载失败');
+    ElMessage.error(error instanceof Error ? error.message : '闄勪欢涓嬭浇澶辫触');
   }
 }
 </script>
@@ -94,15 +94,15 @@ async function handleDownload(item: AttachmentItem) {
       :accept="accept"
       :disabled="!canUpload"
     >
-      <el-button :disabled="!canUpload">上传附件</el-button>
+      <el-button :disabled="!canUpload">涓婁紶闄勪欢</el-button>
     </el-upload>
 
-    <el-empty v-if="!attachments.length" description="暂无附件" />
+    <el-empty v-if="!attachments.length" description="鏆傛棤闄勪欢" />
     <div v-else class="attachment-list">
       <div v-for="(item, index) in attachments" :key="item.fileId" class="attachment-list__item">
         <el-button link type="primary" @click="handleDownload(item)">{{ item.originalName }}</el-button>
         <span class="attachment-list__size">{{ formatBytes(item.fileSize) }}</span>
-        <el-button v-if="!readonly" link type="danger" @click="removeAttachment(index)">删除</el-button>
+        <el-button v-if="!readonly" link type="danger" @click="removeAttachment(index)">鍒犻櫎</el-button>
       </div>
     </div>
   </div>
@@ -130,4 +130,3 @@ async function handleDownload(item: AttachmentItem) {
   font-size: 12px;
 }
 </style>
-

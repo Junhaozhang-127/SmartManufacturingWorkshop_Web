@@ -174,6 +174,7 @@ export const RolePermissionMap: Record<RoleCode, PermissionCode[]> = {
     PermissionCodes.deviceLedgerCreate,
     PermissionCodes.competitionView,
     PermissionCodes.competitionCreate,
+    PermissionCodes.competitionUpdate,
     PermissionCodes.approvalCenterView,
   ],
   [RoleCode.MINISTER]: [

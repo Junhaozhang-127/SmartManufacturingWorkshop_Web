@@ -2,8 +2,11 @@ import type { PageResult } from '../dto/pagination';
 
 export enum CompetitionStatus {
   DRAFT = 'DRAFT',
-  OPEN = 'OPEN',
-  CLOSED = 'CLOSED',
+  NOT_STARTED = 'NOT_STARTED',
+  REGISTRATION_OPEN = 'REGISTRATION_OPEN',
+  REGISTRATION_CLOSED = 'REGISTRATION_CLOSED',
+  IN_PROGRESS = 'IN_PROGRESS',
+  ENDED = 'ENDED',
   ARCHIVED = 'ARCHIVED',
 }
 
@@ -17,11 +20,10 @@ export enum CompetitionRegistrationStatus {
 
 export interface CompetitionItem {
   id: string;
-  competitionCode: string;
   name: string;
-  organizer: string;
+  location: string | null;
   competitionLevel: string;
-  competitionCategory: string;
+  involvedField: string | null;
   statusCode: CompetitionStatus | string;
   registrationStartDate: string | null;
   registrationEndDate: string | null;

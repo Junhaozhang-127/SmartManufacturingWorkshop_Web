@@ -80,6 +80,8 @@ export class AttachmentAuthService {
         return this.canViewAchievement(currentUser, context.businessId);
       case 'REPAIR_ORDER':
         return this.canViewRepairOrder(currentUser, context.businessId);
+      case 'COMPETITION':
+        return this.canViewCompetition(context.businessId);
       default:
         return false;
     }
@@ -99,9 +101,35 @@ export class AttachmentAuthService {
         return this.canEditAchievementAttachments(currentUser, context.businessId);
       case 'FUND_REQUEST':
         return false;
+      case 'COMPETITION':
+        return this.canEditCompetitionAttachments(currentUser, context.businessId);
       default:
         return false;
     }
+  }
+
+  private async canViewCompetition(competitionId: string) {
+    const record = await this.prisma.compCompetition.findFirst({
+      where: { id: this.toBigInt(competitionId), isDeleted: false },
+      select: { id: true },
+    });
+    if (!record) {
+      throw new NotFoundException('赛事不存在');
+    }
+    // All logged-in users can download competition attachments.
+    return true;
+  }
+
+  private async canEditCompetitionAttachments(currentUser: CurrentUserProfile, competitionId: string) {
+    if ([RoleCode.TEACHER, RoleCode.MINISTER].includes(currentUser.activeRole.roleCode)) return true;
+    const record = await this.prisma.compCompetition.findFirst({
+      where: { id: this.toBigInt(competitionId), isDeleted: false },
+      select: { createdBy: true },
+    });
+    if (!record) {
+      throw new NotFoundException('赛事不存在');
+    }
+    return record.createdBy ? String(record.createdBy) === currentUser.id : false;
   }
 
   private async canViewCreationContent(currentUser: CurrentUserProfile, businessId: string) {

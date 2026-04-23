@@ -40,3 +40,6 @@ apps/api/storage/tmp/*
 !apps/api/storage/tmp/.gitkeep
 apps/api/storage/uploads/**/*
 !apps/api/storage/uploads/.gitkeep
+
+# API runtime storage (repo root)
+storage/

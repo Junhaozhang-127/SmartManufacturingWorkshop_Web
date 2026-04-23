@@ -23,6 +23,11 @@ export class UpdatePersonalCenterDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(500)
+  bio?: string;
+
+  @IsOptional()
+  @IsString()
   @MaxLength(128)
   avatarStorageKey?: string;
 

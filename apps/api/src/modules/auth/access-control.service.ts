@@ -103,6 +103,11 @@ export class AccessControlService {
       throw new UnauthorizedException('当前用户状态不可用');
     }
 
+    const expectedScopeVersion = user.passwordChangedAt ? user.passwordChangedAt.getTime() : 0;
+    if (payload.scopeVersion !== expectedScopeVersion) {
+      throw new UnauthorizedException('密码已修改，请重新登录');
+    }
+
     return this.buildCurrentUserProfile(user, payload.activeRoleCode);
   }
 
