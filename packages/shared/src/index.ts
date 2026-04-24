@@ -9,6 +9,7 @@ export * from './contracts/device';
 export * from './contracts/evaluation';
 export * from './contracts/finance';
 export * from './contracts/inventory';
+export * from './contracts/labor';
 export * from './contracts/member';
 export * from './contracts/my-funds';
 export * from './contracts/navigation';

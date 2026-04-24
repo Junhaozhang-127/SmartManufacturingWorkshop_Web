@@ -635,6 +635,124 @@ export class ApprovalService {
     });
   }
 
+  async returnForSupplement(currentUser: CurrentUserProfile, instanceId: string, payload: ApprovalCommentDto) {
+    return this.prisma.$transaction(async (tx) => {
+      const instance = await this.loadActionableInstance(tx, instanceId);
+      this.ensurePending(instance);
+      this.ensureCanHandle(currentUser, instance);
+
+      const comment = payload.comment?.trim() || '退回补充材料';
+      const updated = await tx.wfApprovalInstance.update({
+        where: { id: instance.id },
+        data: {
+          status: ApprovalStatus.RETURNED,
+          latestComment: comment,
+        },
+        include: {
+          applicant: {
+            include: {
+              member: {
+                select: {
+                  orgUnitId: true,
+                },
+              },
+            },
+          },
+          currentApprover: true,
+        },
+      });
+
+      await this.appendLog(tx, {
+        instanceId: instance.id,
+        nodeKey: instance.currentNodeKey,
+        nodeName: instance.currentNodeName,
+        actionType: ApprovalActionType.RETURN,
+        actorUserId: this.toBigInt(currentUser.id),
+        actorRoleCode: currentUser.activeRole.roleCode,
+        comment,
+      });
+
+      await this.createNotification(tx, {
+        userId: updated.applicantUserId,
+        title: `申请已退回补充：${updated.title}`,
+        content: comment,
+        businessType: updated.businessType,
+        businessId: updated.businessId,
+        createdBy: this.toBigInt(currentUser.id),
+      });
+
+      await this.syncBusinessStatus(tx, instance.businessType, instance.businessId, ApprovalStatus.RETURNED, currentUser);
+      return this.mapApprovalInstance(updated);
+    });
+  }
+
+  async resubmit(currentUser: CurrentUserProfile, instanceId: string, payload: ApprovalCommentDto) {
+    return this.prisma.$transaction(async (tx) => {
+      const instance = await this.loadActionableInstance(tx, instanceId);
+
+      if (instance.status !== ApprovalStatus.RETURNED) {
+        throw new BadRequestException('仅退回补充的单据可重新提交');
+      }
+
+      if (String(instance.applicantUserId) !== currentUser.id) {
+        throw new ForbiddenException('仅申请人可重新提交');
+      }
+
+      const comment = payload.comment?.trim() || '已补充材料，重新提交审批';
+      const updated = await tx.wfApprovalInstance.update({
+        where: { id: instance.id },
+        data: {
+          status: ApprovalStatus.PENDING,
+          latestComment: comment,
+        },
+        include: {
+          applicant: {
+            include: {
+              member: {
+                select: {
+                  orgUnitId: true,
+                },
+              },
+            },
+          },
+          currentApprover: true,
+        },
+      });
+
+      await this.appendLog(tx, {
+        instanceId: instance.id,
+        nodeKey: instance.currentNodeKey,
+        nodeName: instance.currentNodeName,
+        actionType: ApprovalActionType.RESUBMIT,
+        actorUserId: this.toBigInt(currentUser.id),
+        actorRoleCode: currentUser.activeRole.roleCode,
+        comment,
+      });
+
+      if (instance.currentApproverRoleCode) {
+        await this.notifyRoleUsers(tx, instance.currentApproverRoleCode, {
+          title: `待审批（重新提交）：${instance.title}`,
+          content: `收到重新提交的审批申请，当前节点为 ${instance.currentNodeName ?? '-'}`,
+          businessType: instance.businessType,
+          businessId: instance.businessId,
+          createdBy: this.toBigInt(currentUser.id),
+        });
+      }
+
+      await this.createNotification(tx, {
+        userId: updated.applicantUserId,
+        title: `申请已重新提交：${updated.title}`,
+        content: comment,
+        businessType: updated.businessType,
+        businessId: updated.businessId,
+        createdBy: this.toBigInt(currentUser.id),
+      });
+
+      await this.syncBusinessStatus(tx, instance.businessType, instance.businessId, ApprovalStatus.PENDING, currentUser);
+      return this.mapApprovalInstance(updated);
+    });
+  }
+
   async getDashboardSummary(currentUser: CurrentUserProfile): Promise<ApprovalDashboardSummary> {
     const pending = await this.getApprovalList(currentUser, {
       tab: ApprovalCenterTab.PENDING,
@@ -731,7 +849,7 @@ export class ApprovalService {
   ): Promise<ApprovalListResult> {
     const where = {
       applicantUserId: this.toBigInt(currentUser.id),
-      status: ApprovalStatus.REJECTED,
+      status: { in: [ApprovalStatus.RETURNED, ApprovalStatus.REJECTED] },
       ...(pagination.keyword
         ? {
             title: { contains: pagination.keyword },
@@ -1074,20 +1192,25 @@ export class ApprovalService {
   }
 
   private async resolveAvailableActions(currentUser: CurrentUserProfile, record: ApprovalDetailRecord) {
-    if (record.status !== ApprovalStatus.PENDING) {
-      return [];
-    }
-
-    const actions: Array<'approve' | 'reject' | 'transfer' | 'comment' | 'withdraw'> = [];
+    const actions: Array<'approve' | 'reject' | 'return' | 'resubmit' | 'transfer' | 'comment' | 'withdraw'> = [];
     const isApplicant = String(record.applicantUserId) === currentUser.id;
-    const canHandle = await this.canHandleInstance(currentUser, record.id);
 
-    if (canHandle && currentUser.permissions.includes(PermissionCodes.approvalApprove)) {
-      actions.push('approve', 'reject', 'comment');
+    if (record.status === ApprovalStatus.PENDING) {
+      const canHandle = await this.canHandleInstance(currentUser, record.id);
+
+      if (canHandle && currentUser.permissions.includes(PermissionCodes.approvalApprove)) {
+        actions.push('approve', 'reject', 'return', 'comment');
+      }
+
+      if (isApplicant) {
+        actions.push('comment', 'withdraw');
+      }
+
+      return [...new Set(actions)];
     }
 
-    if (isApplicant) {
-      actions.push('comment', 'withdraw');
+    if (record.status === ApprovalStatus.RETURNED && isApplicant) {
+      actions.push('resubmit');
     }
 
     return [...new Set(actions)];
@@ -1238,6 +1361,10 @@ export class ApprovalService {
         return { routePath: '/inventory/requests', routeQuery: { focus: businessId } };
       case ApprovalBusinessType.FUND_REQUEST:
         return { routePath: '/funds/applications', routeQuery: { focus: businessId } };
+      case ApprovalBusinessType.LABOR_APPLICATION:
+        return { routePath: '/funds/labor-applications', routeQuery: { focus: businessId } };
+      case ApprovalBusinessType.REIMBURSEMENT_APPLICATION:
+        return { routePath: '/funds/applications', routeQuery: { focus: businessId } };
       case ApprovalBusinessType.PROMOTION_REQUEST:
         return { routePath: '/promotion/applications', routeQuery: { focus: businessId } };
       case ApprovalBusinessType.COMPETITION_REGISTRATION:
@@ -1301,6 +1428,7 @@ export class ApprovalService {
           [ApprovalStatus.PENDING]: 'PENDING_APPROVAL',
           [ApprovalStatus.APPROVED]: 'APPROVED',
           [ApprovalStatus.REJECTED]: 'REJECTED',
+          [ApprovalStatus.RETURNED]: 'RETURNED',
           [ApprovalStatus.WITHDRAWN]: 'WITHDRAWN',
         };
 
@@ -1315,6 +1443,8 @@ export class ApprovalService {
                   ? '审批通过'
                   : status === ApprovalStatus.REJECTED
                     ? '审批驳回'
+                    : status === ApprovalStatus.RETURNED
+                      ? '已退回补充材料'
                     : '已撤回',
           },
         });
@@ -1332,6 +1462,7 @@ export class ApprovalService {
           [ApprovalStatus.PENDING]: 'PENDING_APPROVAL',
           [ApprovalStatus.APPROVED]: 'APPROVED',
           [ApprovalStatus.REJECTED]: 'REJECTED',
+          [ApprovalStatus.RETURNED]: 'RETURNED',
           [ApprovalStatus.WITHDRAWN]: 'WITHDRAWN',
         };
 
@@ -1346,6 +1477,8 @@ export class ApprovalService {
                   ? '审批通过'
                   : status === ApprovalStatus.REJECTED
                     ? '审批驳回'
+                    : status === ApprovalStatus.RETURNED
+                      ? '已退回补充材料'
                     : '已撤回',
           },
         });
@@ -1356,6 +1489,7 @@ export class ApprovalService {
           [ApprovalStatus.PENDING]: 'IN_APPROVAL',
           [ApprovalStatus.APPROVED]: 'APPROVED',
           [ApprovalStatus.REJECTED]: 'REJECTED',
+          [ApprovalStatus.RETURNED]: 'DRAFT',
           [ApprovalStatus.WITHDRAWN]: 'WITHDRAWN',
         };
 
@@ -1560,6 +1694,7 @@ export class ApprovalService {
           [ApprovalStatus.PENDING]: CompetitionRegistrationStatus.IN_APPROVAL,
           [ApprovalStatus.APPROVED]: CompetitionRegistrationStatus.APPROVED,
           [ApprovalStatus.REJECTED]: CompetitionRegistrationStatus.REJECTED,
+          [ApprovalStatus.RETURNED]: CompetitionRegistrationStatus.DRAFT,
           [ApprovalStatus.WITHDRAWN]: CompetitionRegistrationStatus.WITHDRAWN,
         };
 
@@ -1931,6 +2066,25 @@ export class ApprovalService {
                 operatorUserId: actor?.id ?? null,
                 operatorName: actor?.displayName ?? null,
                 comment: '审批链路继续流转',
+              }),
+            },
+          });
+          return;
+        }
+
+        if (status === ApprovalStatus.RETURNED) {
+          await tx.fundApplication.update({
+            where: { id: application.id },
+            data: {
+              statusCode: FundApplicationStatus.RETURNED,
+              latestResult: '已退回补充材料',
+              statusLogs: this.appendStatusHistory(application.statusLogs, {
+                actionType: 'APPROVAL_RETURNED',
+                fromStatus: application.statusCode,
+                toStatus: FundApplicationStatus.RETURNED,
+                operatorUserId: actor?.id ?? null,
+                operatorName: actor?.displayName ?? null,
+                comment: '审批退回补充材料',
               }),
             },
           });

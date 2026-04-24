@@ -3,6 +3,8 @@ import type {
   FundApplicationDetail,
   FundApplicationListResult,
   FundOverviewSummary,
+  LaborApplicationDetail,
+  LaborApplicationListResult,
   MyFundItem,
   ProjectFundDetail,
 } from '@smw/shared';
@@ -39,8 +41,16 @@ export async function fetchFundOverview() {
   return http.get<never, { data: FundOverviewSummary }>('/funds/overview');
 }
 
+export async function fetchFundSettings() {
+  return http.get<never, { data: { reimbursementMaterialThreshold: number } }>('/funds/settings');
+}
+
 export async function fetchFundAccounts() {
   return http.get<never, { data: FundAccountItem[] }>('/funds/accounts');
+}
+
+export async function fetchFinanceUserOptions() {
+  return http.get<never, { data: Array<{ id: string; label: string }> }>('/funds/users/options');
 }
 
 export async function fetchTeacherFundAccounts(params: {
@@ -129,16 +139,43 @@ export async function createFundApplication(payload: {
   projectName?: string;
   relatedBusinessType?: string;
   relatedBusinessId?: string;
-  attachments?: Array<{
-    storageKey: string;
-    fileName: string;
-    downloadUrl: string;
-    mimeType?: string | null;
-    size?: number | null;
-  }>;
   attachmentFileIds?: string[];
+  orderAttachmentFileIds?: string[];
+  invoiceAttachmentFileIds?: string[];
+  goodsAttachmentFileIds?: string[];
+  submitForApproval?: boolean;
 }) {
   return http.post<never, { data: FundApplicationDetail }>('/funds/applications', payload);
+}
+
+export async function updateFundApplication(
+  id: string,
+  payload: Partial<{
+    title: string;
+    purpose: string;
+    amount: number;
+    reimbursementAmount?: number;
+    payeeName?: string;
+    expenseType?: string;
+    attachmentFileIds?: string[];
+    orderAttachmentFileIds?: string[];
+    invoiceAttachmentFileIds?: string[];
+    goodsAttachmentFileIds?: string[];
+  }>,
+) {
+  return http.patch<never, { data: FundApplicationDetail }>(`/funds/applications/${encodeURIComponent(id)}`, payload);
+}
+
+export async function submitFundApplication(
+  id: string,
+  payload: Partial<{
+    attachmentFileIds?: string[];
+    orderAttachmentFileIds?: string[];
+    invoiceAttachmentFileIds?: string[];
+    goodsAttachmentFileIds?: string[];
+  }>,
+) {
+  return http.post<never, { data: FundApplicationDetail }>(`/funds/applications/${encodeURIComponent(id)}/submit`, payload);
 }
 
 export async function markFundApplicationPaid(id: string, payload: { paymentRemark?: string }) {
@@ -159,4 +196,73 @@ export async function uploadFundAttachment(file: File) {
 
 export async function downloadFundAttachment(fileId: string, fileName?: string) {
   return downloadAttachment(fileId, fileName);
+}
+
+export async function fetchLaborApplications(params: {
+  page: number;
+  pageSize: number;
+  keyword?: string;
+  statusCode?: string;
+}) {
+  return http.get<never, { data: LaborApplicationListResult }>('/funds/labor-applications', {
+    params: {
+      ...params,
+      keyword: params.keyword || undefined,
+      statusCode: params.statusCode || undefined,
+    },
+  });
+}
+
+export async function fetchLaborApplicationDetail(id: string) {
+  return http.get<never, { data: LaborApplicationDetail }>(`/funds/labor-applications/${encodeURIComponent(id)}`);
+}
+
+export async function createLaborApplication(payload: {
+  laborType: string;
+  targetUserId: string;
+  title: string;
+  reason: string;
+  amount: number;
+  attachmentFileIds?: string[];
+  submitForApproval?: boolean;
+}) {
+  return http.post<never, { data: LaborApplicationDetail }>('/funds/labor-applications', payload);
+}
+
+export async function updateLaborApplication(
+  id: string,
+  payload: Partial<{
+    laborType: string;
+    targetUserId: string;
+    title: string;
+    reason: string;
+    amount: number;
+    attachmentFileIds?: string[];
+  }>,
+) {
+  return http.patch<never, { data: LaborApplicationDetail }>(`/funds/labor-applications/${encodeURIComponent(id)}`, payload);
+}
+
+export async function submitLaborApplication(
+  id: string,
+  payload: Partial<{
+    attachmentFileIds?: string[];
+  }>,
+) {
+  return http.post<never, { data: LaborApplicationDetail }>(`/funds/labor-applications/${encodeURIComponent(id)}/submit`, payload);
+}
+
+export async function createLaborPayment(payload: {
+  laborType: string;
+  targetUserId: string;
+  title: string;
+  reason: string;
+  amount: number;
+  attachmentFileIds?: string[];
+}) {
+  return http.post<never, { data: LaborApplicationDetail }>('/funds/labor-payments', payload);
+}
+
+export async function markLaborPaid(id: string, payload: { remark?: string }) {
+  return http.post<never, { data: LaborApplicationDetail }>(`/funds/labor-applications/${encodeURIComponent(id)}/pay`, payload);
 }

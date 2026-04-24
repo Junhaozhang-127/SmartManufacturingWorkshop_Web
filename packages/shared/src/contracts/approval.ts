@@ -15,6 +15,7 @@ export enum ApprovalStatus {
   PENDING = 'PENDING',
   APPROVED = 'APPROVED',
   REJECTED = 'REJECTED',
+  RETURNED = 'RETURNED',
   WITHDRAWN = 'WITHDRAWN',
 }
 
@@ -22,6 +23,8 @@ export enum ApprovalActionType {
   SUBMIT = 'SUBMIT',
   APPROVE = 'APPROVE',
   REJECT = 'REJECT',
+  RETURN = 'RETURN',
+  RESUBMIT = 'RESUBMIT',
   TRANSFER = 'TRANSFER',
   COMMENT = 'COMMENT',
   WITHDRAW = 'WITHDRAW',
@@ -69,7 +72,7 @@ export interface ApprovalDetail extends ApprovalListItem {
   formData: Record<string, unknown> | null;
   businessSnapshot: Record<string, unknown> | null;
   logs: ApprovalNodeLogItem[];
-  availableActions: Array<'approve' | 'reject' | 'transfer' | 'comment' | 'withdraw'>;
+  availableActions: Array<'approve' | 'reject' | 'return' | 'resubmit' | 'transfer' | 'comment' | 'withdraw'>;
 }
 
 export interface ApprovalListResult {

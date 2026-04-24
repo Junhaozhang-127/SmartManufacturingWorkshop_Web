@@ -125,6 +125,13 @@ export const adminMenu: AppMenuItem[] = [
         icon: 'DocumentAdd',
         permissions: [PermissionCodes.fundCreate],
       },
+      {
+        key: 'labor-application',
+        label: '劳务发放',
+        path: '/funds/labor-applications',
+        icon: 'Money',
+        permissions: [PermissionCodes.fundCreate],
+      },
     ],
   },
   {
@@ -201,7 +208,6 @@ export const adminMenu: AppMenuItem[] = [
     path: '/workflow/approval-center',
     icon: 'Finished',
     permissions: [PermissionCodes.approvalCenterView],
-    roles: [RoleCodeEnum.TEACHER, RoleCodeEnum.MINISTER, RoleCodeEnum.GROUP_LEADER],
   },
   {
     key: 'profile',

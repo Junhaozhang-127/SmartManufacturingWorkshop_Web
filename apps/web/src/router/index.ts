@@ -239,6 +239,17 @@ const routes: RouteRecordRaw[] = [
         },
       },
       {
+        path: 'funds/labor-applications',
+        name: 'funds.labor-applications',
+        component: () => import('@web/views/LaborApplicationPage.vue'),
+        meta: {
+          title: '劳务发放',
+          breadcrumb: ['设备与资源', '劳务发放'],
+          permissions: [PermissionCodes.fundCreate],
+          activeMenu: '/funds/labor-applications',
+        },
+      },
+      {
         path: 'projects/:projectId',
         name: 'projects.detail',
         component: () => import('@web/views/ProjectFundDetailPage.vue'),
@@ -321,7 +332,6 @@ const routes: RouteRecordRaw[] = [
           title: '统一审批中心',
           breadcrumb: ['审批中心', '统一审批中心'],
           permissions: [PermissionCodes.approvalCenterView],
-          roles: [RoleCode.TEACHER, RoleCode.MINISTER, RoleCode.GROUP_LEADER],
         },
       },
       {

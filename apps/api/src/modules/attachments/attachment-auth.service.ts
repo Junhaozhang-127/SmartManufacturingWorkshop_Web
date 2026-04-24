@@ -76,6 +76,8 @@ export class AttachmentAuthService {
         return this.canViewFundProject(currentUser, context.businessId);
       case 'FUND_REQUEST':
         return this.canViewFundApplication(currentUser, context.businessId);
+      case 'LABOR_APPLICATION':
+        return this.canViewLaborApplication(currentUser, context.businessId);
       case 'ACHIEVEMENT_RECOGNITION':
         return this.canViewAchievement(currentUser, context.businessId);
       case 'REPAIR_ORDER':
@@ -100,12 +102,88 @@ export class AttachmentAuthService {
       case 'ACHIEVEMENT_RECOGNITION':
         return this.canEditAchievementAttachments(currentUser, context.businessId);
       case 'FUND_REQUEST':
-        return false;
+        return this.canEditFundApplicationAttachments(currentUser, context.businessId);
+      case 'LABOR_APPLICATION':
+        return this.canEditLaborApplicationAttachments(currentUser, context.businessId);
       case 'COMPETITION':
         return this.canEditCompetitionAttachments(currentUser, context.businessId);
       default:
         return false;
     }
+  }
+
+  private async canEditFundApplicationAttachments(currentUser: CurrentUserProfile, applicationId: string) {
+    const record = await this.prisma.fundApplication.findFirst({
+      where: { id: this.toBigInt(applicationId) },
+      select: { applicantUserId: true, statusCode: true },
+    });
+
+    if (!record) {
+      throw new NotFoundException('经费申请不存在');
+    }
+
+    const editableStatuses = new Set(['DRAFT', 'RETURNED']);
+    if (!editableStatuses.has(String(record.statusCode))) {
+      return false;
+    }
+
+    return String(record.applicantUserId) === currentUser.id;
+  }
+
+  private async canViewLaborApplication(currentUser: CurrentUserProfile, laborId: string) {
+    const record = await this.prisma.fundLaborApplication.findFirst({
+      where: { id: this.toBigInt(laborId), isDeleted: false },
+      select: {
+        applicantUserId: true,
+        targetUserId: true,
+        createdBy: true,
+        applicant: {
+          select: {
+            member: {
+              select: {
+                orgUnitId: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!record) {
+      throw new NotFoundException('劳务记录不存在');
+    }
+
+    if (String(record.applicantUserId) === currentUser.id) return true;
+    if (String(record.targetUserId) === currentUser.id) return true;
+    if (record.createdBy && String(record.createdBy) === currentUser.id) return true;
+
+    if ([RoleCode.TEACHER, RoleCode.MINISTER].includes(currentUser.activeRole.roleCode)) {
+      return this.isUserWithinDataScope(
+        currentUser,
+        String(record.applicantUserId),
+        record.applicant.member?.orgUnitId ?? null,
+      );
+    }
+
+    return false;
+  }
+
+  private async canEditLaborApplicationAttachments(currentUser: CurrentUserProfile, laborId: string) {
+    const record = await this.prisma.fundLaborApplication.findFirst({
+      where: { id: this.toBigInt(laborId), isDeleted: false },
+      select: { applicantUserId: true, statusCode: true },
+    });
+
+    if (!record) {
+      throw new NotFoundException('劳务记录不存在');
+    }
+
+    const editableStatuses = new Set(['DRAFT', 'RETURNED']);
+    if (!editableStatuses.has(String(record.statusCode))) {
+      return false;
+    }
+
+    return String(record.applicantUserId) === currentUser.id;
   }
 
   private async canViewCompetition(competitionId: string) {

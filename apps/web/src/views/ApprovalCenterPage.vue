@@ -7,6 +7,8 @@ import {
   fetchApprovalDetail,
   fetchApprovalList,
   rejectApproval,
+  resubmitApproval,
+  returnApproval,
   withdrawApproval,
 } from '@web/api/approval';
 import { useIsMobile } from '@web/composables/useIsMobile';
@@ -81,7 +83,7 @@ async function openDetail(row: ApprovalListItem) {
   }
 }
 
-async function submitAction(action: 'approve' | 'reject' | 'comment' | 'withdraw') {
+async function submitAction(action: 'approve' | 'reject' | 'return' | 'comment' | 'withdraw' | 'resubmit') {
   if (!selectedDetail.value) {
     return;
   }
@@ -89,6 +91,10 @@ async function submitAction(action: 'approve' | 'reject' | 'comment' | 'withdraw
   if (action === 'reject' && !opinionForm.comment.trim()) {
     ElMessage.warning('驳回时必须填写审批意见');
     return;
+  }
+
+  if (action === 'return' && !opinionForm.comment.trim()) {
+    ElMessage.warning('退回补充材料时建议填写原因');
   }
 
   if (action === 'comment' && !opinionForm.comment.trim()) {
@@ -111,11 +117,17 @@ async function submitAction(action: 'approve' | 'reject' | 'comment' | 'withdraw
       case 'reject':
         await rejectApproval(selectedDetail.value.id, opinionForm.comment);
         break;
+      case 'return':
+        await returnApproval(selectedDetail.value.id, opinionForm.comment || '退回补充材料');
+        break;
       case 'comment':
         await commentApproval(selectedDetail.value.id, opinionForm.comment);
         break;
       case 'withdraw':
         await withdrawApproval(selectedDetail.value.id, opinionForm.comment);
+        break;
+      case 'resubmit':
+        await resubmitApproval(selectedDetail.value.id, opinionForm.comment || '已补充材料，重新提交审批');
         break;
     }
 
@@ -136,6 +148,7 @@ function formatStatus(status: string) {
     PENDING: '审核中',
     APPROVED: '已通过',
     REJECTED: '已驳回',
+    RETURNED: '已退回',
     WITHDRAWN: '已撤回',
   };
 
@@ -310,6 +323,14 @@ watch(
                 驳回
               </el-button>
               <el-button
+                v-if="actionButtons.includes('return')"
+                type="warning"
+                :loading="submitting"
+                @click="submitAction('return')"
+              >
+                退回补充
+              </el-button>
+              <el-button
                 v-if="actionButtons.includes('comment')"
                 :loading="submitting"
                 @click="submitAction('comment')"
@@ -324,6 +345,14 @@ watch(
                 @click="submitAction('withdraw')"
               >
                 撤回
+              </el-button>
+              <el-button
+                v-if="actionButtons.includes('resubmit')"
+                type="primary"
+                :loading="submitting"
+                @click="submitAction('resubmit')"
+              >
+                重新提交
               </el-button>
             </div>
           </div>

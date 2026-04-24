@@ -1,15 +1,25 @@
 <script setup lang="ts">
 import { ApprovalBusinessType, FundApplicationStatus, FundPaymentStatus, PermissionCodes } from '@smw/shared';
-import { type AttachmentItem, listBusinessAttachments } from '@web/api/attachments';
+import { withdrawApproval } from '@web/api/approval';
+import {
+  type AttachmentItem,
+  deleteMyTempAttachment,
+  listBusinessAttachments,
+  unbindBusinessAttachment,
+} from '@web/api/attachments';
 import {
   createFundApplication,
   fetchFundAccounts,
   fetchFundApplicationDetail,
   fetchFundApplications,
+  fetchFundSettings,
   markFundApplicationPaid,
+  submitFundApplication,
+  updateFundApplication,
 } from '@web/api/finance';
 import AttachmentUploader from '@web/components/attachments/AttachmentUploader.vue';
 import { useAuthz } from '@web/composables/useAuthz';
+import { useAuthStore } from '@web/stores/auth';
 import type { FormInstance } from 'element-plus';
 import { ElMessage } from 'element-plus';
 import { computed, onMounted, reactive, ref, watch } from 'vue';
@@ -17,20 +27,28 @@ import { useRoute, useRouter } from 'vue-router';
 
 const route = useRoute();
 const router = useRouter();
+const authStore = useAuthStore();
 const { hasPermission } = useAuthz();
 const canCreate = computed(() => hasPermission(PermissionCodes.fundCreate));
 const canUpdate = computed(() => hasPermission(PermissionCodes.fundUpdate));
+const currentUserId = computed(() => authStore.user?.id ?? null);
 
 const loading = ref(false);
 const actionLoading = ref(false);
 const detailVisible = ref(false);
 const dialogVisible = ref(false);
+const formMode = ref<'create' | 'edit'>('create');
+const editingId = ref<string | null>(null);
 const formRef = ref<FormInstance>();
 const accounts = ref<Awaited<ReturnType<typeof fetchFundAccounts>>['data']>([]);
 const applications = ref<Awaited<ReturnType<typeof fetchFundApplications>>['data']['items']>([]);
 const total = ref(0);
 const detail = ref<Awaited<ReturnType<typeof fetchFundApplicationDetail>>['data'] | null>(null);
 const detailAttachments = ref<AttachmentItem[]>([]);
+const detailOrderAttachments = ref<AttachmentItem[]>([]);
+const detailInvoiceAttachments = ref<AttachmentItem[]>([]);
+const detailGoodsAttachments = ref<AttachmentItem[]>([]);
+const reimbursementThreshold = ref<number>(500);
 
 const query = reactive({
   page: 1,
@@ -56,6 +74,9 @@ const form = reactive({
   relatedBusinessType: '',
   relatedBusinessId: '',
   attachments: [] as AttachmentItem[],
+  orderAttachments: [] as AttachmentItem[],
+  invoiceAttachments: [] as AttachmentItem[],
+  goodsAttachments: [] as AttachmentItem[],
 });
 
 const selectedAccount = computed(() => accounts.value.find((item) => item.id === form.accountId) ?? null);
@@ -92,15 +113,48 @@ async function openDetail(id: string) {
   try {
     const response = await fetchFundApplicationDetail(id);
     detail.value = response.data;
-    const attachmentResponse = await listBusinessAttachments({
+    const voucherPromise = listBusinessAttachments({
       businessType: ApprovalBusinessType.FUND_REQUEST,
       businessId: id,
       usageType: 'FUND_VOUCHER',
     });
-    detailAttachments.value = attachmentResponse.data;
+
+    const isReimbursement = response.data.applicationType === 'REIMBURSEMENT';
+    const [voucher, order, invoice, goods] = await Promise.all([
+      voucherPromise,
+      isReimbursement
+        ? listBusinessAttachments({
+            businessType: ApprovalBusinessType.FUND_REQUEST,
+            businessId: id,
+            usageType: 'REIMBURSE_ORDER',
+          })
+        : Promise.resolve({ data: [] as AttachmentItem[] }),
+      isReimbursement
+        ? listBusinessAttachments({
+            businessType: ApprovalBusinessType.FUND_REQUEST,
+            businessId: id,
+            usageType: 'REIMBURSE_INVOICE',
+          })
+        : Promise.resolve({ data: [] as AttachmentItem[] }),
+      isReimbursement
+        ? listBusinessAttachments({
+            businessType: ApprovalBusinessType.FUND_REQUEST,
+            businessId: id,
+            usageType: 'REIMBURSE_GOODS',
+          })
+        : Promise.resolve({ data: [] as AttachmentItem[] }),
+    ]);
+
+    detailAttachments.value = voucher.data;
+    detailOrderAttachments.value = order.data;
+    detailInvoiceAttachments.value = invoice.data;
+    detailGoodsAttachments.value = goods.data;
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '详情加载失败');
     detailAttachments.value = [];
+    detailOrderAttachments.value = [];
+    detailInvoiceAttachments.value = [];
+    detailGoodsAttachments.value = [];
   }
 }
 
@@ -115,6 +169,8 @@ function openProject(projectId: string | null) {
 }
 
 function resetForm() {
+  formMode.value = 'create';
+  editingId.value = null;
   form.accountId = '';
   form.applicationType = 'EXPENSE';
   form.expenseType = 'PROCUREMENT';
@@ -128,19 +184,137 @@ function resetForm() {
   form.relatedBusinessType = '';
   form.relatedBusinessId = '';
   form.attachments = [];
+  form.orderAttachments = [];
+  form.invoiceAttachments = [];
+  form.goodsAttachments = [];
 }
 
-async function submit() {
+function openCreate() {
+  resetForm();
+  dialogVisible.value = true;
+}
+
+async function openEdit(id: string) {
+  resetForm();
+  formMode.value = 'edit';
+  editingId.value = id;
+  dialogVisible.value = true;
+
+  try {
+    const response = await fetchFundApplicationDetail(id);
+    const data = response.data;
+    form.accountId = data.accountId;
+    form.applicationType = String(data.applicationType);
+    form.expenseType = String(data.expenseType);
+    form.title = data.title;
+    form.purpose = data.purpose;
+    form.amount = data.amount;
+    form.reimbursementAmount = data.reimbursementAmount ?? undefined;
+    form.payeeName = data.payeeName || '';
+    form.projectId = data.projectId || '';
+    form.projectName = data.projectName || '';
+    form.relatedBusinessType = data.relatedBusinessType || '';
+    form.relatedBusinessId = data.relatedBusinessId || '';
+
+    const [voucher, order, invoice, goods] = await Promise.all([
+      listBusinessAttachments({
+        businessType: ApprovalBusinessType.FUND_REQUEST,
+        businessId: id,
+        usageType: 'FUND_VOUCHER',
+      }),
+      listBusinessAttachments({
+        businessType: ApprovalBusinessType.FUND_REQUEST,
+        businessId: id,
+        usageType: 'REIMBURSE_ORDER',
+      }),
+      listBusinessAttachments({
+        businessType: ApprovalBusinessType.FUND_REQUEST,
+        businessId: id,
+        usageType: 'REIMBURSE_INVOICE',
+      }),
+      listBusinessAttachments({
+        businessType: ApprovalBusinessType.FUND_REQUEST,
+        businessId: id,
+        usageType: 'REIMBURSE_GOODS',
+      }),
+    ]);
+
+    form.attachments = voucher.data;
+    form.orderAttachments = order.data;
+    form.invoiceAttachments = invoice.data;
+    form.goodsAttachments = goods.data;
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '草稿加载失败');
+    dialogVisible.value = false;
+  }
+}
+
+function makeRemoveRequest(usageType: string) {
+  return async (attachment: AttachmentItem) => {
+    if (attachment.expiresAt) {
+      await deleteMyTempAttachment(attachment.fileId);
+      return;
+    }
+
+    const businessId = editingId.value;
+    if (!businessId) {
+      // create mode: should not have bound attachments here
+      await deleteMyTempAttachment(attachment.fileId);
+      return;
+    }
+
+    await unbindBusinessAttachment({
+      businessType: ApprovalBusinessType.FUND_REQUEST,
+      businessId,
+      usageType,
+      fileId: attachment.fileId,
+    });
+  };
+}
+
+function baseReimbursementAmount() {
+  return (form.reimbursementAmount ?? form.amount ?? 0) as number;
+}
+
+function validateReimbursementMaterialsForSubmit() {
+  if (form.applicationType !== 'REIMBURSEMENT') return true;
+  if (baseReimbursementAmount() <= reimbursementThreshold.value) return true;
+
+  if (!form.orderAttachments.length || !form.invoiceAttachments.length || !form.goodsAttachments.length) {
+    ElMessage.error('报销金额超过阈值，订单截图/发票截图/实物截图为必填');
+    return false;
+  }
+
+  return true;
+}
+
+async function saveDraft() {
   if (!formRef.value) return;
   await formRef.value.validate();
 
-  if (selectedAccount.value && (form.amount || 0) > selectedAccount.value.availableAmount) {
-    ElMessage.error(`预算不足，当前账户可用余额为 ${selectedAccount.value.availableAmount.toFixed(2)}`);
-    return;
-  }
-
   actionLoading.value = true;
   try {
+    if (formMode.value === 'edit' && editingId.value) {
+      const response = await updateFundApplication(editingId.value, {
+        title: form.title,
+        purpose: form.purpose,
+        amount: form.amount,
+        reimbursementAmount: form.reimbursementAmount,
+        payeeName: form.payeeName || undefined,
+        expenseType: form.expenseType,
+        attachmentFileIds: form.attachments.map((item) => item.fileId),
+        orderAttachmentFileIds: form.orderAttachments.map((item) => item.fileId),
+        invoiceAttachmentFileIds: form.invoiceAttachments.map((item) => item.fileId),
+        goodsAttachmentFileIds: form.goodsAttachments.map((item) => item.fileId),
+      });
+      ElMessage.success('草稿已更新');
+      dialogVisible.value = false;
+      resetForm();
+      await load();
+      await openDetail(response.data.id);
+      return;
+    }
+
     const response = await createFundApplication({
       accountId: form.accountId,
       applicationType: form.applicationType,
@@ -155,6 +329,86 @@ async function submit() {
       relatedBusinessType: form.relatedBusinessType || undefined,
       relatedBusinessId: form.relatedBusinessId || undefined,
       attachmentFileIds: form.attachments.map((item) => item.fileId),
+      orderAttachmentFileIds: form.orderAttachments.map((item) => item.fileId),
+      invoiceAttachmentFileIds: form.invoiceAttachments.map((item) => item.fileId),
+      goodsAttachmentFileIds: form.goodsAttachments.map((item) => item.fileId),
+      submitForApproval: false,
+    });
+
+    ElMessage.success('草稿已保存');
+    dialogVisible.value = false;
+    resetForm();
+    await load();
+    await openDetail(response.data.id);
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '保存草稿失败');
+  } finally {
+    actionLoading.value = false;
+  }
+}
+
+async function submit() {
+  if (!formRef.value) return;
+  await formRef.value.validate();
+
+  if (selectedAccount.value && (form.amount || 0) > selectedAccount.value.availableAmount) {
+    ElMessage.error(`预算不足，当前账户可用余额为 ${selectedAccount.value.availableAmount.toFixed(2)}`);
+    return;
+  }
+
+  if (!validateReimbursementMaterialsForSubmit()) {
+    return;
+  }
+
+  actionLoading.value = true;
+  try {
+    if (formMode.value === 'edit' && editingId.value) {
+      await updateFundApplication(editingId.value, {
+        title: form.title,
+        purpose: form.purpose,
+        amount: form.amount,
+        reimbursementAmount: form.reimbursementAmount,
+        payeeName: form.payeeName || undefined,
+        expenseType: form.expenseType,
+        attachmentFileIds: form.attachments.map((item) => item.fileId),
+        orderAttachmentFileIds: form.orderAttachments.map((item) => item.fileId),
+        invoiceAttachmentFileIds: form.invoiceAttachments.map((item) => item.fileId),
+        goodsAttachmentFileIds: form.goodsAttachments.map((item) => item.fileId),
+      });
+
+      const response = await submitFundApplication(editingId.value, {
+        attachmentFileIds: form.attachments.map((item) => item.fileId),
+        orderAttachmentFileIds: form.orderAttachments.map((item) => item.fileId),
+        invoiceAttachmentFileIds: form.invoiceAttachments.map((item) => item.fileId),
+        goodsAttachmentFileIds: form.goodsAttachments.map((item) => item.fileId),
+      });
+
+      ElMessage.success('费用申请已提交审批');
+      dialogVisible.value = false;
+      resetForm();
+      await load();
+      await openDetail(response.data.id);
+      return;
+    }
+
+    const response = await createFundApplication({
+      accountId: form.accountId,
+      applicationType: form.applicationType,
+      expenseType: form.expenseType,
+      title: form.title,
+      purpose: form.purpose,
+      amount: form.amount!,
+      reimbursementAmount: form.reimbursementAmount,
+      payeeName: form.payeeName || undefined,
+      projectId: form.projectId || undefined,
+      projectName: form.projectName || undefined,
+      relatedBusinessType: form.relatedBusinessType || undefined,
+      relatedBusinessId: form.relatedBusinessId || undefined,
+      attachmentFileIds: form.attachments.map((item) => item.fileId),
+      orderAttachmentFileIds: form.orderAttachments.map((item) => item.fileId),
+      invoiceAttachmentFileIds: form.invoiceAttachments.map((item) => item.fileId),
+      goodsAttachmentFileIds: form.goodsAttachments.map((item) => item.fileId),
+      submitForApproval: true,
     });
     ElMessage.success('费用申请已提交审批');
     dialogVisible.value = false;
@@ -183,6 +437,21 @@ async function confirmPayment() {
   }
 }
 
+async function withdrawCurrentApplication() {
+  if (!detail.value?.approvalInstanceId) return;
+  actionLoading.value = true;
+  try {
+    await withdrawApproval(detail.value.approvalInstanceId, '申请人撤回');
+    ElMessage.success('已撤回');
+    await load();
+    await openDetail(detail.value.id);
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '撤回失败');
+  } finally {
+    actionLoading.value = false;
+  }
+}
+
 watch(
   () => route.query.focus,
   (focus) => {
@@ -193,8 +462,14 @@ watch(
   { immediate: true },
 );
 
-onMounted(() => {
-  void load();
+onMounted(async () => {
+  try {
+    const response = await fetchFundSettings();
+    reimbursementThreshold.value = response.data.reimbursementMaterialThreshold;
+  } catch {
+    // keep default threshold
+  }
+  await load();
 });
 </script>
 
@@ -222,7 +497,7 @@ onMounted(() => {
           <el-option v-for="item in accounts" :key="item.id" :label="item.accountName" :value="item.id" />
         </el-select>
         <el-button type="primary" @click="load">查询</el-button>
-        <el-button v-if="canCreate" @click="dialogVisible = true">新建申请</el-button>
+        <el-button v-if="canCreate" @click="openCreate">新建申请</el-button>
       </div>
 
       <el-table v-loading="loading" :data="applications">
@@ -239,6 +514,13 @@ onMounted(() => {
             <el-button link type="primary" @click="openDetail(row.id)">详情</el-button>
             <el-button v-if="row.approvalInstanceId" link type="success" @click="openApproval(row.approvalInstanceId)">
               审批
+            </el-button>
+            <el-button
+              v-if="(row.statusCode === 'DRAFT' || row.statusCode === 'RETURNED') && currentUserId && row.applicantUserId === currentUserId"
+              link
+              @click="openEdit(row.id)"
+            >
+              编辑
             </el-button>
             <el-button v-if="row.projectId" link @click="openProject(row.projectId)">项目</el-button>
           </template>
@@ -257,7 +539,12 @@ onMounted(() => {
       </div>
     </div>
 
-    <el-dialog v-model="dialogVisible" title="新建费用申请" width="720px" @closed="resetForm">
+    <el-dialog
+      v-model="dialogVisible"
+      :title="formMode === 'edit' ? '编辑费用申请/报销' : '新建费用申请/报销'"
+      width="720px"
+      @closed="resetForm"
+    >
       <el-form ref="formRef" :model="form" label-width="120px">
         <el-form-item label="经费账户" prop="accountId" :rules="[{ required: true, message: '请选择经费账户' }]">
           <el-select v-model="form.accountId" filterable style="width: 100%">
@@ -304,12 +591,32 @@ onMounted(() => {
         <el-form-item label="用途说明" prop="purpose" :rules="[{ required: true, message: '请输入用途说明' }]">
           <el-input v-model="form.purpose" type="textarea" :rows="4" />
         </el-form-item>
-        <el-form-item label="附件凭证">
-          <AttachmentUploader v-model="form.attachments" />
+        <el-form-item label="附件凭证（选填）">
+          <AttachmentUploader v-model="form.attachments" :remove-request="makeRemoveRequest('FUND_VOUCHER')" />
         </el-form-item>
+
+        <template v-if="form.applicationType === 'REIMBURSEMENT'">
+          <el-alert
+            :title="`报销材料阈值：${reimbursementThreshold.toFixed(2)}；本次金额：${baseReimbursementAmount().toFixed(2)}。超阈值时三类截图必传。`"
+            type="info"
+            :closable="false"
+            style="margin-bottom: 12px"
+          />
+
+          <el-form-item label="订单截图" :required="baseReimbursementAmount() > reimbursementThreshold">
+            <AttachmentUploader v-model="form.orderAttachments" :remove-request="makeRemoveRequest('REIMBURSE_ORDER')" />
+          </el-form-item>
+          <el-form-item label="发票截图" :required="baseReimbursementAmount() > reimbursementThreshold">
+            <AttachmentUploader v-model="form.invoiceAttachments" :remove-request="makeRemoveRequest('REIMBURSE_INVOICE')" />
+          </el-form-item>
+          <el-form-item label="实物截图" :required="baseReimbursementAmount() > reimbursementThreshold">
+            <AttachmentUploader v-model="form.goodsAttachments" :remove-request="makeRemoveRequest('REIMBURSE_GOODS')" />
+          </el-form-item>
+        </template>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button :loading="actionLoading" @click="saveDraft">保存草稿</el-button>
         <el-button type="primary" :loading="actionLoading" @click="submit">提交审批</el-button>
       </template>
     </el-dialog>
@@ -336,6 +643,15 @@ onMounted(() => {
               @click="confirmPayment"
             >
               标记已支付
+            </el-button>
+            <el-button
+              v-if="detail.approvalInstanceId && detail.statusCode === FundApplicationStatus.IN_APPROVAL && currentUserId && detail.applicantUserId === currentUserId"
+              type="warning"
+              plain
+              :loading="actionLoading"
+              @click="withdrawCurrentApplication"
+            >
+              撤回
             </el-button>
           </div>
           <el-descriptions :column="2" border>
@@ -371,6 +687,14 @@ onMounted(() => {
             </div>
           </div>
           <AttachmentUploader v-model="detailAttachments" readonly />
+          <template v-if="detail.applicationType === 'REIMBURSEMENT'">
+            <el-divider content-position="left">订单截图</el-divider>
+            <AttachmentUploader v-model="detailOrderAttachments" readonly />
+            <el-divider content-position="left">发票截图</el-divider>
+            <AttachmentUploader v-model="detailInvoiceAttachments" readonly />
+            <el-divider content-position="left">实物截图</el-divider>
+            <AttachmentUploader v-model="detailGoodsAttachments" readonly />
+          </template>
         </div>
 
         <div class="panel-card">

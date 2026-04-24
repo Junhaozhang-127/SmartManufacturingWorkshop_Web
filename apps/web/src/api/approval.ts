@@ -36,6 +36,10 @@ export async function rejectApproval(id: string, comment: string) {
   return http.post<never, { data: unknown }>(`/approval-center/${id}/reject`, { comment });
 }
 
+export async function returnApproval(id: string, comment: string) {
+  return http.post<never, { data: unknown }>(`/approval-center/${id}/return`, { comment });
+}
+
 export async function transferApproval(id: string, targetUserId: string, comment: string) {
   return http.post<never, { data: unknown }>(`/approval-center/${id}/transfer`, { targetUserId, comment });
 }
@@ -46,6 +50,10 @@ export async function commentApproval(id: string, comment: string) {
 
 export async function withdrawApproval(id: string, comment: string) {
   return http.post<never, { data: unknown }>(`/approval-center/${id}/withdraw`, { comment });
+}
+
+export async function resubmitApproval(id: string, comment: string) {
+  return http.post<never, { data: unknown }>(`/approval-center/${id}/resubmit`, { comment });
 }
 
 export async function fetchApprovalDashboardSummary() {

@@ -1,6 +1,7 @@
 import { Type } from 'class-transformer';
 import {
   IsArray,
+  IsBoolean,
   IsNumber,
   IsOptional,
   IsString,
@@ -99,4 +100,21 @@ export class CreateFundApplicationDto {
   @IsOptional()
   @IsArray()
   attachmentFileIds?: string[];
+
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  submitForApproval?: boolean;
+
+  @IsOptional()
+  @IsArray()
+  orderAttachmentFileIds?: string[];
+
+  @IsOptional()
+  @IsArray()
+  invoiceAttachmentFileIds?: string[];
+
+  @IsOptional()
+  @IsArray()
+  goodsAttachmentFileIds?: string[];
 }

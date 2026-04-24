@@ -52,6 +52,16 @@ export class ApprovalController {
     return this.approvalService.reject(currentUser, id, payload);
   }
 
+  @Post('approval-center/:id/return')
+  @RequirePermissions(PermissionCodes.approvalApprove)
+  returnForSupplement(
+    @CurrentUser() currentUser: CurrentUserProfile,
+    @Param('id') id: string,
+    @Body() payload: ApprovalCommentDto,
+  ) {
+    return this.approvalService.returnForSupplement(currentUser, id, payload);
+  }
+
   @Post('approval-center/:id/transfer')
   @RequirePermissions(PermissionCodes.approvalApprove)
   transfer(
@@ -80,6 +90,16 @@ export class ApprovalController {
     @Body() payload: ApprovalCommentDto,
   ) {
     return this.approvalService.withdraw(currentUser, id, payload);
+  }
+
+  @Post('approval-center/:id/resubmit')
+  @RequirePermissions(PermissionCodes.approvalCenterView)
+  resubmit(
+    @CurrentUser() currentUser: CurrentUserProfile,
+    @Param('id') id: string,
+    @Body() payload: ApprovalCommentDto,
+  ) {
+    return this.approvalService.resubmit(currentUser, id, payload);
   }
 
   @Get('dashboard/approval-summary')

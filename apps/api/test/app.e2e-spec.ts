@@ -471,13 +471,19 @@ describe('App e2e', () => {
   });
 
   it('enforces attachment authorization for linked business (PROFILE_AVATAR)', async () => {
+    type BufferStream = {
+      on(event: 'data', listener: (chunk: Buffer) => void): void;
+      on(event: 'end', listener: () => void): void;
+    };
+
     const parseBodyAsBuffer = (
-      res: NodeJS.ReadableStream,
+      res: unknown,
       callback: (err: Error | null, body?: Buffer) => void,
     ) => {
+      const stream = res as BufferStream;
       const chunks: Buffer[] = [];
-      res.on('data', (chunk: Buffer) => chunks.push(chunk));
-      res.on('end', () => callback(null, Buffer.concat(chunks)));
+      stream.on('data', (chunk: Buffer) => chunks.push(chunk));
+      stream.on('end', () => callback(null, Buffer.concat(chunks)));
     };
 
     prismaMock.sysFile.findUnique.mockImplementation(({ where }: { where: { id: bigint } }) => {

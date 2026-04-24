@@ -9,6 +9,7 @@ export enum FundAccountStatus {
 export enum FundApplicationStatus {
   DRAFT = 'DRAFT',
   IN_APPROVAL = 'IN_APPROVAL',
+  RETURNED = 'RETURNED',
   APPROVED = 'APPROVED',
   REJECTED = 'REJECTED',
   WITHDRAWN = 'WITHDRAWN',
