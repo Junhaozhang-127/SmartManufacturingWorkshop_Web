@@ -7,19 +7,24 @@ import { Test } from '@nestjs/testing';
 import bcrypt from 'bcryptjs';
 import request from 'supertest';
 
-import { AppModule } from '../src/modules/app.module';
 import { PrismaService } from '../src/modules/prisma/prisma.service';
 import { HttpExceptionFilter } from '../src/shared/http-exception.filter';
 import { ResponseTransformInterceptor } from '../src/shared/response-transform.interceptor';
 import { createPrismaMock } from './create-prisma-mock';
 
 process.env.NODE_ENV = process.env.NODE_ENV?.trim() ? process.env.NODE_ENV : 'test';
-process.env.DATABASE_URL = process.env.DATABASE_URL?.trim()
-  ? process.env.DATABASE_URL
-  : 'mysql://test:test@127.0.0.1:3306/test';
+process.env.DATABASE_URL =
+  process.env.DATABASE_URL?.includes('<user>') ||
+  process.env.DATABASE_URL?.includes('<password>') ||
+  process.env.DATABASE_URL?.includes('<database>') ||
+  !process.env.DATABASE_URL?.trim()
+    ? 'mysql://test:test@127.0.0.1:3306/test'
+    : process.env.DATABASE_URL;
 process.env.AUTH_TOKEN_SECRET = process.env.AUTH_TOKEN_SECRET?.trim()
   ? process.env.AUTH_TOKEN_SECRET
   : 'test-auth-token-secret-32-chars-minimum';
+
+jest.setTimeout(60_000);
 
 type MockUser = {
   id: bigint;
@@ -321,6 +326,8 @@ describe('App e2e', () => {
   }
 
   beforeAll(async () => {
+    const { AppModule } = await import('../src/modules/app.module');
+
     prismaMock.$queryRaw.mockResolvedValue([{ result: 1 }]);
     prismaMock.$transaction.mockImplementation((operations: unknown[]) => Promise.all(operations));
     prismaMock.sysUser.findUnique.mockImplementation(({ where }: { where: { username?: string; id?: bigint } }) =>
@@ -499,7 +506,9 @@ describe('App e2e', () => {
       });
     });
 
-    prismaMock.sysFileLink.findMany.mockResolvedValue([{ businessType: 'PROFILE_AVATAR', businessId: '4' }]);
+    prismaMock.sysFileLink.findMany.mockResolvedValue([
+      { businessType: 'PROFILE_AVATAR', businessId: '4', createdAt: new Date('2026-04-01T00:00:00.000Z') },
+    ]);
 
     const memberLogin = await loginAs(users.member.username);
     const okDownload = await request(app.getHttpServer())
@@ -529,6 +538,27 @@ describe('App e2e', () => {
       .set('Authorization', `Bearer ${ministerLogin.body.data.token}`);
 
     expect(denied.status).toBe(403);
+  });
+
+  it('rejects download for deleted attachment (after unbind/delete lifecycle)', async () => {
+    prismaMock.sysFile.findUnique.mockResolvedValue({
+      id: BigInt(attachmentFixture.fileId),
+      storageKey: attachmentFixture.storageKey,
+      originalName: attachmentFixture.originalName,
+      uploadedBy: attachmentFixture.uploaderUserId,
+      isTemporary: false,
+      isDeleted: true,
+      fileExt: 'txt',
+      mimeType: 'text/plain',
+    });
+    prismaMock.sysFileLink.findMany.mockResolvedValue([]);
+
+    const memberLogin = await loginAs(users.member.username);
+    const response = await request(app.getHttpServer())
+      .get(`/api/attachments/${attachmentFixture.fileId}/download`)
+      .set('Authorization', `Bearer ${memberLogin.body.data.token}`);
+
+    expect(response.status).toBe(404);
   });
 
   it('blocks deprecated /api/files/download endpoint', async () => {

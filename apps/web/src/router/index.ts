@@ -369,6 +369,7 @@ const routes: RouteRecordRaw[] = [
         meta: {
           title: '首页内容管理',
           breadcrumb: ['内容中心', '首页内容管理'],
+          permissions: [PermissionCodes.portalContentView],
           roles: [RoleCode.TEACHER, RoleCode.MINISTER],
           activeMenu: '/portal/manage',
         },
@@ -380,6 +381,7 @@ const routes: RouteRecordRaw[] = [
         meta: {
           title: '创作中心',
           breadcrumb: ['内容中心', '创作中心'],
+          permissions: [PermissionCodes.creationView],
         },
       },
       {
@@ -390,6 +392,7 @@ const routes: RouteRecordRaw[] = [
           title: '新建内容',
           breadcrumb: ['内容中心', '创作中心', '新建内容'],
           activeMenu: '/creation',
+          permissions: [PermissionCodes.creationCreate],
         },
       },
       {
@@ -400,6 +403,7 @@ const routes: RouteRecordRaw[] = [
           title: '编辑内容',
           breadcrumb: ['内容中心', '创作中心', '编辑内容'],
           activeMenu: '/creation',
+          permissions: [PermissionCodes.creationUpdate],
         },
       },
       {
@@ -449,6 +453,7 @@ const routes: RouteRecordRaw[] = [
         meta: {
           title: '智库',
           breadcrumb: ['内容中心', '智库'],
+          permissions: [PermissionCodes.knowledgeView],
         },
       },
       {
@@ -459,6 +464,7 @@ const routes: RouteRecordRaw[] = [
           title: '智库详情',
           breadcrumb: ['内容中心', '智库', '详情'],
           activeMenu: '/knowledge/contents',
+          permissions: [PermissionCodes.knowledgeView],
         },
       },
     ],
