@@ -191,7 +191,7 @@ export const adminMenu: AppMenuItem[] = [
       {
         key: 'portal-content-manage',
         label: '首页内容管理',
-        path: '/portal/manage',
+        path: '/dashboard/portal/manage',
         icon: 'Picture',
         roles: [RoleCodeEnum.TEACHER, RoleCodeEnum.MINISTER],
         permissions: [PermissionCodes.portalContentView],

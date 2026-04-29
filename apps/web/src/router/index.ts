@@ -378,6 +378,10 @@ const routes: RouteRecordRaw[] = [
       },
       {
         path: 'portal/manage',
+        redirect: '/dashboard/portal/manage',
+      },
+      {
+        path: 'dashboard/portal/manage',
         name: 'portal.manage',
         component: () => import('@web/views/PortalContentManagePage.vue'),
         meta: {
@@ -385,7 +389,7 @@ const routes: RouteRecordRaw[] = [
           breadcrumb: ['内容中心', '首页内容管理'],
           permissions: [PermissionCodes.portalContentView],
           roles: [RoleCode.TEACHER, RoleCode.MINISTER],
-          activeMenu: '/portal/manage',
+          activeMenu: '/dashboard/portal/manage',
         },
       },
       {

@@ -74,8 +74,8 @@ describe('resolveAuthNavigation', () => {
   it('redirects to home when role is missing', () => {
     const result = resolveAuthNavigation(
       {
-        path: '/portal/manage',
-        fullPath: '/portal/manage',
+        path: '/dashboard/portal/manage',
+        fullPath: '/dashboard/portal/manage',
         meta: { requiresAuth: true, roles: [RoleCode.TEACHER] },
       },
       {
@@ -93,8 +93,8 @@ describe('resolveAuthNavigation', () => {
   it('redirects to home when route permission is missing even if role matches', () => {
     const result = resolveAuthNavigation(
       {
-        path: '/portal/manage',
-        fullPath: '/portal/manage',
+        path: '/dashboard/portal/manage',
+        fullPath: '/dashboard/portal/manage',
         meta: {
           requiresAuth: true,
           roles: [RoleCode.TEACHER],
