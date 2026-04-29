@@ -1,9 +1,14 @@
 import { PermissionCodes, RoleCode } from '@smw/shared';
 import { useAuthStore } from '@web/stores/auth';
+import type { Component } from 'vue';
 import type { RouteRecordRaw } from 'vue-router';
 import { createRouter, createWebHistory } from 'vue-router';
 
 import { resolveAuthNavigation } from './guard';
+
+const FeatureUnavailablePage: Component = {
+  template: '<div style="padding:24px;text-align:center;color:#64748b;">该功能暂未开放</div>',
+};
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -92,6 +97,15 @@ const routes: RouteRecordRaw[] = [
       requiresAuth: false,
       allowFirstLoginBypass: true,
       contentType: 'MEMBER_INTRO',
+    },
+  },
+  {
+    path: '/feature-unavailable',
+    name: 'feature.unavailable',
+    component: FeatureUnavailablePage,
+    meta: {
+      requiresAuth: false,
+      allowFirstLoginBypass: true,
     },
   },
   {
@@ -423,6 +437,17 @@ const routes: RouteRecordRaw[] = [
         },
       },
       {
+        path: 'inventory/consumables',
+        name: 'inventory.consumables',
+        component: () => import('@web/views/InventoryConsumablesPage.vue'),
+        meta: {
+          title: '耗材库存',
+          breadcrumb: ['设备与资源', '耗材库存'],
+          permissions: [PermissionCodes.inventoryView],
+          activeMenu: '/inventory/consumables',
+        },
+      },
+      {
         path: 'teacher/projects/entry',
         name: 'teacher.projects.entry',
         component: () => import('@web/views/TeacherProjectLedgerPage.vue'),
@@ -490,4 +515,14 @@ router.beforeEach(async (to) => {
     permissions: authStore.permissions,
     activeRoleCode: authStore.activeRoleCode,
   });
+});
+
+router.onError(async (error, to) => {
+  const message = error instanceof Error ? error.message : String(error);
+  const isDynamicImportError =
+    message.includes('Failed to fetch dynamically imported module') || message.includes('Importing a module script failed');
+
+  if (isDynamicImportError && to.path !== '/feature-unavailable') {
+    await router.replace('/feature-unavailable');
+  }
 });
