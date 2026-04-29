@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { fetchProjectFundDetail } from '@web/api/finance';
+import { fetchProjectDetailProfile } from '@web/api/project';
 import { ElMessage } from 'element-plus';
 import { onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
@@ -7,7 +7,7 @@ import { useRoute, useRouter } from 'vue-router';
 const route = useRoute();
 const router = useRouter();
 const loading = ref(false);
-const detail = ref<Awaited<ReturnType<typeof fetchProjectFundDetail>>['data'] | null>(null);
+const detail = ref<Awaited<ReturnType<typeof fetchProjectDetailProfile>>['data'] | null>(null);
 
 async function load() {
   const projectId = route.params.projectId;
@@ -15,7 +15,7 @@ async function load() {
 
   loading.value = true;
   try {
-    const response = await fetchProjectFundDetail(projectId);
+    const response = await fetchProjectDetailProfile(projectId);
     detail.value = response.data;
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '项目经费详情加载失败');

@@ -9,6 +9,7 @@ import {
   rejectRegularization,
   withdrawRegularization,
 } from '@web/api/member';
+import AttachmentUploader from '@web/components/attachments/AttachmentUploader.vue';
 import { useAuthz } from '@web/composables/useAuthz';
 import { ElMessage } from 'element-plus';
 import { computed, onMounted, reactive, ref } from 'vue';
@@ -26,6 +27,7 @@ const total = ref(0);
 const detail = ref<Awaited<ReturnType<typeof fetchRegularizationDetail>>['data'] | null>(null);
 const memberOptions = ref<Array<{ id: string; label: string; joinDate: string }>>([]);
 const approvalComment = ref('');
+const formAttachments = ref<Array<{ fileId: string; originalName: string }>>([]);
 
 const query = reactive({
   page: 1,
@@ -80,7 +82,7 @@ async function load() {
 }
 
 async function loadMemberOptions() {
-  const response = await fetchMemberList({ page: 1, pageSize: 100, statusCode: 'INTERN' });
+  const response = await fetchMemberList({ page: 1, pageSize: 100, memberStatus: 'INTERN' });
   memberOptions.value = response.data.items.map((item) => ({
     id: item.id,
     label: `${item.displayName} / ${item.orgUnitName}`,
@@ -103,9 +105,13 @@ async function openDetail(id: string) {
 async function submitCreate() {
   submitting.value = true;
   try {
-    await createRegularization(createForm);
+    await createRegularization({
+      ...createForm,
+      attachmentFileIds: formAttachments.value.map((item) => item.fileId),
+    });
     ElMessage.success('转正申请已提交并进入审批中心');
     createVisible.value = false;
+    formAttachments.value = [];
     await load();
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '转正申请提交失败');
@@ -218,6 +224,9 @@ onMounted(async () => {
         <el-form-item label="自我评价">
           <el-input v-model="createForm.selfAssessment" type="textarea" :rows="4" />
         </el-form-item>
+        <el-form-item label="附件材料">
+          <AttachmentUploader v-model="formAttachments" />
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="createVisible = false">取消</el-button>
@@ -270,6 +279,11 @@ onMounted(async () => {
             <el-table-column prop="resultCode" label="结果" width="120" />
             <el-table-column prop="evaluatorName" label="评价人" min-width="120" />
           </el-table>
+        </div>
+
+        <div class="approval-detail__section">
+          <h3>附件材料</h3>
+          <AttachmentUploader v-model="detail.attachments" readonly />
         </div>
 
         <div v-if="canReview || canCreate" class="approval-detail__section">

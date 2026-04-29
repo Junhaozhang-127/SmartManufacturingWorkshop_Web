@@ -23,6 +23,7 @@ import {
 } from '@smw/shared';
 
 import type { ApprovalCommentDto } from '../approval/dto/approval-comment.dto';
+import { AttachmentsService } from '../attachments/attachments.service';
 import type { BindMentorDto } from './dto/bind-mentor.dto';
 import type { CreateRegularizationDto } from './dto/create-regularization.dto';
 import type { CreateStageEvaluationDto } from './dto/create-stage-evaluation.dto';
@@ -105,6 +106,7 @@ export class MemberService {
     private readonly prisma: PrismaService,
     private readonly approvalService: ApprovalService,
     private readonly evaluationPromotionService: EvaluationPromotionService,
+    private readonly attachmentsService: AttachmentsService,
   ) {}
 
   async listOrgMemberOptions(dataScopeContext: DataScopeContext) {
@@ -812,13 +814,23 @@ export class MemberService {
     };
   }
 
-  async getRegularizationDetail(regularizationId: string, dataScopeContext: DataScopeContext) {
+  async getRegularizationDetail(
+    currentUser: CurrentUserProfile,
+    regularizationId: string,
+    dataScopeContext: DataScopeContext,
+  ) {
     const record = await this.loadScopedRegularization(regularizationId, dataScopeContext);
+    const attachments = await this.attachmentsService.listBusinessAttachments(currentUser, {
+      businessType: 'MEMBER_REGULARIZATION',
+      businessId: String(record.id),
+      usageType: 'REGULARIZATION_PROOF',
+    });
 
     return {
       ...this.mapRegularization(record),
       applicationReason: record.applicationReason,
       selfAssessment: record.selfAssessment,
+      attachments,
       stageEvaluations: record.memberProfile.stageEvaluations.map((evaluation) => ({
         id: String(evaluation.id),
         stageCode: evaluation.stageCode,
@@ -909,6 +921,15 @@ export class MemberService {
         },
       });
 
+      if (payload.attachmentFileIds?.length) {
+        await this.attachmentsService.bindAttachmentsAsSystem(tx, currentUser, {
+          businessType: 'MEMBER_REGULARIZATION',
+          businessId: String(created.id),
+          usageType: 'REGULARIZATION_PROOF',
+          fileIds: payload.attachmentFileIds,
+        });
+      }
+
       await tx.memberProfile.update({
         where: { id: profile.id },
         data: {
@@ -937,7 +958,7 @@ export class MemberService {
       return created;
     });
 
-    return this.getRegularizationDetail(String(regularization.id), dataScopeContext);
+    return this.getRegularizationDetail(currentUser, String(regularization.id), dataScopeContext);
   }
 
   async approveRegularization(

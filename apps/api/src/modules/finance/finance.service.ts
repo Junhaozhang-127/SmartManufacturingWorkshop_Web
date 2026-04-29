@@ -500,19 +500,10 @@ export class FinanceService {
     payload: CreateFundApplicationDto,
     dataScopeContext: DataScopeContext,
   ) {
-    const account = await this.prisma.fundAccount.findUnique({
-      where: { id: this.toBigInt(payload.accountId) },
-      include: {
-        ownerOrgUnit: true,
-        manager: true,
-      },
-    });
-
-    if (!account || account.isDeleted) {
-      throw new NotFoundException('经费账户不存在');
-    }
-
-    this.ensureAccountVisible(account, dataScopeContext);
+    const accountInput = String(payload.accountId ?? '').trim();
+    const account = accountInput
+      ? await this.resolveAccountByInput(accountInput, dataScopeContext, { includeOwner: true })
+      : await this.resolveDefaultActiveAccount(dataScopeContext);
 
     if (account.statusCode !== 'ACTIVE') {
       throw new BadRequestException('当前经费账户不可提交费用申请');
@@ -1802,6 +1793,91 @@ export class FinanceService {
 
   private toBigInt(value: string) {
     return BigInt(value);
+  }
+
+  private toBigIntOrNull(value: string) {
+    const trimmed = String(value ?? '').trim();
+    if (!trimmed) return null;
+    if (!/^\d+$/.test(trimmed)) return null;
+    try {
+      return BigInt(trimmed);
+    } catch {
+      return null;
+    }
+  }
+
+  private async resolveAccountByInput(
+    input: string,
+    dataScopeContext: DataScopeContext,
+    options?: { includeOwner?: boolean },
+  ) {
+    const trimmed = String(input ?? '').trim();
+    if (!trimmed) {
+      throw new BadRequestException('经费账户不能为空');
+    }
+
+    const include = options?.includeOwner
+      ? { ownerOrgUnit: true, manager: true }
+      : { ownerOrgUnit: true, manager: true };
+
+    const accountId = this.toBigIntOrNull(trimmed);
+    const account =
+      (accountId
+        ? await this.prisma.fundAccount.findUnique({
+            where: { id: accountId },
+            include,
+          })
+        : null) ??
+      (await this.prisma.fundAccount.findFirst({
+        where: {
+          isDeleted: false,
+          OR: [{ accountCode: trimmed }, { accountName: trimmed }],
+        },
+        include,
+      }));
+
+    if (!account || account.isDeleted) {
+      throw new NotFoundException('经费账户不存在');
+    }
+
+    this.ensureAccountVisible(account, dataScopeContext);
+    return account;
+  }
+
+  private async resolveDefaultActiveAccount(dataScopeContext: DataScopeContext) {
+    const scopeWhere = this.buildAccountScopeWhere(dataScopeContext);
+    const include = { ownerOrgUnit: true, manager: true };
+    const currentUserId = this.toBigInt(dataScopeContext.userId);
+
+    const tryWhere = async (where: Prisma.FundAccountWhereInput) => {
+      const account = await this.prisma.fundAccount.findFirst({
+        where,
+        include,
+        orderBy: [{ updatedAt: 'desc' }],
+      });
+      return account ?? null;
+    };
+
+    const baseWhere = { AND: [{ isDeleted: false }, { statusCode: 'ACTIVE' }, scopeWhere] } satisfies Prisma.FundAccountWhereInput;
+
+    const managerPreferred =
+      (await tryWhere({
+        AND: [baseWhere, { managerUserId: currentUserId }],
+      })) ?? null;
+
+    if (managerPreferred) return managerPreferred;
+
+    const creatorPreferred =
+      (await tryWhere({
+        AND: [baseWhere, { createdBy: currentUserId }],
+      })) ?? null;
+
+    if (creatorPreferred) return creatorPreferred;
+
+    const anyVisible = await tryWhere(baseWhere);
+    if (anyVisible) return anyVisible;
+
+    throw new BadRequestException('暂无可用经费账户，请联系老师/部长配置经费账户后再提交');
   }
 
   private toDecimal(value?: number | null) {

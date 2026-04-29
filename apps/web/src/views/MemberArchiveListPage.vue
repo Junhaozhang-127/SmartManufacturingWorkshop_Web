@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { MemberListItem, MemberListResult } from '@smw/shared';
-import { http } from '@web/api/client';
+import { fetchMemberList } from '@web/api/member';
 import { ElMessage } from 'element-plus';
 import { onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
@@ -13,7 +13,7 @@ const query = reactive({
   page: 1,
   pageSize: 10,
   keyword: '',
-  statusCode: '',
+  memberStatus: '',
 });
 
 const statusOptions = [
@@ -24,8 +24,8 @@ const statusOptions = [
   { label: '正式成员', value: 'ACTIVE' },
 ];
 
-function resolveTagType(statusCode: string) {
-  switch (statusCode) {
+function resolveTagType(memberStatus: string) {
+  switch (memberStatus) {
     case 'ACTIVE':
       return 'success';
     case 'REGULARIZATION_PENDING':
@@ -40,13 +40,11 @@ function resolveTagType(statusCode: string) {
 async function load() {
   loading.value = true;
   try {
-    const response = await http.get<never, { data: MemberListResult }>('/members', {
-      params: {
-        ...query,
-        viewAll: true,
-        memberStatus: query.statusCode || undefined,
-        statusCode: undefined,
-      },
+    const response = await fetchMemberList({
+      page: query.page,
+      pageSize: query.pageSize,
+      keyword: query.keyword || undefined,
+      memberStatus: query.memberStatus || undefined,
     });
     rows.value = response.data.items;
     total.value = response.data.meta.total;
@@ -75,7 +73,7 @@ onMounted(load);
     <div class="panel-card">
       <div class="toolbar-row member-toolbar">
         <el-input v-model="query.keyword" placeholder="搜索姓名、组织、岗位" clearable @keyup.enter="load" />
-        <el-select v-model="query.statusCode" style="width: 12rem">
+        <el-select v-model="query.memberStatus" style="width: 12rem">
           <el-option v-for="option in statusOptions" :key="option.value" :label="option.label" :value="option.value" />
         </el-select>
         <el-button type="primary" @click="load">查询</el-button>

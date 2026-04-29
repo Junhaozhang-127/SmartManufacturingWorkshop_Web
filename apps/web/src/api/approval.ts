@@ -23,9 +23,7 @@ export async function fetchApprovalDetail(id: string) {
 }
 
 export async function fetchTransferCandidates(id: string) {
-  return http.get<never, { data: Array<{ id: string; username: string; displayName: string }> }>(
-    `/approval-center/${id}/transfer-candidates`,
-  );
+  throw new Error('当前版本暂不支持审批转交');
 }
 
 export async function approveApproval(id: string, comment: string) {
@@ -41,7 +39,7 @@ export async function returnApproval(id: string, comment: string) {
 }
 
 export async function transferApproval(id: string, targetUserId: string, comment: string) {
-  return http.post<never, { data: unknown }>(`/approval-center/${id}/transfer`, { targetUserId, comment });
+  throw new Error('当前版本暂不支持审批转交');
 }
 
 export async function commentApproval(id: string, comment: string) {

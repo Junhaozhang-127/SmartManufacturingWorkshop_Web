@@ -1,7 +1,8 @@
-import { BadRequestException } from '@nestjs/common';
+﻿import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { type CurrentUserProfile, DataScope, type DataScopeContext } from '@smw/shared';
 
 import type { ApprovalService } from '../approval/approval.service';
+import type { AttachmentsService } from '../attachments/attachments.service';
 import type { EvaluationPromotionService } from '../evaluation-promotion/evaluation-promotion.service';
 import type { PrismaService } from '../prisma/prisma.service';
 import { MemberService } from './member.service';
@@ -100,7 +101,12 @@ describe('MemberService', () => {
     };
 
     const approvalService = {
-      startBusinessApproval: jest.fn(),
+      startBusinessApproval: jest.fn().mockResolvedValue({ id: '9001' }),
+    };
+
+    const attachmentsService = {
+      bindAttachmentsAsSystem: jest.fn().mockResolvedValue(undefined),
+      listBusinessAttachments: jest.fn().mockResolvedValue([]),
     };
 
     const evaluationPromotionService = {
@@ -108,15 +114,21 @@ describe('MemberService', () => {
       buildMemberProjectAndRewardSnapshot: jest.fn(),
     };
 
-    return new MemberService(
-      prisma as unknown as PrismaService,
-      approvalService as unknown as ApprovalService,
-      evaluationPromotionService as unknown as EvaluationPromotionService,
-    );
+    return {
+      service: new MemberService(
+        prisma as unknown as PrismaService,
+        approvalService as unknown as ApprovalService,
+        evaluationPromotionService as unknown as EvaluationPromotionService,
+        attachmentsService as unknown as AttachmentsService,
+      ),
+      prisma,
+      approvalService,
+      attachmentsService,
+    };
   }
 
   it('blocks regularization when planned date is earlier than internship start date', async () => {
-    const service = createService();
+    const { service } = createService();
 
     await expect(
       service.createRegularization(currentUser, dataScopeContext, {
@@ -128,12 +140,91 @@ describe('MemberService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
+  it('binds attachmentFileIds when creating regularization', async () => {
+    const { service, prisma, attachmentsService } = createService();
+    const tx = {
+      memberRegularization: {
+        create: jest.fn().mockResolvedValue({ id: 501n }),
+        update: jest.fn().mockResolvedValue({}),
+      },
+      memberProfile: {
+        update: jest.fn().mockResolvedValue({}),
+      },
+      memberGrowthRecord: {
+        create: jest.fn().mockResolvedValue({}),
+      },
+      memberOperationLog: {
+        create: jest.fn().mockResolvedValue({}),
+      },
+    };
+
+    prisma.$transaction.mockImplementation(async (fn: (ctx: typeof tx) => Promise<unknown>) => fn(tx));
+    jest.spyOn(service, 'getRegularizationDetail').mockResolvedValue({ id: '501' } as never);
+
+    await service.createRegularization(currentUser, dataScopeContext, {
+      memberProfileId: '101',
+      internshipStartDate: '2026-04-01',
+      plannedRegularDate: '2026-05-01',
+      applicationReason: '申请转正',
+      attachmentFileIds: ['11', '12'],
+    });
+
+    expect(attachmentsService.bindAttachmentsAsSystem).toHaveBeenCalledWith(
+      tx,
+      currentUser,
+      expect.objectContaining({
+        businessType: 'MEMBER_REGULARIZATION',
+        businessId: '501',
+        usageType: 'REGULARIZATION_PROOF',
+        fileIds: ['11', '12'],
+      }),
+    );
+  });
+
+  it('returns attachments in regularization detail', async () => {
+    const { service, attachmentsService } = createService();
+    jest.spyOn(service as any, 'loadScopedRegularization').mockResolvedValue({
+      id: 501n,
+      applicationReason: '申请转正',
+      selfAssessment: '自评',
+      memberProfile: { stageEvaluations: [] },
+    });
+    jest.spyOn(service as any, 'mapRegularization').mockReturnValue({ id: '501' });
+
+    attachmentsService.listBusinessAttachments.mockResolvedValue([
+      { fileId: '11', originalName: '证明材料.pdf' },
+    ]);
+
+    const result = await service.getRegularizationDetail(currentUser, '501', dataScopeContext);
+
+    expect(result.attachments).toEqual([{ fileId: '11', originalName: '证明材料.pdf' }]);
+  });
+
+  it('rejects regularization detail when attachment permission is denied', async () => {
+    const { service, attachmentsService } = createService();
+    jest.spyOn(service as any, 'loadScopedRegularization').mockResolvedValue({
+      id: 501n,
+      applicationReason: '申请转正',
+      selfAssessment: null,
+      memberProfile: { stageEvaluations: [] },
+    });
+    jest.spyOn(service as any, 'mapRegularization').mockReturnValue({ id: '501' });
+
+    attachmentsService.listBusinessAttachments.mockRejectedValue(new ForbiddenException('denied'));
+
+    await expect(service.getRegularizationDetail(currentUser, '501', dataScopeContext)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+  });
+
   it('builds department-scoped org tree from the current department root', async () => {
-    const service = createService();
-    const prisma = (service as unknown as { prisma: {
-      orgUnit: { findMany: jest.Mock };
-      memberProfile: { findMany: jest.Mock };
-    } }).prisma;
+    const { service } = createService();
+    const prisma = (service as unknown as {
+      prisma: {
+        orgUnit: { findMany: jest.Mock };
+        memberProfile: { findMany: jest.Mock };
+      };
+    }).prisma;
 
     prisma.orgUnit.findMany.mockResolvedValue([
       {

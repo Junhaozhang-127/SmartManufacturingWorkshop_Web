@@ -1,4 +1,4 @@
-import type { PermissionCode, RoleCode } from '@smw/shared';
+﻿import type { PermissionCode, RoleCode } from '@smw/shared';
 import { PermissionCodes, RoleCode as RoleCodeEnum } from '@smw/shared';
 import type { NavItem } from '@smw/ui';
 
@@ -119,6 +119,13 @@ export const adminMenu: AppMenuItem[] = [
         permissions: [PermissionCodes.deviceRepairView],
       },
       {
+        key: 'inventory-consumables',
+        label: '耗材库存',
+        path: '/inventory/consumables',
+        icon: 'Box',
+        permissions: [PermissionCodes.inventoryView],
+      },
+      {
         key: 'fund-application',
         label: '经费申请与审批',
         path: '/funds/applications',
@@ -187,18 +194,21 @@ export const adminMenu: AppMenuItem[] = [
         path: '/portal/manage',
         icon: 'Picture',
         roles: [RoleCodeEnum.TEACHER, RoleCodeEnum.MINISTER],
+        permissions: [PermissionCodes.portalContentView],
       },
       {
         key: 'creation-center',
         label: '创作中心',
         path: '/creation',
         icon: 'EditPen',
+        permissions: [PermissionCodes.creationView],
       },
       {
         key: 'knowledge-base',
         label: '智库',
         path: '/knowledge/contents',
         icon: 'Collection',
+        permissions: [PermissionCodes.knowledgeView],
       },
     ],
   },

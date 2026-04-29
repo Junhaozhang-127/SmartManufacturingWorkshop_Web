@@ -53,6 +53,7 @@ function goCreationReview() {
 }
 
 const actionButtons = computed(() => selectedDetail.value?.availableActions ?? []);
+const transferDisabled = computed(() => actionButtons.value.includes('transfer'));
 
 async function load() {
   loading.value = true;
@@ -306,6 +307,12 @@ watch(
             </el-form>
 
             <div class="approval-detail__actions">
+              <el-alert
+                v-if="transferDisabled"
+                type="info"
+                :closable="false"
+                title="当前版本暂不支持审批转交，请直接使用通过/驳回/退回等动作处理。"
+              />
               <el-button
                 v-if="actionButtons.includes('approve')"
                 type="success"

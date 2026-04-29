@@ -127,7 +127,7 @@ export async function fetchFundApplicationDetail(id: string) {
 }
 
 export async function createFundApplication(payload: {
-  accountId: string;
+  accountId?: string;
   applicationType: string;
   expenseType: string;
   title: string;

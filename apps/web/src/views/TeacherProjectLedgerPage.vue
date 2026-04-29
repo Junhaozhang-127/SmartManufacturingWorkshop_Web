@@ -2,11 +2,11 @@
 import { RoleCode } from '@smw/shared';
 import { fetchAchievementUsers } from '@web/api/competition-achievement';
 import {
-  createTeacherFundAccount,
-  fetchTeacherFundAccounts,
-  type TeacherFundAccountItem,
-  updateTeacherFundAccount,
-} from '@web/api/finance';
+  createProjectLedger,
+  fetchProjectLedgers,
+  type ProjectLedgerItem,
+  updateProjectLedger,
+} from '@web/api/project';
 import { fetchOrgOverview } from '@web/api/member';
 import { useAuthStore } from '@web/stores/auth';
 import type { FormInstance } from 'element-plus';
@@ -27,7 +27,7 @@ const canGoFundManage = computed(() => authStore.activeRoleCode === RoleCode.TEA
 const mode = computed<Mode>(() => (route.name === 'teacher.projects.assign' ? 'ASSIGN' : 'ENTRY'));
 
 const loading = ref(false);
-const rows = ref<TeacherFundAccountItem[]>([]);
+const rows = ref<ProjectLedgerItem[]>([]);
 const total = ref(0);
 
 const query = reactive({
@@ -66,7 +66,7 @@ const form = reactive({
 const assignRef = ref<FormInstance>();
 const assignVisible = ref(false);
 const assignSaving = ref(false);
-const assignTarget = ref<TeacherFundAccountItem | null>(null);
+const assignTarget = ref<ProjectLedgerItem | null>(null);
 const assignForm = reactive({
   ownerOrgUnitId: '',
   managerUserId: '',
@@ -96,7 +96,7 @@ async function loadOptions() {
 async function load() {
   loading.value = true;
   try {
-    const response = await fetchTeacherFundAccounts({
+    const response = await fetchProjectLedgers({
       page: query.page,
       pageSize: query.pageSize,
       keyword: query.keyword.trim() || undefined,
@@ -130,10 +130,10 @@ function openCreate() {
   dialogVisible.value = true;
 }
 
-function openEdit(row: TeacherFundAccountItem) {
+function openEdit(row: ProjectLedgerItem) {
   editingId.value = row.id;
-  form.accountCode = row.accountCode;
-  form.accountName = row.accountName;
+  form.accountCode = row.linkedFundAccountCode;
+  form.accountName = row.linkedFundAccountName;
   form.categoryName = row.categoryName;
   form.projectId = row.projectId ?? '';
   form.projectName = row.projectName ?? '';
@@ -165,10 +165,32 @@ async function submit() {
     };
 
     if (editingId.value) {
-      await updateTeacherFundAccount(editingId.value, payload);
+      await updateProjectLedger(editingId.value, {
+        linkedFundAccountCode: payload.accountCode,
+        linkedFundAccountName: payload.accountName,
+        categoryName: payload.categoryName,
+        projectId: payload.projectId,
+        projectName: payload.projectName,
+        ownerOrgUnitId: payload.ownerOrgUnitId,
+        managerUserId: payload.managerUserId,
+        totalBudget: payload.totalBudget,
+        remarks: payload.remarks,
+        statusCode: payload.statusCode,
+      });
       ElMessage.success('已更新项目台账');
     } else {
-      await createTeacherFundAccount(payload);
+      await createProjectLedger({
+        linkedFundAccountCode: payload.accountCode,
+        linkedFundAccountName: payload.accountName,
+        categoryName: payload.categoryName,
+        projectId: payload.projectId,
+        projectName: payload.projectName,
+        ownerOrgUnitId: payload.ownerOrgUnitId,
+        managerUserId: payload.managerUserId,
+        totalBudget: payload.totalBudget,
+        remarks: payload.remarks,
+        statusCode: payload.statusCode,
+      });
       ElMessage.success('已创建项目台账');
     }
 
@@ -181,7 +203,7 @@ async function submit() {
   }
 }
 
-function openAssign(row: TeacherFundAccountItem) {
+function openAssign(row: ProjectLedgerItem) {
   assignTarget.value = row;
   assignForm.ownerOrgUnitId = row.ownerOrgUnitId ?? '';
   assignForm.managerUserId = row.managerUserId ?? '';
@@ -195,9 +217,9 @@ async function submitAssign() {
 
   assignSaving.value = true;
   try {
-    await updateTeacherFundAccount(assignTarget.value.id, {
-      accountCode: assignTarget.value.accountCode,
-      accountName: assignTarget.value.accountName,
+    await updateProjectLedger(assignTarget.value.id, {
+      linkedFundAccountCode: assignTarget.value.linkedFundAccountCode,
+      linkedFundAccountName: assignTarget.value.linkedFundAccountName,
       categoryName: assignTarget.value.categoryName,
       projectId: assignTarget.value.projectId ?? undefined,
       projectName: assignTarget.value.projectName ?? undefined,
@@ -267,8 +289,8 @@ onMounted(async () => {
       <el-table v-loading="loading" :data="rows" border stripe>
         <el-table-column prop="projectId" label="项目编号" min-width="140" />
         <el-table-column prop="projectName" label="项目名称" min-width="180" show-overflow-tooltip />
-        <el-table-column prop="accountCode" label="账户编号" min-width="150" show-overflow-tooltip />
-        <el-table-column prop="accountName" label="账户名称" min-width="160" show-overflow-tooltip />
+        <el-table-column prop="linkedFundAccountCode" label="账户编号" min-width="150" show-overflow-tooltip />
+        <el-table-column prop="linkedFundAccountName" label="账户名称" min-width="160" show-overflow-tooltip />
         <el-table-column prop="totalBudget" label="预算" width="120" />
         <el-table-column prop="statusCode" label="状态" width="120" />
         <el-table-column

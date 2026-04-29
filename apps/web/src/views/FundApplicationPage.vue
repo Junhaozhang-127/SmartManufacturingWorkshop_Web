@@ -9,7 +9,6 @@ import {
 } from '@web/api/attachments';
 import {
   createFundApplication,
-  fetchFundAccounts,
   fetchFundApplicationDetail,
   fetchFundApplications,
   fetchFundSettings,
@@ -40,7 +39,6 @@ const dialogVisible = ref(false);
 const formMode = ref<'create' | 'edit'>('create');
 const editingId = ref<string | null>(null);
 const formRef = ref<FormInstance>();
-const accounts = ref<Awaited<ReturnType<typeof fetchFundAccounts>>['data']>([]);
 const applications = ref<Awaited<ReturnType<typeof fetchFundApplications>>['data']['items']>([]);
 const total = ref(0);
 const detail = ref<Awaited<ReturnType<typeof fetchFundApplicationDetail>>['data'] | null>(null);
@@ -57,29 +55,20 @@ const query = reactive({
   statusCode: '',
   paymentStatus: '',
   expenseType: '',
-  accountId: '',
 });
 
 const form = reactive({
-  accountId: '',
   applicationType: 'EXPENSE',
   expenseType: 'PROCUREMENT',
   title: '',
   purpose: '',
   amount: undefined as number | undefined,
   reimbursementAmount: undefined as number | undefined,
-  payeeName: '',
-  projectId: '',
-  projectName: '',
-  relatedBusinessType: '',
-  relatedBusinessId: '',
   attachments: [] as AttachmentItem[],
   orderAttachments: [] as AttachmentItem[],
   invoiceAttachments: [] as AttachmentItem[],
   goodsAttachments: [] as AttachmentItem[],
 });
-
-const selectedAccount = computed(() => accounts.value.find((item) => item.id === form.accountId) ?? null);
 
 const expenseTypeOptions = [
   'PROCUREMENT',
@@ -94,13 +83,9 @@ const expenseTypeOptions = [
 async function load() {
   loading.value = true;
   try {
-    const [applicationResponse, accountResponse] = await Promise.all([
-      fetchFundApplications(query),
-      fetchFundAccounts(),
-    ]);
+    const applicationResponse = await fetchFundApplications(query);
     applications.value = applicationResponse.data.items;
     total.value = applicationResponse.data.meta.total;
-    accounts.value = accountResponse.data;
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '经费申请列表加载失败');
   } finally {
@@ -163,26 +148,15 @@ function openApproval(approvalInstanceId: string | null) {
   void router.push({ name: 'workflow.approval-center', query: { focus: approvalInstanceId } });
 }
 
-function openProject(projectId: string | null) {
-  if (!projectId) return;
-  void router.push({ name: 'projects.detail', params: { projectId } });
-}
-
 function resetForm() {
   formMode.value = 'create';
   editingId.value = null;
-  form.accountId = '';
   form.applicationType = 'EXPENSE';
   form.expenseType = 'PROCUREMENT';
   form.title = '';
   form.purpose = '';
   form.amount = undefined;
   form.reimbursementAmount = undefined;
-  form.payeeName = '';
-  form.projectId = '';
-  form.projectName = '';
-  form.relatedBusinessType = '';
-  form.relatedBusinessId = '';
   form.attachments = [];
   form.orderAttachments = [];
   form.invoiceAttachments = [];
@@ -203,19 +177,12 @@ async function openEdit(id: string) {
   try {
     const response = await fetchFundApplicationDetail(id);
     const data = response.data;
-    form.accountId = data.accountId;
     form.applicationType = String(data.applicationType);
     form.expenseType = String(data.expenseType);
     form.title = data.title;
     form.purpose = data.purpose;
     form.amount = data.amount;
     form.reimbursementAmount = data.reimbursementAmount ?? undefined;
-    form.payeeName = data.payeeName || '';
-    form.projectId = data.projectId || '';
-    form.projectName = data.projectName || '';
-    form.relatedBusinessType = data.relatedBusinessType || '';
-    form.relatedBusinessId = data.relatedBusinessId || '';
-
     const [voucher, order, invoice, goods] = await Promise.all([
       listBusinessAttachments({
         businessType: ApprovalBusinessType.FUND_REQUEST,
@@ -300,7 +267,6 @@ async function saveDraft() {
         purpose: form.purpose,
         amount: form.amount,
         reimbursementAmount: form.reimbursementAmount,
-        payeeName: form.payeeName || undefined,
         expenseType: form.expenseType,
         attachmentFileIds: form.attachments.map((item) => item.fileId),
         orderAttachmentFileIds: form.orderAttachments.map((item) => item.fileId),
@@ -316,18 +282,12 @@ async function saveDraft() {
     }
 
     const response = await createFundApplication({
-      accountId: form.accountId,
       applicationType: form.applicationType,
       expenseType: form.expenseType,
       title: form.title,
       purpose: form.purpose,
       amount: form.amount!,
       reimbursementAmount: form.reimbursementAmount,
-      payeeName: form.payeeName || undefined,
-      projectId: form.projectId || undefined,
-      projectName: form.projectName || undefined,
-      relatedBusinessType: form.relatedBusinessType || undefined,
-      relatedBusinessId: form.relatedBusinessId || undefined,
       attachmentFileIds: form.attachments.map((item) => item.fileId),
       orderAttachmentFileIds: form.orderAttachments.map((item) => item.fileId),
       invoiceAttachmentFileIds: form.invoiceAttachments.map((item) => item.fileId),
@@ -351,11 +311,6 @@ async function submit() {
   if (!formRef.value) return;
   await formRef.value.validate();
 
-  if (selectedAccount.value && (form.amount || 0) > selectedAccount.value.availableAmount) {
-    ElMessage.error(`预算不足，当前账户可用余额为 ${selectedAccount.value.availableAmount.toFixed(2)}`);
-    return;
-  }
-
   if (!validateReimbursementMaterialsForSubmit()) {
     return;
   }
@@ -368,7 +323,6 @@ async function submit() {
         purpose: form.purpose,
         amount: form.amount,
         reimbursementAmount: form.reimbursementAmount,
-        payeeName: form.payeeName || undefined,
         expenseType: form.expenseType,
         attachmentFileIds: form.attachments.map((item) => item.fileId),
         orderAttachmentFileIds: form.orderAttachments.map((item) => item.fileId),
@@ -392,18 +346,12 @@ async function submit() {
     }
 
     const response = await createFundApplication({
-      accountId: form.accountId,
       applicationType: form.applicationType,
       expenseType: form.expenseType,
       title: form.title,
       purpose: form.purpose,
       amount: form.amount!,
       reimbursementAmount: form.reimbursementAmount,
-      payeeName: form.payeeName || undefined,
-      projectId: form.projectId || undefined,
-      projectName: form.projectName || undefined,
-      relatedBusinessType: form.relatedBusinessType || undefined,
-      relatedBusinessId: form.relatedBusinessId || undefined,
       attachmentFileIds: form.attachments.map((item) => item.fileId),
       orderAttachmentFileIds: form.orderAttachments.map((item) => item.fileId),
       invoiceAttachmentFileIds: form.invoiceAttachments.map((item) => item.fileId),
@@ -493,22 +441,17 @@ onMounted(async () => {
         <el-select v-model="query.expenseType" clearable placeholder="费用类型">
           <el-option v-for="item in expenseTypeOptions" :key="item" :label="item" :value="item" />
         </el-select>
-        <el-select v-model="query.accountId" clearable filterable placeholder="经费账户">
-          <el-option v-for="item in accounts" :key="item.id" :label="item.accountName" :value="item.id" />
-        </el-select>
         <el-button type="primary" @click="load">查询</el-button>
         <el-button v-if="canCreate" @click="openCreate">新建申请</el-button>
       </div>
 
       <el-table v-loading="loading" :data="applications">
         <el-table-column prop="applicationNo" label="申请单号" min-width="150" />
-        <el-table-column prop="accountName" label="经费账户" min-width="180" />
         <el-table-column prop="title" label="标题" min-width="180" />
         <el-table-column prop="expenseType" label="费用类型" min-width="140" />
         <el-table-column prop="amount" label="金额" min-width="110" />
         <el-table-column prop="statusCode" label="申请状态" min-width="120" />
         <el-table-column prop="paymentStatus" label="支付状态" min-width="120" />
-        <el-table-column prop="projectName" label="关联项目" min-width="160" />
         <el-table-column label="操作" width="240" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click="openDetail(row.id)">详情</el-button>
@@ -522,7 +465,6 @@ onMounted(async () => {
             >
               编辑
             </el-button>
-            <el-button v-if="row.projectId" link @click="openProject(row.projectId)">项目</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -546,16 +488,6 @@ onMounted(async () => {
       @closed="resetForm"
     >
       <el-form ref="formRef" :model="form" label-width="120px">
-        <el-form-item label="经费账户" prop="accountId" :rules="[{ required: true, message: '请选择经费账户' }]">
-          <el-select v-model="form.accountId" filterable style="width: 100%">
-            <el-option
-              v-for="item in accounts"
-              :key="item.id"
-              :label="`${item.accountName} / 可用 ${item.availableAmount.toFixed(2)}`"
-              :value="item.id"
-            />
-          </el-select>
-        </el-form-item>
         <el-form-item label="申请类型" prop="applicationType" :rules="[{ required: true, message: '请选择申请类型' }]">
           <el-radio-group v-model="form.applicationType">
             <el-radio label="EXPENSE">费用申请</el-radio>
@@ -572,22 +504,10 @@ onMounted(async () => {
         </el-form-item>
         <el-form-item label="申请金额" prop="amount" :rules="[{ required: true, message: '请输入申请金额' }]">
           <el-input-number v-model="form.amount" :min="0.01" :precision="2" />
-          <span v-if="selectedAccount" class="inline-hint">可用余额 {{ selectedAccount.availableAmount.toFixed(2) }}</span>
         </el-form-item>
         <el-form-item label="报销金额">
           <el-input-number v-model="form.reimbursementAmount" :min="0" :precision="2" />
         </el-form-item>
-        <el-form-item label="收款方">
-          <el-input v-model="form.payeeName" />
-        </el-form-item>
-        <el-form-item label="关联项目编号"><el-input v-model="form.projectId" /></el-form-item>
-        <el-form-item label="关联项目名称"><el-input v-model="form.projectName" /></el-form-item>
-        <el-form-item label="关联业务类型">
-          <el-select v-model="form.relatedBusinessType" clearable style="width: 100%">
-            <el-option :label="ApprovalBusinessType.REPAIR_ORDER" :value="ApprovalBusinessType.REPAIR_ORDER" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="关联业务ID"><el-input v-model="form.relatedBusinessId" /></el-form-item>
         <el-form-item label="用途说明" prop="purpose" :rules="[{ required: true, message: '请输入用途说明' }]">
           <el-input v-model="form.purpose" type="textarea" :rows="4" />
         </el-form-item>
@@ -655,25 +575,16 @@ onMounted(async () => {
             </el-button>
           </div>
           <el-descriptions :column="2" border>
-            <el-descriptions-item label="经费账户">{{ detail.accountName }}</el-descriptions-item>
             <el-descriptions-item label="费用类型">{{ detail.expenseType }}</el-descriptions-item>
             <el-descriptions-item label="申请金额">{{ detail.amount }}</el-descriptions-item>
             <el-descriptions-item label="支付状态">{{ detail.paymentStatus }}</el-descriptions-item>
             <el-descriptions-item label="申请人">{{ detail.applicantName }}</el-descriptions-item>
-            <el-descriptions-item label="收款方">{{ detail.payeeName || '-' }}</el-descriptions-item>
-            <el-descriptions-item label="关联项目">
-              <el-button v-if="detail.projectId" link type="primary" @click="openProject(detail.projectId)">
-                {{ detail.projectName || detail.projectId }}
-              </el-button>
-              <span v-else>-</span>
-            </el-descriptions-item>
             <el-descriptions-item label="审批实例">
               <el-button v-if="detail.approvalInstanceId" link type="primary" @click="openApproval(detail.approvalInstanceId)">
                 {{ detail.approvalInstanceId }}
               </el-button>
               <span v-else>-</span>
             </el-descriptions-item>
-            <el-descriptions-item label="可用余额">{{ detail.account.availableAmount }}</el-descriptions-item>
             <el-descriptions-item label="最新结果">{{ detail.latestResult || '-' }}</el-descriptions-item>
             <el-descriptions-item label="用途说明" :span="2">{{ detail.purpose }}</el-descriptions-item>
           </el-descriptions>

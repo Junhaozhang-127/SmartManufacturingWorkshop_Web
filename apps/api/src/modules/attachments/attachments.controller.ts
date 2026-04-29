@@ -18,12 +18,13 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import type { CurrentUserProfile } from '@smw/shared';
+import { PermissionCodes, type CurrentUserProfile } from '@smw/shared';
 import type { Response } from 'express';
 import { diskStorage } from 'multer';
 
-import { CurrentUser } from '../auth/auth.decorators';
+import { CurrentUser, RequirePermissions } from '../auth/auth.decorators';
 import { AuthGuard } from '../auth/auth.guard';
+import { PermissionGuard } from '../auth/permission.guard';
 import { ARCHIVE_MAX_BYTES } from './attachments.constants';
 import { AttachmentsService } from './attachments.service';
 import { AttachmentListQueryDto, BindAttachmentsDto, UnbindAttachmentDto } from './dto/attachments.dto';
@@ -47,7 +48,7 @@ function buildTmpStorage() {
 }
 
 @Controller('attachments')
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, PermissionGuard)
 export class AttachmentsController {
   constructor(private readonly attachmentsService: AttachmentsService) {}
 
@@ -112,6 +113,7 @@ export class AttachmentsController {
   }
 
   @Post('admin/cleanup-temp')
+  @RequirePermissions(PermissionCodes.systemConfigUpdate)
   cleanup(@CurrentUser() currentUser: CurrentUserProfile) {
     return this.attachmentsService.cleanupExpiredTempFiles(currentUser);
   }

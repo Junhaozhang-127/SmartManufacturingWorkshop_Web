@@ -188,5 +188,19 @@ export type MemberRegularizationListResult = PageResult<MemberRegularizationItem
 export interface MemberRegularizationDetail extends MemberRegularizationItem {
   applicationReason: string;
   selfAssessment: string | null;
+  attachments: Array<{
+    fileId: string;
+    originalName: string;
+    downloadName?: string;
+    fileExt?: string;
+    mimeType?: string | null;
+    fileSize?: number;
+    fileCategory?: 'DOCUMENT' | 'ARCHIVE' | 'IMAGE' | 'OTHER';
+    uploadedBy?: string;
+    uploadedByName?: string;
+    createdAt?: string;
+    downloadUrl?: string;
+    previewUrl?: string;
+  }>;
   stageEvaluations: MemberStageEvaluationItem[];
 }

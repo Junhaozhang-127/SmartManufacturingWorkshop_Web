@@ -63,6 +63,7 @@ export async function fetchMemberList(params: {
   pageSize: number;
   keyword?: string;
   orgUnitId?: string;
+  // Prefer memberStatus. statusCode is kept only for backward compatibility.
   memberStatus?: string;
   statusCode?: string;
 }) {
@@ -78,7 +79,9 @@ export async function fetchMemberList(params: {
 }
 
 export async function fetchMemberDetail(id: string) {
-  return http.get<never, { data: MemberDetail }>(`/members/${id}`);
+  return http.get<never, { data: MemberDetail }>(`/members/${id}`, {
+    params: { viewAll: true },
+  });
 }
 
 export async function updateMember(
@@ -136,6 +139,7 @@ export async function createRegularization(payload: {
   plannedRegularDate: string;
   applicationReason: string;
   selfAssessment?: string;
+  attachmentFileIds?: string[];
 }) {
   return http.post<never, { data: MemberRegularizationDetail }>('/member-regularizations', payload);
 }

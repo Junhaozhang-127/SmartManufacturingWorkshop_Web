@@ -36,8 +36,9 @@ class AttachmentDto {
 }
 
 export class CreateFundApplicationDto {
+  @IsOptional()
   @IsString()
-  accountId!: string;
+  accountId?: string;
 
   @IsString()
   @MaxLength(32)

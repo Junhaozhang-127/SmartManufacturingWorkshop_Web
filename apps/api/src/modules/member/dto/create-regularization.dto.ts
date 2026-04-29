@@ -1,4 +1,4 @@
-import { IsDateString, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsArray, IsDateString, IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class CreateRegularizationDto {
   @IsString()
@@ -18,4 +18,9 @@ export class CreateRegularizationDto {
   @IsString()
   @MaxLength(1000)
   selfAssessment?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  attachmentFileIds?: string[];
 }

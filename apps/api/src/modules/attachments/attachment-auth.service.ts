@@ -84,6 +84,8 @@ export class AttachmentAuthService {
         return this.canViewRepairOrder(currentUser, context.businessId);
       case 'COMPETITION':
         return this.canViewCompetition(context.businessId);
+      case 'MEMBER_REGULARIZATION':
+        return this.canViewMemberRegularization(currentUser, context.businessId);
       default:
         return false;
     }
@@ -107,9 +109,52 @@ export class AttachmentAuthService {
         return this.canEditLaborApplicationAttachments(currentUser, context.businessId);
       case 'COMPETITION':
         return this.canEditCompetitionAttachments(currentUser, context.businessId);
+      case 'MEMBER_REGULARIZATION':
+        return this.canEditMemberRegularizationAttachments(currentUser, context.businessId);
       default:
         return false;
     }
+  }
+
+  private async canViewMemberRegularization(currentUser: CurrentUserProfile, regularizationId: string) {
+    const record = await this.prisma.memberRegularization.findFirst({
+      where: { id: this.toBigInt(regularizationId) },
+      select: {
+        applicantUserId: true,
+        memberProfile: {
+          select: {
+            orgUnitId: true,
+          },
+        },
+      },
+    });
+    if (!record) {
+      throw new NotFoundException('转正申请不存在');
+    }
+
+    if (String(record.applicantUserId) === currentUser.id) return true;
+    if ([RoleCode.TEACHER, RoleCode.MINISTER].includes(currentUser.activeRole.roleCode)) {
+      return this.isUserWithinDataScope(
+        currentUser,
+        String(record.applicantUserId),
+        record.memberProfile.orgUnitId,
+      );
+    }
+    return false;
+  }
+
+  private async canEditMemberRegularizationAttachments(currentUser: CurrentUserProfile, regularizationId: string) {
+    const record = await this.prisma.memberRegularization.findFirst({
+      where: { id: this.toBigInt(regularizationId) },
+      select: { applicantUserId: true, statusCode: true },
+    });
+    if (!record) {
+      throw new NotFoundException('转正申请不存在');
+    }
+
+    const editableStatuses = new Set(['DRAFT', 'IN_APPROVAL']);
+    if (!editableStatuses.has(String(record.statusCode))) return false;
+    return String(record.applicantUserId) === currentUser.id;
   }
 
   private async canEditFundApplicationAttachments(currentUser: CurrentUserProfile, applicationId: string) {

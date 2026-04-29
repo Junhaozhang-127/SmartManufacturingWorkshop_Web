@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import type { MemberDetail } from '@smw/shared';
 import { PermissionCodes, RoleCode } from '@smw/shared';
-import { http } from '@web/api/client';
-import { updateMember } from '@web/api/member';
+import { fetchMemberDetail, updateMember } from '@web/api/member';
 import { useAuthStore } from '@web/stores/auth';
 import { ElMessage } from 'element-plus';
 import { computed, onMounted, reactive, ref } from 'vue';
@@ -32,9 +31,7 @@ const canEdit = computed(() => canMutate.value && authStore.permissions.includes
 async function load() {
   loading.value = true;
   try {
-    const response = await http.get<never, { data: MemberDetail }>(`/members/${String(route.params.id)}`, {
-      params: { viewAll: true },
-    });
+    const response = await fetchMemberDetail(String(route.params.id));
     detail.value = response.data;
     editForm.positionCode = response.data.positionCode;
     editForm.mobile = response.data.mobile ?? '';

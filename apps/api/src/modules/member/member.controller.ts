@@ -183,8 +183,12 @@ export class MemberController {
   @Get('member-regularizations/:id')
   @RequirePermissions(PermissionCodes.memberListView)
   @RequireDataScope()
-  getRegularizationDetail(@Param('id') id: string, @DataScopeContextParam() dataScopeContext: DataScopeContext) {
-    return this.memberService.getRegularizationDetail(id, dataScopeContext);
+  getRegularizationDetail(
+    @CurrentUser() currentUser: CurrentUserProfile,
+    @Param('id') id: string,
+    @DataScopeContextParam() dataScopeContext: DataScopeContext,
+  ) {
+    return this.memberService.getRegularizationDetail(currentUser, id, dataScopeContext);
   }
 
   @Post('member-regularizations')
